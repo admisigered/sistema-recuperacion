@@ -8,18 +8,16 @@
     "start": "next start"
   },
   "dependencies": {
-    "next": "latest",
-    "react": "latest",
-    "react-dom": "latest",
+    "next": "14.2.3",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
     "@supabase/supabase-js": "latest",
     "lucide-react": "latest",
     "xlsx": "latest",
     "clsx": "latest",
-    "tailwind-merge": "latest"
-  },
-  "devDependencies": {
-    "autoprefixer": "latest",
-    "postcss": "latest",
-    "tailwindcss": "latest"
+    "tailwind-merge": "latest",
+    "tailwindcss": "3.4.3",
+    "postcss": "8.4.38",
+    "autoprefixer": "10.4.19"
   }
 }
