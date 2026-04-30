@@ -34,14 +34,12 @@ export default function SistemaSIGERED() {
 
   const ITEMS_PER_PAGE = 100;
 
-  // --- FUNCIÓN DE LOGIN ---
   const handleLogin = (e) => {
     e.preventDefault();
     const valid = USUARIOS.find(u => u.user === loginData.user && u.pass === loginData.pass);
     if (valid) setSession(valid); else alert('Credenciales incorrectas');
   };
 
-  // --- CARGA DE DATOS ---
   const fetchDocs = useCallback(async () => {
     setLoading(true);
     let from = (page - 1) * ITEMS_PER_PAGE;
@@ -63,7 +61,6 @@ export default function SistemaSIGERED() {
 
   useEffect(() => { fetchDocs(); }, [fetchDocs]);
 
-  // --- PROCESADOR DE FECHAS EXCEL ---
   const formatExcelDate = (val) => {
     if (!val) return null;
     if (typeof val === 'number') {
@@ -77,7 +74,7 @@ export default function SistemaSIGERED() {
     return val;
   };
 
-  // --- IMPORTACIÓN CON MAPEO EXACTO A-AD ---
+  // --- IMPORTACIÓN CORREGIDA (fecha_elaboracion) ---
   const handleImport = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -90,7 +87,7 @@ export default function SistemaSIGERED() {
         const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
         const batch = data.slice(1).map(row => {
-          if (!row[1] || !row[2]) return null; // Salta si no hay CUT o Documento
+          if (!row[1] || !row[2]) return null;
           return {
             sede: row[0],                       // A
             cut: String(row[1]),                // B
@@ -105,7 +102,7 @@ export default function SistemaSIGERED() {
             estado_visualizacion: row[11],      // L
             observaciones: row[12],             // M
             responsable_requerimiento: row[13], // N
-            fecha_requerimiento: formatExcelDate(row[14]), // O (Fecha Elaboración)
+            fecha_elaboracion: formatExcelDate(row[14]), // O (NOMBRE CORREGIDO AQUÍ)
             numero_documento: String(row[15] || ''), // P
             fecha_notificacion: formatExcelDate(row[16]), // Q
             medio_notificacion: row[17],        // R
@@ -122,7 +119,7 @@ export default function SistemaSIGERED() {
           };
         }).filter(Boolean);
 
-        if (batch.length === 0) { alert("El archivo está vacío o no tiene el formato correcto."); return; }
+        if (batch.length === 0) { alert("Archivo sin datos válidos."); return; }
 
         const { error } = await supabase.from('documentos').upsert(batch, { onConflict: 'cut,documento' });
         if (error) throw error;
@@ -133,10 +130,9 @@ export default function SistemaSIGERED() {
       }
     };
     reader.readAsBinaryString(file);
-    e.target.value = null; // Reset input
+    e.target.value = null;
   };
 
-  // --- SELECCIÓN MASIVA ---
   const toggleSelectAll = () => setSelectedIds(selectedIds.length === docs.length ? [] : docs.map(d => d.id));
   const toggleSelectDoc = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
 
@@ -189,7 +185,6 @@ export default function SistemaSIGERED() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex text-slate-900">
-      {/* SIDEBAR */}
       <aside className="w-64 bg-[#1E293B] text-slate-400 flex flex-col fixed h-full z-20">
         <div className="p-8 font-black text-white text-2xl tracking-tighter border-b border-slate-800">SIGERED</div>
         <nav className="flex-1 p-4 space-y-2 mt-4">
@@ -198,14 +193,13 @@ export default function SistemaSIGERED() {
           <button onClick={() => setView('reports')} className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-2xl transition-all ${view === 'reports' ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-slate-800'}`}><Download size={18}/> Reportes</button>
         </nav>
         <div className="p-6 border-t border-slate-800 flex items-center gap-3 bg-slate-900/50">
-          <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-white text-xs">{session.user[0]}</div>
+          <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-white text-sm">{session.user[0]}</div>
           <div className="flex-1 overflow-hidden"><p className="text-xs font-bold text-white truncate">{session.user}</p></div>
           <button onClick={() => setSession(null)} className="hover:text-white"><LogOut size={18}/></button>
         </div>
       </aside>
 
       <main className="ml-64 flex-1 flex flex-col h-screen overflow-hidden">
-        {/* HEADER FILTROS */}
         <header className="bg-white border-b p-4 flex flex-wrap items-center gap-4 sticky top-0 z-10 px-8 shadow-sm">
           <div className="flex gap-2 mr-auto">
             <button onClick={() => setIsNewModalOpen(true)} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-blue-700 shadow-sm"><Plus size={14}/> Nuevo</button>
@@ -219,16 +213,6 @@ export default function SistemaSIGERED() {
                 <option value="">Sedes</option>
                 <option value="SC">SC (Sede Central)</option>
                 <option value="OD">OD (Órgano Descon.)</option>
-            </select>
-            <select className="border rounded-xl p-2 text-[10px] font-black uppercase" onChange={e => setFilters({...filters, estado: e.target.value})}>
-                <option value="">Estado</option>
-                <option value="PENDIENTE">PENDIENTE</option>
-                <option value="RECUPERADO">RECUPERADO</option>
-            </select>
-            <select className="border rounded-xl p-2 text-[10px] font-black uppercase" onChange={e => setFilters({...filters, etapa: e.target.value})}>
-                <option value="">Etapa</option>
-                <option value="VERIFICACION">Verificación</option>
-                <option value="CIERRE">Cierre</option>
             </select>
           </div>
         </header>
@@ -334,7 +318,7 @@ export default function SistemaSIGERED() {
         </div>
       </main>
 
-      {/* --- MODAL NUEVO REGISTRO ACTUALIZADO CON CAMPOS FALTANTES --- */}
+      {/* MODAL NUEVO REGISTRO */}
       {isNewModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] p-6 animate-in fade-in">
           <div className="bg-white rounded-[40px] w-full max-w-xl overflow-hidden shadow-2xl border border-white">
@@ -349,31 +333,15 @@ export default function SistemaSIGERED() {
               </div>
               <input type="text" placeholder="Remitente / Entidad" className="w-full p-4 bg-slate-50 border rounded-2xl outline-none font-bold text-sm focus:ring-2 focus:ring-blue-500" id="m_rem" />
               
-              {/* CAMPOS NUEVOS SOLICITADOS */}
               <div className="grid grid-cols-2 gap-6">
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-4 text-slate-400" size={16}/>
-                  <input type="date" className="w-full p-4 pl-10 bg-slate-50 border rounded-2xl outline-none font-bold text-sm focus:ring-2 focus:ring-blue-500" id="m_freg" title="Fecha de Registro" />
-                </div>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-4 text-slate-400" size={16}/>
-                  <input type="text" placeholder="Celular" className="w-full p-4 pl-10 bg-slate-50 border rounded-2xl outline-none font-bold text-sm focus:ring-2 focus:ring-blue-500" id="m_cel" />
-                </div>
+                <div className="relative"><Calendar className="absolute left-3 top-4 text-slate-400" size={16}/><input type="date" className="w-full p-4 pl-10 bg-slate-50 border rounded-2xl outline-none font-bold text-sm" id="m_freg" title="Fecha de Registro" /></div>
+                <div className="relative"><Phone className="absolute left-3 top-4 text-slate-400" size={16}/><input type="text" placeholder="Celular" className="w-full p-4 pl-10 bg-slate-50 border rounded-2xl outline-none font-bold text-sm" id="m_cel" /></div>
               </div>
-              <div className="relative">
-                <BookOpen className="absolute left-3 top-4 text-slate-400" size={16}/>
-                <input type="text" placeholder="Procedimiento (TUPA)" className="w-full p-4 pl-10 bg-slate-50 border rounded-2xl outline-none font-bold text-sm focus:ring-2 focus:ring-blue-500" id="m_proc" />
-              </div>
+              <div className="relative"><BookOpen className="absolute left-3 top-4 text-slate-400" size={16}/><input type="text" placeholder="Procedimiento (TUPA)" className="w-full p-4 pl-10 bg-slate-50 border rounded-2xl outline-none font-bold text-sm" id="m_proc" /></div>
 
               <div className="grid grid-cols-2 gap-6">
-                <select className="w-full p-4 bg-slate-50 border rounded-2xl font-black text-[10px] uppercase" id="m_sede">
-                  <option value="SC">SEDE CENTRAL (SC)</option>
-                  <option value="OD">ÓRGANO DESCONCENTRADO (OD)</option>
-                </select>
-                <select className="w-full p-4 bg-slate-50 border rounded-2xl font-black text-[10px] uppercase" id="m_ori">
-                  <option value="EXTERNO">EXTERNO</option>
-                  <option value="INTERNO">INTERNO</option>
-                </select>
+                <select className="w-full p-4 bg-slate-50 border rounded-2xl font-black text-[10px] uppercase" id="m_sede"><option value="SC">SEDE CENTRAL (SC)</option><option value="OD">ÓRGANO DESCONCENTRADO (OD)</option></select>
+                <select className="w-full p-4 bg-slate-50 border rounded-2xl font-black text-[10px] uppercase" id="m_ori"><option value="EXTERNO">EXTERNO</option><option value="INTERNO">INTERNO</option></select>
               </div>
               <button onClick={async () => {
                 const c = document.getElementById('m_cut').value;
@@ -395,7 +363,7 @@ export default function SistemaSIGERED() {
         </div>
       )}
 
-      {/* --- MODAL DETALLES --- */}
+      {/* MODAL DETALLES */}
       {editingDoc && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] p-6 animate-in fade-in">
           <div className="bg-white rounded-[48px] w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden shadow-2xl border border-white">
