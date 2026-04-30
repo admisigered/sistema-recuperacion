@@ -31,19 +31,12 @@ export default function SistemaSIGERED() {
   const [seguimientos, setSeguimientos] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
 
-  // --- FILTROS CONECTADOS (AFECTAN DASHBOARD Y GESTIÓN) ---
-  const [filters, setFilters] = useState({ 
-    search: '', 
-    sede: '', 
-    origen: '', 
-    estado: '', 
-    etapa: '', 
-    responsable: '' 
-  });
+  // --- FILTROS CONECTADOS ---
+  const [filters, setFilters] = useState({ search: '', sede: '', origen: '', estado: '', etapa: '', responsable: '' });
 
   const ITEMS_PER_PAGE = 100;
 
-  // --- LÓGICA DE ETAPA / ESTADO (ANÁLISIS DE NEGOCIO MANTENIDO) ---
+  // --- LÓGICA DE ETAPA / ESTADO (ANÁLISIS DE NEGOCIO) ---
   const getEtapaEstado = useCallback((doc) => {
     if (!doc) return { etapa: '-', estado: '-', color: 'bg-slate-100', border: 'border-slate-300' };
     if (doc.cargado_sisged) return { etapa: '4°CIERRE', estado: 'RECUPERADO', color: 'bg-green-100 text-green-700', border: 'border-green-500' };
@@ -63,7 +56,6 @@ export default function SistemaSIGERED() {
     if (valid) setSession(valid); else alert('Credenciales incorrectas');
   };
 
-  // --- CONSULTA CON TODOS LOS FILTROS ACTIVO ---
   const fetchDocs = useCallback(async () => {
     setLoading(true);
     let from = (page - 1) * ITEMS_PER_PAGE;
@@ -84,7 +76,13 @@ export default function SistemaSIGERED() {
 
   useEffect(() => { if (session) fetchDocs(); }, [session, fetchDocs]);
 
-  // CALCULO SEGURO PARA EL GRAFICO
+  useEffect(() => {
+    if (editingDoc?.id) {
+      supabase.from('seguimientos').select('*').eq('documento_id', editingDoc.id).order('fecha', { ascending: false })
+        .then(({ data }) => setSeguimientos(data || []));
+    }
+  }, [editingDoc]);
+
   const chartData = useMemo(() => {
     const counts = {
       'VERIFICACION': docs.filter(d => getEtapaEstado(d).etapa.includes('1°')).length,
@@ -103,10 +101,8 @@ export default function SistemaSIGERED() {
       const data = XLSX.utils.sheet_to_json(XLSX.read(evt.target.result, { type: 'binary' }).Sheets[XLSX.read(evt.target.result, { type: 'binary' }).SheetNames[0]], { header: 1 });
       const batch = data.slice(1).map(row => ({
         sede: row[0], cut: String(row[1] || ''), documento: String(row[2] || ''), remitente: row[3],
-        fecha_registro: row[4], origen: row[5], procedimiento: row[6], celular: String(row[7] || ''),
-        responsable_verificacion: row[8], fecha_verificacion: row[9], estado_visualizacion: row[11],
-        numero_documento: String(row[15] || ''), cargado_sisged: String(row[27]).toUpperCase() === 'SI',
-        estado_final: row[28], creado_at: new Date().toISOString()
+        fecha_registro: row[4], origen: row[5], responsable_verificacion: row[8],
+        cargado_sisged: String(row[27]).toUpperCase() === 'SI', estado_final: row[28], creado_at: new Date().toISOString()
       })).filter(d => d.cut);
       await supabase.from('documentos').upsert(batch, { onConflict: 'cut,documento' });
       fetchDocs();
@@ -116,16 +112,16 @@ export default function SistemaSIGERED() {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6 font-sans">
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
         <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden">
           <div className="bg-[#2563EB] p-12 text-center text-white">
              <h1 className="text-4xl font-black mb-2">SIGERED</h1>
              <p className="text-xs uppercase tracking-widest opacity-80">Recuperación de Documentos</p>
           </div>
           <form onSubmit={handleLogin} className="p-10 space-y-5">
-            <input type="text" placeholder="Usuario" className="w-full p-4 bg-slate-50 border rounded-2xl outline-none" onChange={e => setLoginData({...loginData, user: e.target.value})} required />
-            <input type="password" placeholder="Contraseña" className="w-full p-4 bg-slate-50 border rounded-2xl outline-none" onChange={e => setLoginData({...loginData, pass: e.target.value})} required />
-            <button type="submit" className="w-full bg-[#2563EB] text-white py-4 rounded-2xl font-bold">Iniciar Sesión</button>
+            <input type="text" placeholder="Usuario" className="w-full p-4 border rounded-2xl outline-none" onChange={e => setLoginData({...loginData, user: e.target.value})} required />
+            <input type="password" placeholder="Contraseña" className="w-full p-4 border rounded-2xl outline-none" onChange={e => setLoginData({...loginData, pass: e.target.value})} required />
+            <button type="submit" className="w-full bg-[#2563EB] text-white py-4 rounded-2xl font-bold">ENTRAR</button>
           </form>
         </div>
       </div>
@@ -134,21 +130,12 @@ export default function SistemaSIGERED() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex text-slate-900 font-sans">
-      {/* SIDEBAR */}
       <aside className="w-64 bg-[#1E293B] text-slate-400 flex flex-col fixed h-full z-20">
-        <div className="p-8">
-            <h1 className="text-white font-black text-2xl tracking-tighter">SIGERED</h1>
-        </div>
+        <div className="p-8"><h1 className="text-white font-black text-2xl">SIGERED</h1></div>
         <nav className="flex-1 p-4 space-y-2">
-          <button onClick={() => setView('dashboard')} className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-xl transition-all ${view === 'dashboard' ? 'bg-[#2563EB] text-white shadow-lg' : 'hover:bg-slate-800'}`}>
-            <LayoutDashboard size={18}/> Dashboard
-          </button>
-          <button onClick={() => setView('list')} className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-xl transition-all ${view === 'list' ? 'bg-[#2563EB] text-white shadow-lg' : 'hover:bg-slate-800'}`}>
-            <FileText size={18}/> Gestión
-          </button>
-          <button onClick={() => setView('reports')} className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-xl transition-all ${view === 'reports' ? 'bg-[#2563EB] text-white shadow-lg' : 'hover:bg-slate-800'}`}>
-            <Download size={18}/> Reportes
-          </button>
+          <button onClick={() => setView('dashboard')} className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-xl transition-all ${view === 'dashboard' ? 'bg-[#2563EB] text-white shadow-lg' : 'hover:bg-slate-800'}`}><LayoutDashboard size={18}/> Dashboard</button>
+          <button onClick={() => setView('list')} className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-xl transition-all ${view === 'list' ? 'bg-[#2563EB] text-white shadow-lg' : 'hover:bg-slate-800'}`}><FileText size={18}/> Gestión</button>
+          <button onClick={() => setView('reports')} className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-xl transition-all ${view === 'reports' ? 'bg-[#2563EB] text-white shadow-lg' : 'hover:bg-slate-800'}`}><Download size={18}/> Reportes</button>
         </nav>
         <div className="p-6 border-t border-slate-800 flex items-center gap-3 bg-slate-900/50">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white text-xs">{session?.user?.[0]}</div>
@@ -158,39 +145,21 @@ export default function SistemaSIGERED() {
       </aside>
 
       <main className="ml-64 flex-1 flex flex-col h-screen overflow-hidden">
-        {/* HEADER CON TODOS LOS FILTROS SOLICITADOS */}
         <header className="bg-white border-b p-4 flex flex-wrap items-center gap-3 sticky top-0 z-10 px-8 shadow-sm h-auto min-h-[80px]">
           <button onClick={() => setIsNewModalOpen(true)} className="bg-[#2563EB] text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2"><Plus size={14}/> Nuevo</button>
           <label className="bg-white border border-slate-200 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer hover:bg-slate-50"><Upload size={14}/> Importar <input type="file" className="hidden" onChange={handleImport}/></label>
-          
-          {/* BARRA DE FILTROS DINÁMICOS */}
           <div className="flex flex-wrap items-center gap-2 ml-auto">
-            <div className="relative">
-                <Search size={14} className="absolute left-3 top-2.5 text-slate-400"/>
-                <input type="text" placeholder="CUT / Doc..." className="bg-slate-50 border-none rounded-xl pl-9 pr-4 py-2 text-xs w-40 outline-none focus:ring-2 focus:ring-blue-500" onChange={e => setFilters({...filters, search: e.target.value})}/>
-            </div>
-            <select className="bg-slate-50 border-none rounded-xl p-2 text-[10px] font-black uppercase outline-none cursor-pointer" onChange={e => setFilters({...filters, sede: e.target.value})}>
-                <option value="">Sedes</option><option value="SC">SC</option><option value="OD">OD</option>
-            </select>
-            <select className="bg-slate-50 border-none rounded-xl p-2 text-[10px] font-black uppercase outline-none cursor-pointer" onChange={e => setFilters({...filters, origen: e.target.value})}>
-                <option value="">Origen</option><option value="Interno">Interno</option><option value="Externo">Externo</option>
-            </select>
-            <select className="bg-slate-50 border-none rounded-xl p-2 text-[10px] font-black uppercase outline-none cursor-pointer" onChange={e => setFilters({...filters, estado: e.target.value})}>
-                <option value="">Estado</option><option value="PENDIENTE">PENDIENTE</option><option value="RECUPERADO">RECUPERADO</option><option value="RECONSTRUCCION">RECONSTRUCCION</option>
-            </select>
-            <select className="bg-slate-50 border-none rounded-xl p-2 text-[10px] font-black uppercase outline-none cursor-pointer" onChange={e => setFilters({...filters, etapa: e.target.value})}>
-                <option value="">Etapa</option><option value="1°VERIFICACION">1. Verificación</option><option value="2°REQUERIMIENTO">2. Requerimiento</option><option value="3°SEGUIMIENTO">3. Seguimiento</option><option value="4°CIERRE">4. Cierre</option>
-            </select>
-            <select className="bg-slate-50 border-none rounded-xl p-2 text-[10px] font-black uppercase outline-none cursor-pointer" onChange={e => setFilters({...filters, responsable: e.target.value})}>
-                <option value="">Responsable</option>{USUARIOS.map(u => <option key={u.user} value={u.user}>{u.user}</option>)}
-            </select>
+            <div className="relative"><Search size={14} className="absolute left-3 top-2.5 text-slate-400"/><input type="text" placeholder="CUT / Doc..." className="bg-slate-50 border-none rounded-xl pl-9 pr-4 py-2 text-xs w-40 outline-none" onChange={e => setFilters({...filters, search: e.target.value})}/></div>
+            <select className="bg-slate-50 border-none rounded-xl p-2 text-[10px] font-black uppercase outline-none" onChange={e => setFilters({...filters, sede: e.target.value})}><option value="">Sedes</option><option value="SC">SC</option><option value="OD">OD</option></select>
+            <select className="bg-slate-50 border-none rounded-xl p-2 text-[10px] font-black uppercase outline-none" onChange={e => setFilters({...filters, origen: e.target.value})}><option value="">Origen</option><option value="Interno">Interno</option><option value="Externo">Externo</option></select>
+            <select className="bg-slate-50 border-none rounded-xl p-2 text-[10px] font-black uppercase outline-none" onChange={e => setFilters({...filters, estado: e.target.value})}><option value="">Estado</option><option value="PENDIENTE">PENDIENTE</option><option value="RECUPERADO">RECUPERADO</option></select>
+            <select className="bg-slate-50 border-none rounded-xl p-2 text-[10px] font-black uppercase outline-none" onChange={e => setFilters({...filters, responsable: e.target.value})}><option value="">Responsable</option>{USUARIOS.map(u => <option key={u.user} value={u.user}>{u.user}</option>)}</select>
           </div>
         </header>
 
         <div className="p-12 overflow-y-auto flex-1">
           {view === 'dashboard' ? (
             <div className="space-y-12">
-              {/* KPI CARDS */}
               <div className="grid grid-cols-4 gap-8">
                 {[
                   { label: 'TOTAL REGISTROS', val: totalDocs, color: 'text-slate-800', border: 'border-b-blue-500' },
@@ -205,16 +174,15 @@ export default function SistemaSIGERED() {
                 ))}
               </div>
 
-              {/* GRÁFICO DE LÍNEAS */}
+              {/* GRÁFICO */}
               <div className="bg-white p-10 rounded-[30px] border border-slate-100 shadow-sm">
-                 <h4 className="text-sm font-black text-slate-700 uppercase tracking-widest flex items-center gap-2 mb-8"><TrendingUp size={18} className="text-blue-600"/> Avance por Etapas</h4>
+                 <h4 className="text-sm font-black text-slate-700 uppercase mb-8 flex items-center gap-2"><TrendingUp size={18} className="text-blue-600"/> Avance por Etapas</h4>
                  <div className="relative h-48 w-full border-b border-l border-slate-100 flex items-end">
                     <svg className="absolute inset-0 h-full w-full" viewBox="0 0 400 100" preserveAspectRatio="none">
-                        <path d={`M 50 ${100 - (chartData.counts['VERIFICACION'] / chartData.max * 80)} L 150 ${100 - (chartData.counts['REQUERIMIENTO'] / chartData.max * 80)} L 250 ${100 - (chartData.counts['SEGUIMIENTO'] / chartData.max * 80)} L 350 ${100 - (chartData.counts['CIERRE'] / chartData.max * 80)}`} fill="none" stroke="#2563EB" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d={`M 50 ${100 - (chartData.counts['VERIFICACION'] / chartData.max * 80)} L 150 ${100 - (chartData.counts['REQUERIMIENTO'] / chartData.max * 80)} L 250 ${100 - (chartData.counts['SEGUIMIENTO'] / chartData.max * 80)} L 350 ${100 - (chartData.counts['CIERRE'] / chartData.max * 80)}`} fill="none" stroke="#2563EB" strokeWidth="3" strokeLinecap="round"/>
                         {[50, 150, 250, 350].map((x, i) => {
                             const labels = ['VERIFICACION', 'REQUERIMIENTO', 'SEGUIMIENTO', 'CIERRE'];
-                            const y = 100 - (chartData.counts[labels[i]] / chartData.max * 80);
-                            return <circle key={i} cx={x} cy={y} r="4" fill="white" stroke="#2563EB" strokeWidth="3" />
+                            return <circle key={i} cx={x} cy={100 - (chartData.counts[labels[i]] / chartData.max * 80)} r="4" fill="white" stroke="#2563EB" strokeWidth="3" />
                         })}
                     </svg>
                     <div className="absolute inset-x-0 -bottom-8 flex justify-between px-[10%] text-[9px] font-black text-slate-400 uppercase">
@@ -222,74 +190,6 @@ export default function SistemaSIGERED() {
                     </div>
                  </div>
               </div>
-
-              {/* AVANCE USUARIOS */}
-              <div className="grid grid-cols-3 gap-6">
-                {USUARIOS.map(u => {
-                  const asig = docs.filter(d => d.responsable_verificacion === u.user).length;
-                  const recu = docs.filter(d => d.responsable_verificacion === u.user && getEtapaEstado(d).estado === 'RECUPERADO').length;
-                  const pct = asig > 0 ? Math.round((recu / asig) * 100) : 0;
-                  return (
-                    <div key={u.user} className="bg-white border p-8 rounded-[24px] shadow-sm space-y-4">
-                      <div className="flex justify-between font-black text-slate-700 uppercase text-xs"><span>{u.user}</span><span>{pct}%</span></div>
-                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-blue-600 transition-all duration-1000" style={{ width: `${pct}%` }}></div></div>
-                      <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase"><span>ASIGNADOS: {asig}</span><span>RECUPERADOS: {recu}</span></div>
-                    </div>
-                  )
-                })}
-              </div>
             </div>
           ) : (
-            /* VISTA GESTIÓN ACTUALIZADA CON CAMPO ORIGEN */
-            <div className="bg-white rounded-[32px] shadow-sm border border-slate-100 overflow-hidden">
-               <table className="w-full text-left">
-                <thead className="bg-slate-50 border-b text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  <tr>
-                    <th className="p-5 pl-8 w-10 text-center"><Square size={18} className="text-slate-300 mx-auto"/></th>
-                    <th className="p-5">CUT / Documento</th>
-                    <th className="p-5 text-center">Sede</th>
-                    <th className="p-5 text-center">Origen</th>
-                    <th className="p-5 text-center">Etapa / Estado</th>
-                    <th className="p-5 text-center">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50 text-sm">
-                  {docs.map(doc => {
-                    const status = getEtapaEstado(doc);
-                    return (
-                      <tr key={doc.id} className="hover:bg-slate-50/80 transition-all">
-                        <td className="p-5 text-center"><Square size={18} className="text-slate-200 mx-auto"/></td>
-                        <td className="p-5 pl-4">
-                            <p className="font-black text-slate-700">{doc.cut}</p>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase truncate max-w-[300px]">{doc.documento}</p>
-                        </td>
-                        <td className="p-5 text-center font-black text-[10px] text-slate-600">{doc.sede}</td>
-                        <td className="p-5 text-center">
-                            <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase ${doc.origen === 'Interno' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                                {doc.origen || 'EXTERNO'}
-                            </span>
-                        </td>
-                        <td className="p-5">
-                           <div className="flex flex-col items-center gap-1">
-                              <span className="text-[9px] font-black bg-slate-200 text-slate-500 px-2 py-0.5 rounded uppercase">{status.etapa}</span>
-                              <span className={`text-[10px] font-black px-4 py-1.5 rounded-xl border shadow-sm uppercase ${status.color}`}>{status.estado}</span>
-                           </div>
-                        </td>
-                        <td className="p-5 text-center">
-                          <button onClick={() => setEditingDoc(doc)} className="bg-white border-2 border-blue-50 text-blue-600 font-black text-[10px] px-4 py-2 rounded-xl shadow-sm hover:bg-blue-600 hover:text-white transition-all uppercase tracking-widest">Detalles</button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </main>
-      
-      {/* MODAL DETALLES MANTENIDO SEGÚN LÓGICA ANTERIOR */}
-      {/* ... (resto del código de modales) ... */}
-    </div>
-  );
-}
+            <div className="bg-white rounded-[32px] shadow-sm border borde
