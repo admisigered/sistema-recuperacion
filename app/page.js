@@ -34,17 +34,29 @@ export default function SistemaSIGERED() {
 
   const ITEMS_PER_PAGE = 100;
 
-  // --- LÓGICA DE ETAPA / ESTADO ---
+  // --- LÓGICA DE ETAPA / ESTADO (ANÁLISIS DE NEGOCIO EXACTO) ---
   const getEtapaEstado = useCallback((doc) => {
     if (!doc) return { etapa: '-', estado: '-', color: 'bg-slate-100', border: 'border-slate-300' };
+    
+    // REGLA SISGED -> CIERRE / RECUPERADO
     if (doc.cargado_sisged) return { etapa: 'CIERRE', estado: 'RECUPERADO', color: 'bg-green-100 text-green-700', border: 'border-green-500' };
+
+    // REGLA SI SE VISUALIZA -> CIERRE / RECUPERADO
     if (doc.estado_visualizacion === 'SI SE VISUALIZA') return { etapa: 'CIERRE', estado: 'RECUPERADO', color: 'bg-green-100 text-green-700', border: 'border-green-500' };
+
+    // REGLA NO SE VISUALIZA
     if (doc.estado_visualizacion === 'NO SE VISUALIZA') {
-      if (doc.origen === 'Interno') return { etapa: 'CIERRE', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
-      if (!doc.numero_documento) return { etapa: 'REQUERIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
-      if (doc.ultimo_seguimiento) return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' };
-      return { etapa: 'SEGUIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
+      if (doc.origen === 'Interno') {
+        return { etapa: 'CIERRE', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
+      } else {
+        // FLUJO EXTERNO
+        if (!doc.numero_documento) return { etapa: 'REQUERIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
+        if (doc.ultimo_seguimiento) return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' };
+        return { etapa: 'SEGUIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
+      }
     }
+
+    // ESTADO INICIAL
     return { etapa: 'VERIFICACION', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
   }, []);
 
@@ -59,6 +71,7 @@ export default function SistemaSIGERED() {
     let from = (page - 1) * ITEMS_PER_PAGE;
     let to = from + ITEMS_PER_PAGE - 1;
     let query = supabase.from('documentos').select('*', { count: 'exact' });
+
     if (filters.search) query = query.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%`);
     if (filters.sede) query = query.eq('sede', filters.sede);
     if (filters.origen) query = query.eq('origen', filters.origen);
@@ -79,7 +92,6 @@ export default function SistemaSIGERED() {
     }
   }, [editingDoc]);
 
-  // --- DATOS PARA GRÁFICO DE BARRAS ---
   const chartData = useMemo(() => {
     const counts = {
       'VERIFICACION': docs.filter(d => getEtapaEstado(d).etapa === 'VERIFICACION').length,
@@ -91,9 +103,22 @@ export default function SistemaSIGERED() {
     return { counts, max };
   }, [docs, getEtapaEstado]);
 
-  // --- FUNCIONES DE SELECCIÓN ---
   const toggleSelectAll = () => setSelectedIds(selectedIds.length === docs.length ? [] : docs.map(d => d.id));
   const toggleSelectDoc = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+
+  const handleDelete = async (id) => {
+    if (confirm("¿Está seguro de eliminar este registro?")) {
+        const { error } = await supabase.from('documentos').delete().eq('id', id);
+        if (!error) fetchDocs();
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (confirm(`¿Eliminar ${selectedIds.length} registros seleccionados?`)) {
+        const { error } = await supabase.from('documentos').delete().in('id', selectedIds);
+        if (!error) { setSelectedIds([]); fetchDocs(); }
+    }
+  };
 
   const handleImport = (e) => {
     const file = e.target.files[0];
@@ -109,6 +134,13 @@ export default function SistemaSIGERED() {
       fetchDocs();
     };
     reader.readAsBinaryString(file);
+  };
+
+  const handleExport = (all = false) => {
+    const ws = XLSX.utils.json_to_sheet(docs);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "SIGERED");
+    XLSX.writeFile(wb, `Reporte_${all ? 'General' : 'Filtrado'}.xlsx`);
   };
 
   if (!session) {
@@ -131,7 +163,6 @@ export default function SistemaSIGERED() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex text-slate-900 font-sans">
-      {/* SIDEBAR */}
       <aside className="w-64 bg-[#1E293B] text-slate-400 flex flex-col fixed h-full z-20">
         <div className="p-8"><h1 className="text-white font-black text-2xl tracking-tighter">SIGERED</h1></div>
         <nav className="flex-1 p-4 space-y-2">
@@ -149,22 +180,32 @@ export default function SistemaSIGERED() {
       <main className="ml-64 flex-1 flex flex-col h-screen overflow-hidden">
         {/* HEADER */}
         <header className="bg-white border-b p-4 flex flex-wrap items-center gap-3 sticky top-0 z-10 px-8 shadow-sm h-auto min-h-[80px]">
-          <button onClick={() => setIsNewModalOpen(true)} className="bg-[#2563EB] text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm"><Plus size={14}/> Nuevo</button>
-          <label className="bg-white border border-slate-200 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer hover:bg-slate-50 shadow-sm"><Upload size={14}/> Importar <input type="file" className="hidden" onChange={handleImport}/></label>
+          <div className="flex gap-2 mr-auto">
+            <button onClick={() => setIsNewModalOpen(true)} className="bg-[#2563EB] text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm"><Plus size={14}/> Nuevo</button>
+            <label className="bg-white border border-slate-200 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer hover:bg-slate-50 shadow-sm"><Upload size={14}/> Importar Excel <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleImport}/></label>
+            {selectedIds.length > 0 && (
+                <button onClick={handleBulkDelete} className="bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shadow-lg"><Trash2 size={14}/> Eliminar Masivo ({selectedIds.length})</button>
+            )}
+          </div>
           
-          <div className="flex flex-wrap items-center gap-2 ml-auto">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="relative"><Search size={14} className="absolute left-3 top-2.5 text-slate-400"/><input type="text" placeholder="CUT / Doc..." className="bg-slate-50 border-none rounded-xl pl-9 pr-4 py-2 text-xs w-32 outline-none focus:ring-2 focus:ring-blue-500" onChange={e => setFilters({...filters, search: e.target.value})}/></div>
+            <select className="bg-slate-50 border-none rounded-xl p-2 text-[10px] font-black uppercase outline-none cursor-pointer" onChange={e => setFilters({...filters, etapa: e.target.value})}>
+                <option value="">Etapas</option>
+                <option value="VERIFICACION">Verificación</option>
+                <option value="REQUERIMIENTO">Requerimiento</option>
+                <option value="SEGUIMIENTO">Seguimiento</option>
+                <option value="CIERRE">Cierre</option>
+            </select>
             <select className="bg-slate-50 border-none rounded-xl p-2 text-[10px] font-black uppercase outline-none" onChange={e => setFilters({...filters, sede: e.target.value})}><option value="">Sedes</option><option value="SC">SC</option><option value="OD">OD</option></select>
-            <select className="bg-slate-50 border-none rounded-xl p-2 text-[10px] font-black uppercase outline-none" onChange={e => setFilters({...filters, origen: e.target.value})}><option value="">Origen</option><option value="Interno">Interno</option><option value="Externo">Externo</option></select>
             <select className="bg-slate-50 border-none rounded-xl p-2 text-[10px] font-black uppercase outline-none" onChange={e => setFilters({...filters, estado: e.target.value})}><option value="">Estado</option><option value="PENDIENTE">PENDIENTE</option><option value="RECUPERADO">RECUPERADO</option></select>
-            <select className="bg-slate-50 border-none rounded-xl p-2 text-[10px] font-black uppercase outline-none" onChange={e => setFilters({...filters, responsable: e.target.value})}><option value="">Responsable</option>{USUARIOS.map(u => <option key={u.user} value={u.user}>{u.user}</option>)}</select>
           </div>
         </header>
 
         <div className="p-12 overflow-y-auto flex-1">
           {view === 'dashboard' ? (
             <div className="space-y-12 animate-in fade-in">
-              {/* KPI CARDS */}
+              {/* KPI CARDS (DISEÑO SOLICITADO) */}
               <div className="grid grid-cols-4 gap-8">
                 {[
                   { label: 'TOTAL REGISTROS', val: totalDocs, color: 'text-slate-800', border: 'border-b-blue-500' },
@@ -189,11 +230,7 @@ export default function SistemaSIGERED() {
                       const height = (count / chartData.max) * 100;
                       return (
                         <div key={etapa} className="relative flex-1 flex flex-col items-center group">
-                          <div className="absolute -top-8 text-[10px] font-black text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">{count}</div>
-                          <div 
-                            className="w-full bg-blue-600 rounded-t-xl transition-all duration-700 hover:bg-blue-700 cursor-pointer shadow-lg shadow-blue-900/10" 
-                            style={{ height: `${height}%`, minHeight: count > 0 ? '4px' : '0' }}
-                          ></div>
+                          <div className="w-full bg-blue-600 rounded-t-xl transition-all duration-700 hover:bg-blue-700 cursor-pointer shadow-lg shadow-blue-900/10" style={{ height: `${height}%`, minHeight: count > 0 ? '4px' : '0' }}></div>
                           <p className="absolute -bottom-8 text-[9px] font-black text-slate-400 uppercase text-center w-full">{etapa}</p>
                         </div>
                       )
@@ -201,7 +238,6 @@ export default function SistemaSIGERED() {
                   </div>
                 </div>
 
-                {/* KPI ADICIONAL O ESPACIO VACÍO PARA MANTENER 50% */}
                 <div className="col-span-6 space-y-6">
                     <div className="bg-blue-600 p-8 rounded-[30px] text-white shadow-xl shadow-blue-900/20 relative overflow-hidden">
                         <div className="relative z-10">
@@ -214,7 +250,7 @@ export default function SistemaSIGERED() {
                 </div>
               </div>
 
-              {/* AVANCE USUARIOS */}
+              {/* AVANCE USUARIOS (DISEÑO SOLICITADO) */}
               <div className="grid grid-cols-3 gap-6">
                 {USUARIOS.map(u => {
                   const asig = docs.filter(d => d.responsable_verificacion === u.user).length;
@@ -230,7 +266,7 @@ export default function SistemaSIGERED() {
                 })}
               </div>
             </div>
-          ) : (
+          ) : view === 'list' ? (
             /* TABLA DE GESTIÓN CON CASILLAS FUNCIONALES */
             <div className="bg-white rounded-[32px] shadow-sm border border-slate-100 overflow-hidden">
                <table className="w-full text-left">
@@ -259,20 +295,20 @@ export default function SistemaSIGERED() {
                                 {isSelected ? <CheckSquare size={20} className="text-blue-600 mx-auto"/> : <Square size={20} className="text-slate-200 mx-auto"/>}
                             </button>
                         </td>
-                        <td className="p-5 pl-4">
-                            <p className="font-black text-slate-700">{doc.cut}</p>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase truncate max-w-[300px]">{doc.documento}</p>
-                        </td>
+                        <td className="p-5 pl-4"><p className="font-black text-slate-700">{doc.cut}</p><p className="text-[10px] font-bold text-slate-400 uppercase truncate max-w-[300px]">{doc.documento}</p></td>
                         <td className="p-5 text-center font-black text-[10px] text-slate-600">{doc.sede}</td>
                         <td className="p-5 text-center"><span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase ${doc.origen === 'Interno' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>{doc.origen || 'EXTERNO'}</span></td>
                         <td className="p-5">
                            <div className="flex flex-col items-center gap-1">
-                              <span className="text-[9px] font-black bg-slate-200 text-slate-500 px-2 py-0.5 rounded uppercase tracking-tighter">{status.etapa}</span>
+                              <span className="text-[9px] font-black bg-slate-200 text-slate-500 px-2 py-0.5 rounded uppercase">{status.etapa}</span>
                               <span className={`text-[10px] font-black px-4 py-1.5 rounded-xl border shadow-sm uppercase ${status.color}`}>{status.estado}</span>
                            </div>
                         </td>
                         <td className="p-5 text-center">
-                          <button onClick={() => { setEditingDoc(doc); setActiveTab(1); }} className="bg-white border-2 border-blue-50 text-blue-600 font-black text-[10px] px-4 py-2 rounded-xl hover:bg-blue-600 hover:text-white transition-all uppercase tracking-widest shadow-sm">Detalles</button>
+                          <div className="flex items-center justify-center gap-2">
+                            <button onClick={() => { setEditingDoc(doc); setActiveTab(1); }} className="bg-white border-2 border-blue-50 text-blue-600 font-black text-[10px] px-3 py-2 rounded-xl hover:bg-blue-600 hover:text-white transition-all uppercase tracking-widest">Detalles</button>
+                            <button onClick={() => handleDelete(doc.id)} className="bg-white border-2 border-red-50 text-red-500 p-2 rounded-xl hover:bg-red-600 hover:text-white transition-all"><Trash2 size={14}/></button>
+                          </div>
                         </td>
                       </tr>
                     )
@@ -287,17 +323,32 @@ export default function SistemaSIGERED() {
                 </div>
               </div>
             </div>
+          ) : (
+            /* MÓDULO DE REPORTES */
+            <div className="max-w-3xl mx-auto py-10 animate-in zoom-in-95">
+              <div className="bg-white p-16 rounded-[48px] border shadow-xl text-center space-y-8">
+                <div className="bg-blue-50 w-24 h-24 rounded-[32px] flex items-center justify-center mx-auto text-blue-600"><Download size={40}/></div>
+                <h2 className="text-3xl font-black text-slate-800">Exportación de Datos</h2>
+                <div className="grid grid-cols-2 gap-6 pt-6">
+                  <button onClick={() => handleExport(false)} className="bg-white border-2 border-slate-100 p-8 rounded-[32px] font-black text-sm hover:border-blue-600 hover:text-blue-600 transition-all">Reporte Filtrado</button>
+                  <button onClick={() => handleExport(true)} className="bg-blue-600 text-white p-8 rounded-[32px] font-black text-sm hover:bg-blue-700 shadow-2xl shadow-blue-200">Reporte General</button>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </main>
 
-      {/* --- MODAL DETALLES COMPLETO --- */}
+      {/* --- MODAL DETALLES COMPLETO (INCLUIDO SIN RECORTES) --- */}
       {editingDoc && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] p-10">
           <div className="bg-white rounded-[40px] w-full max-w-6xl h-[85vh] flex flex-col overflow-hidden shadow-2xl border border-white">
             <div className="p-8 bg-[#1E293B] text-white flex justify-between items-center shrink-0">
-              <h3 className="text-xl font-black tracking-tight">{editingDoc.cut} • {editingDoc.documento}</h3>
-              <button onClick={() => setEditingDoc(null)} className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20">✕</button>
+              <div>
+                <h3 className="text-xl font-black tracking-tight">{editingDoc.cut} • {editingDoc.documento}</h3>
+                <p className="text-xs text-blue-400 font-bold uppercase tracking-widest mt-1">Origen: {editingDoc.origen}</p>
+              </div>
+              <button onClick={() => setEditingDoc(null)} className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all font-bold">✕</button>
             </div>
             
             <div className="flex flex-1 overflow-hidden">
@@ -337,7 +388,7 @@ export default function SistemaSIGERED() {
                   <div className="space-y-10 animate-in fade-in">
                     <div className="bg-slate-50 p-10 rounded-[40px] space-y-6 border border-slate-200">
                       <h4 className="font-black text-xs uppercase text-slate-600 tracking-widest">Registrar Seguimiento</h4>
-                      <textarea id="s_obs" className="w-full p-5 rounded-2xl border bg-white text-sm outline-none font-medium" rows="3" placeholder="Escriba aquí los detalles del contacto..."></textarea>
+                      <textarea id="s_obs" className="w-full p-5 rounded-2xl border bg-white text-sm outline-none font-medium" rows="3" placeholder="Escriba aquí los detalles..."></textarea>
                       <button onClick={async () => {
                         const o = document.getElementById('s_obs').value;
                         if(!o) return alert("Escriba un detalle.");
@@ -365,7 +416,7 @@ export default function SistemaSIGERED() {
                        <input type="checkbox" className="w-10 h-10 accent-emerald-600 rounded-2xl shadow-sm cursor-pointer" checked={editingDoc.cargado_sisged} onChange={e => setEditingDoc({...editingDoc, cargado_sisged: e.target.checked})}/>
                        <label className="font-black text-emerald-900 uppercase text-xs tracking-widest">¿Se cargó al portal SISGED? (MARCA SI)</label>
                     </div>
-                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado Final de Recuperación</label>
+                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado Final</label>
                       <select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-3xl font-black text-xs uppercase" value={editingDoc.estado_final || 'PENDIENTE'} onChange={e => setEditingDoc({...editingDoc, estado_final: e.target.value})}>
                         <option value="PENDIENTE">PENDIENTE</option><option value="RECUPERADO">RECUPERADO</option><option value="RECONSTRUCCION">RECONSTRUCCION</option>
                       </select>
@@ -380,29 +431,8 @@ export default function SistemaSIGERED() {
               <button onClick={async () => {
                 const { error } = await supabase.from('documentos').update(editingDoc).eq('id', editingDoc.id);
                 if (!error) { alert('Sincronización Exitosa'); setEditingDoc(null); fetchDocs(); }
-              }} className="bg-[#2563EB] text-white px-16 py-5 rounded-[24px] font-black text-xs uppercase shadow-2xl shadow-blue-900/20 tracking-widest">Guardar Cambios</button>
+              }} className="bg-blue-600 text-white px-16 py-5 rounded-[24px] font-black text-xs uppercase shadow-2xl shadow-blue-900/20 tracking-widest">Guardar Cambios</button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* --- MODAL NUEVO --- */}
-      {isNewModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[110] p-6 animate-in fade-in">
-          <div className="bg-white rounded-[40px] w-full max-w-xl shadow-2xl p-10 space-y-8 border border-white">
-            <h3 className="text-xl font-black uppercase text-center tracking-widest tracking-tighter">Nuevo Expediente</h3>
-            <div className="grid grid-cols-2 gap-6">
-              <input type="text" placeholder="CUT" className="w-full p-5 bg-slate-50 border-none rounded-3xl outline-none font-bold" id="n_cut" />
-              <input type="text" placeholder="Documento" className="w-full p-5 bg-slate-50 border-none rounded-3xl outline-none font-bold" id="n_doc" />
-              <input type="date" className="w-full p-5 bg-slate-50 border-none rounded-3xl outline-none font-bold col-span-2" id="n_fecha" />
-              <select className="w-full p-5 bg-slate-50 border-none rounded-3xl font-bold text-sm" id="n_sede"><option value="SC">SC (Sede Central)</option><option value="OD">OD (Órgano Descon.)</option></select>
-              <select className="w-full p-5 bg-slate-50 border-none rounded-3xl font-bold text-sm" id="n_origen"><option value="Externo">Externo</option><option value="Interno">Interno</option></select>
-            </div>
-            <button onClick={async () => {
-              const doc = { cut: document.getElementById('n_cut').value, documento: document.getElementById('n_doc').value, sede: document.getElementById('n_sede').value, origen: document.getElementById('n_origen').value, etapa_actual: 'VERIFICACION', estado_final: 'PENDIENTE', creado_at: new Date().toISOString() };
-              const { error } = await supabase.from('documentos').insert([doc]);
-              if (!error) { setIsNewModalOpen(false); fetchDocs(); } else alert("Error (CUT duplicado)");
-            }} className="w-full bg-[#2563EB] text-white py-5 rounded-[24px] font-black uppercase shadow-xl tracking-widest">Registrar en Sistema</button>
           </div>
         </div>
       )}
