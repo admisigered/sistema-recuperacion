@@ -233,4 +233,231 @@ export default function SistemaSIGERED() {
                 </div>
                 <div className="bg-white p-8 rounded-[32px] border shadow-sm border-b-4 border-b-green-500">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Recuperados</p>
-                  <h3 className="text-4xl font-black text-green-600">{docs.filter(d => d.e
+                  <h3 className="text-4xl font-black text-green-600">{docs.filter(d => d.estado_final === 'RECUPERADO').length}</h3>
+                </div>
+              </div>
+              
+              {/* AVANCE DE USUARIOS */}
+              <div className="bg-white p-10 rounded-[40px] border shadow-sm">
+                <h4 className="font-bold text-slate-500 mb-8 uppercase text-xs tracking-widest">Resumen de Avance por Usuario (Filtrado)</h4>
+                <div className="grid grid-cols-3 gap-6">
+                  {USUARIOS.map(u => {
+                    const asig = docs.filter(d => d.responsable_verificacion === u.user).length;
+                    const recu = docs.filter(d => d.responsable_verificacion === u.user && d.estado_final === 'RECUPERADO').length;
+                    const pct = asig > 0 ? Math.round((recu / asig) * 100) : 0;
+                    return (
+                      <div key={u.user} className="p-6 border rounded-3xl bg-slate-50/50 flex flex-col gap-3">
+                        <div className="flex justify-between items-center">
+                          <span className="font-black text-sm text-slate-700">{u.user}</span>
+                          <span className="text-[10px] font-bold bg-blue-100 text-blue-600 px-2 py-1 rounded-lg">{pct}% Eficacia</span>
+                        </div>
+                        <div className="flex justify-between text-xs font-bold text-slate-500 mt-2">
+                          <span>Asignados: {asig}</span>
+                          <span className="text-green-600">Recuperados: {recu}</span>
+                        </div>
+                        <div className="h-2 w-full bg-slate-200 rounded-full mt-2 overflow-hidden">
+                          <div className="h-full bg-blue-600 rounded-full transition-all duration-700" style={{width: `${pct}%`}}></div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : view === 'list' ? (
+            <div className="space-y-6 animate-in fade-in duration-500">
+              {/* BARRA DE ACCIONES MASIVAS */}
+              {selectedIds.length > 0 && (
+                <div className="bg-blue-600 p-4 rounded-2xl flex items-center justify-between shadow-lg shadow-blue-200 text-white">
+                  <div className="flex items-center gap-4 ml-4">
+                    <CheckSquare size={20}/>
+                    <span className="font-bold text-sm">{selectedIds.length} Documentos seleccionados</span>
+                  </div>
+                  <div className="flex gap-3">
+                    <select className="text-xs p-2.5 border-none rounded-xl bg-white text-slate-900 font-bold outline-none" onChange={(e) => handleBulkAssign(e.target.value)}>
+                      <option value="">Asignar Responsable...</option>
+                      {USUARIOS.map(u => <option key={u.user} value={u.user}>{u.user}</option>)}
+                    </select>
+                    {session.user === 'Administrador' && (
+                      <button onClick={handleBulkDelete} className="bg-red-500 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-red-600 transition-all"><Trash2 size={16}/> Eliminar Masivo</button>
+                    )}
+                    <button onClick={() => setSelectedIds([])} className="bg-white/20 px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-white/30">Cancelar</button>
+                  </div>
+                </div>
+              )}
+
+              {/* TABLA DE REGISTROS */}
+              <div className="bg-white rounded-[32px] shadow-sm border overflow-hidden">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-50/80 border-b text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    <tr>
+                      <th className="p-5 pl-8 w-12 text-center border-r">
+                        <button onClick={toggleSelectAll} className="hover:scale-110 transition-transform">
+                          {selectedIds.length === docs.length && docs.length > 0 ? <CheckSquare size={20} className="text-blue-600"/> : <Square size={20}/>}
+                        </button>
+                      </th>
+                      <th className="p-5">CUT</th>
+                      <th className="p-5">Documento</th>
+                      <th className="p-5 text-center">Sede</th>
+                      <th className="p-5 text-center">Origen</th>
+                      <th className="p-5 text-center">Etapa / Estado</th>
+                      <th className="p-5 text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50 text-sm">
+                    {docs.map(doc => {
+                      const status = getStatusStyles(doc);
+                      const isSelected = selectedIds.includes(doc.id);
+                      return (
+                        <tr key={doc.id} className={`hover:bg-slate-50/80 transition-all ${isSelected ? 'bg-blue-50/50' : ''}`}>
+                          <td className="p-5 pl-8 text-center border-r">
+                            <button onClick={() => toggleSelectDoc(doc.id)} className="hover:scale-110 transition-transform">
+                              {isSelected ? <CheckSquare size={20} className="text-blue-600"/> : <Square size={20} className="text-slate-200"/>}
+                            </button>
+                          </td>
+                          <td className="p-5 font-black text-slate-700">{doc.cut}</td>
+                          <td className="p-5 text-xs font-bold text-slate-400 truncate max-w-[250px]">{doc.documento}</td>
+                          <td className="p-5 text-center font-black text-[10px] text-slate-600">{doc.sede || 'SC'}</td>
+                          <td className="p-5 text-center text-[10px] font-black uppercase text-slate-400">{doc.origen || 'Externo'}</td>
+                          <td className="p-5">
+                             <div className="flex flex-col items-center gap-1">
+                                <span className="text-[9px] font-black bg-slate-200 text-slate-500 px-2 py-0.5 rounded-md uppercase tracking-tighter">{doc.etapa_actual}</span>
+                                <span className={`text-[10px] font-black px-4 py-1.5 rounded-xl border shadow-sm uppercase ${status.bg}`}>{status.label}</span>
+                             </div>
+                          </td>
+                          <td className="p-5 text-center">
+                            <button onClick={() => setEditingDoc(doc)} className="bg-white border-2 border-blue-50 text-blue-600 font-black text-[10px] px-4 py-2 rounded-xl hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-sm uppercase tracking-widest">Detalles</button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+                {/* PAGINACIÓN */}
+                <div className="p-8 bg-slate-50/50 flex justify-between items-center border-t border-slate-100">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total: <span className="text-slate-900">{totalDocs}</span> registros</p>
+                  <div className="flex gap-4">
+                    <button onClick={() => setPage(p => p - 1)} disabled={page === 1} className="w-11 h-11 rounded-2xl bg-white border border-slate-200 flex items-center justify-center hover:bg-blue-600 hover:text-white shadow-sm disabled:opacity-20 transition-all"><ChevronLeft size={20}/></button>
+                    <button onClick={() => setPage(p => p + 1)} disabled={page * 100 >= totalDocs} className="w-11 h-11 rounded-2xl bg-white border border-slate-200 flex items-center justify-center hover:bg-blue-600 hover:text-white shadow-sm disabled:opacity-20 transition-all"><ChevronRight size={20}/></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* MÓDULO DE REPORTES */
+            <div className="max-w-3xl mx-auto py-10 animate-in zoom-in-95 duration-300">
+              <div className="bg-white p-16 rounded-[48px] border shadow-xl text-center space-y-8 border-white">
+                <div className="bg-blue-50 w-24 h-24 rounded-[32px] flex items-center justify-center mx-auto text-blue-600 shadow-inner"><Download size={40}/></div>
+                <div className="space-y-2">
+                  <h2 className="text-3xl font-black tracking-tight text-slate-800">Exportación de Datos</h2>
+                  <p className="text-slate-500 text-sm max-w-md mx-auto">Seleccione el tipo de reporte que desea descargar en formato Microsoft Excel.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-6 pt-6">
+                  <button onClick={() => handleExport(false)} className="bg-white border-2 border-slate-100 p-8 rounded-[32px] font-black text-sm hover:border-blue-600 hover:text-blue-600 transition-all flex flex-col items-center gap-4 group">
+                    <div className="bg-slate-50 p-4 rounded-2xl group-hover:bg-blue-50 transition-colors"><Filter size={24}/></div>
+                    Reporte Filtrado
+                  </button>
+                  <button onClick={() => handleExport(true)} className="bg-blue-600 text-white p-8 rounded-[32px] font-black text-sm hover:bg-blue-700 transition-all flex flex-col items-center gap-4 shadow-2xl shadow-blue-200">
+                    <div className="bg-white/20 p-4 rounded-2xl"><RefreshCcw size={24}/></div>
+                    Reporte General
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* MODAL NUEVO REGISTRO */}
+      {isNewModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] p-6 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[40px] w-full max-w-xl overflow-hidden shadow-2xl border border-white">
+            <div className="p-8 bg-slate-900 text-white flex justify-between items-center">
+              <h3 className="text-xl font-black uppercase tracking-widest text-sm">Nuevo Registro Documental</h3>
+              <button onClick={() => setIsNewModalOpen(false)} className="hover:rotate-90 transition-transform"><X/></button>
+            </div>
+            <div className="p-10 space-y-6 bg-white">
+              <div className="grid grid-cols-2 gap-6">
+                <input type="text" placeholder="CUT" className="w-full p-4 bg-slate-50 border rounded-2xl outline-none font-bold text-sm focus:ring-2 focus:ring-blue-500" id="m_cut" required />
+                <input type="text" placeholder="N° Documento" className="w-full p-4 bg-slate-50 border rounded-2xl outline-none font-bold text-sm focus:ring-2 focus:ring-blue-500" id="m_doc" required />
+              </div>
+              <input type="text" placeholder="Remitente / Entidad" className="w-full p-4 bg-slate-50 border rounded-2xl outline-none font-bold text-sm focus:ring-2 focus:ring-blue-500" id="m_rem" />
+              <div className="grid grid-cols-2 gap-6">
+                <select className="w-full p-4 bg-slate-50 border rounded-2xl font-black text-[10px] uppercase cursor-pointer" id="m_sede">
+                  <option value="SC">SEDE CENTRAL (SC)</option>
+                  <option value="OD">ÓRGANO DESCONCENTRADO (OD)</option>
+                </select>
+                <select className="w-full p-4 bg-slate-50 border rounded-2xl font-black text-[10px] uppercase cursor-pointer" id="m_ori">
+                  <option value="Externo">Externo</option>
+                  <option value="Interno">Interno</option>
+                </select>
+              </div>
+              <button onClick={async () => {
+                const c = document.getElementById('m_cut').value;
+                const d = document.getElementById('m_doc').value;
+                if(!c || !d) return alert("CUT y Documento son obligatorios");
+                const doc = { 
+                  cut: c, documento: d, remitente: document.getElementById('m_rem').value,
+                  sede: document.getElementById('m_sede').value, origen: document.getElementById('m_ori').value,
+                  etapa_actual: 'VERIFICACION', estado_final: 'PENDIENTE',
+                  fecha_registro: new Date().toISOString().split('T')[0]
+                };
+                const { error } = await supabase.from('documentos').insert([doc]);
+                if (!error) { setIsNewModalOpen(false); fetchDocs(); } else alert("Error: Combinación CUT+Documento ya existe.");
+              }} className="w-full bg-blue-600 text-white py-5 rounded-[24px] font-black text-sm tracking-[0.2em] shadow-xl shadow-blue-200 mt-4 hover:scale-[1.02] active:scale-95 transition-all">REGISTRAR EN EL SISTEMA</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DETALLES / EDICIÓN */}
+      {editingDoc && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] p-6 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[48px] w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden shadow-2xl border border-white">
+            <div className="p-10 bg-slate-900 text-white flex justify-between items-center shrink-0">
+              <div>
+                <h3 className="text-2xl font-black tracking-tight">Actualización de Registro</h3>
+                <p className="text-[10px] text-blue-400 uppercase font-black tracking-[0.2em] mt-1">{editingDoc.cut} • {editingDoc.documento}</p>
+              </div>
+              <button onClick={() => setEditingDoc(null)} className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all">✕</button>
+            </div>
+            <div className="flex-1 p-12 overflow-y-auto bg-white grid grid-cols-2 gap-10">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Responsable de Etapa</label>
+                <select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-3xl font-black text-xs uppercase" value={editingDoc.responsable_verificacion || ''} onChange={e => setEditingDoc({...editingDoc, responsable_verificacion: e.target.value})}>
+                  <option value="">Sin Asignar</option>
+                  {USUARIOS.map(u => <option key={u.user} value={u.user}>{u.user}</option>)}
+                </select>
+              </div>
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado del Documento</label>
+                <select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-3xl font-black text-xs uppercase" value={editingDoc.estado_final} onChange={e => setEditingDoc({...editingDoc, estado_final: e.target.value, etapa_actual: e.target.value === 'RECUPERADO' ? 'CIERRE' : 'VERIFICACION'})}>
+                  <option value="PENDIENTE">PENDIENTE</option>
+                  <option value="RECUPERADO">RECUPERADO (FINALIZAR)</option>
+                  <option value="RECONSTRUCCION">RECONSTRUCCION</option>
+                </select>
+              </div>
+              <div className="col-span-2 bg-blue-50/50 p-8 rounded-[40px] border border-blue-100/50 space-y-6">
+                <div className="flex items-center gap-4 bg-white p-6 rounded-3xl border border-blue-100">
+                   <input type="checkbox" className="w-7 h-7 rounded-lg accent-blue-600 cursor-pointer shadow-sm" checked={editingDoc.cargado_sisged} onChange={e => setEditingDoc({...editingDoc, cargado_sisged: e.target.checked})} />
+                   <label className="font-black text-xs text-blue-900 uppercase tracking-widest">¿Cargado correctamente en el sistema SISGED?</label>
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-blue-400 uppercase tracking-widest ml-1">Observaciones Finales</label>
+                  <textarea className="w-full p-6 bg-white border border-blue-100 rounded-[32px] outline-none text-sm font-medium" rows="3" placeholder="Escriba aquí los detalles..." value={editingDoc.observaciones || ''} onChange={e => setEditingDoc({...editingDoc, observaciones: e.target.value})}></textarea>
+                </div>
+              </div>
+            </div>
+            <div className="p-10 bg-slate-50 border-t border-slate-100 flex justify-end gap-6 shrink-0">
+              <button onClick={() => setEditingDoc(null)} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition-all">Descartar</button>
+              <button onClick={async () => {
+                const { error } = await supabase.from('documentos').update(editingDoc).eq('id', editingDoc.id);
+                if (!error) { setEditingDoc(null); fetchDocs(); }
+              }} className="bg-blue-600 text-white px-12 py-5 rounded-[24px] font-black text-xs tracking-widest shadow-2xl shadow-blue-200 hover:scale-[1.03] active:scale-95 transition-all uppercase">Actualizar Datos</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
