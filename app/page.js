@@ -423,8 +423,8 @@ export default function SistemaSIGERED() {
               <button onClick={() => setEditingDoc(null)} className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 flex items-center justify-center font-bold transition-transform hover:rotate-90 shadow-xl font-sans">✕</button>
             </div>
             <div className="flex flex-1 overflow-hidden font-sans font-sans font-sans font-sans">
-              <div className="w-80 bg-slate-50 border-r p-10 space-y-4 shrink-0 font-sans font-bold">
-  {/* Etapa 1: Siempre visible para todos */}
+             <div className="w-80 bg-slate-50 border-r p-10 space-y-4 shrink-0 font-sans font-bold">
+  {/* Botón 1: Siempre visible */}
   <button onClick={() => setActiveTab(1)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between ${activeTab === 1 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}>1. VERIFICACIÓN <UserCheck size={16}/></button>
   
   {/* Etapas 2 y 3: SOLO si el origen es EXTERNO */}
@@ -435,7 +435,7 @@ export default function SistemaSIGERED() {
     </>
   )}
   
-  {/* Etapa 4: Siempre visible para todos (Debe estar FUERA de la llave de arriba) */}
+  {/* Botón 4: FUERA DE LA LLAVE para que aparezca en INTERNOS y EXTERNOS */}
   <button onClick={() => setActiveTab(4)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between shadow-sm ${activeTab === 4 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}>4. CIERRE <Save size={16}/></button>
 </div>
               <div className="flex-1 p-14 overflow-y-auto bg-white font-sans font-sans font-sans">
