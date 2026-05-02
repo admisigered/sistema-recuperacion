@@ -423,11 +423,11 @@ export default function SistemaSIGERED() {
               <button onClick={() => setEditingDoc(null)} className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 flex items-center justify-center font-bold transition-transform hover:rotate-90 shadow-xl font-sans">✕</button>
             </div>
             <div className="flex flex-1 overflow-hidden font-sans font-sans font-sans font-sans">
-              <div className="w-80 bg-slate-50 border-r p-10 space-y-4 shrink-0 font-sans font-sans font-bold">
-  {/* Etapa 1 siempre visible */}
+              <div className="w-80 bg-slate-50 border-r p-10 space-y-4 shrink-0 font-sans font-bold">
+  {/* Botón 1: Siempre visible */}
   <button onClick={() => setActiveTab(1)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between ${activeTab === 1 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}>1. VERIFICACIÓN <UserCheck size={16}/></button>
   
-  {/* Etapas 2 y 3 SOLO para Externos */}
+  {/* Botones 2 y 3: Solo si es EXTERNO */}
   {String(editingDoc.origen).toUpperCase() === 'EXTERNO' && (
     <>
       <button onClick={() => setActiveTab(2)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between shadow-sm ${activeTab === 2 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}>2. REQUERIMIENTO <Truck size={16}/></button>
@@ -435,7 +435,7 @@ export default function SistemaSIGERED() {
     </>
   )}
   
-  {/* Etapa 4 siempre visible al final (esto arregla tu problema) */}
+  {/* Botón 4: Siempre visible (Esto corrige tu problema) */}
   <button onClick={() => setActiveTab(4)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between shadow-sm ${activeTab === 4 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}>4. CIERRE <Save size={16}/></button>
 </div>
               <div className="flex-1 p-14 overflow-y-auto bg-white font-sans font-sans font-sans">
@@ -582,51 +582,51 @@ export default function SistemaSIGERED() {
                 )}
 
                 {activeTab === 4 && (
-                  <div className="grid grid-cols-2 gap-12 animate-in fade-in duration-300 font-sans">
-                    <div className="col-span-2 bg-emerald-50 p-12 rounded-[45px] border border-emerald-100 flex items-center gap-8 shadow-inner font-sans">
-                       <input type="checkbox" className="w-12 h-12 accent-emerald-600 rounded-2xl shadow-sm cursor-pointer hover:scale-110 transition-transform shadow-lg" checked={editingDoc.cargado_sisged} onChange={e => setEditingDoc({...editingDoc, cargado_sisged: e.target.checked})}/>
-                       <div>
-                         <label className="font-black text-emerald-900 uppercase text-xs tracking-[0.2em] block mb-1">Cargado en SISGED (Col AB)</label>
-                         <p className="text-[10px] text-emerald-700 font-bold opacity-60">Marque para finalizar documento como RECUPERADO.</p>
-                       </div>
-                    </div>
-                    <div className="space-y-3 font-sans font-bold">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-bold">Estado Final (Col AC)</label>
-                      <select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase cursor-pointer shadow-inner" value={editingDoc.estado_final || 'PENDIENTE'} onChange={e => setEditingDoc({...editingDoc, estado_final: e.target.value})}>
-                        <option value="PENDIENTE">PENDIENTE</option>
-                        <option value="RECUPERADO">RECUPERADO</option>
-                        <option value="RECONSTRUCCION">RECONSTRUCCION</option>
-                      </select>
-                    </div>
-                    <div className="space-y-3 font-sans font-bold">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-bold">Oficina de Destino (Col AA)</label>
-                      <input type="text" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner shadow-slate-200 shadow-inner" value={editingDoc.oficina_destino || ''} onChange={e => setEditingDoc({...editingDoc, oficina_destino: e.target.value})}/>
-                    </div>
-                    <div className="space-y-3 font-sans font-bold">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-bold">Fecha Remisión (Col W)</label>
-                      <input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner shadow-slate-200 shadow-inner" value={editingDoc.fecha_remision || ''} onChange={e => setEditingDoc({...editingDoc, fecha_remision: e.target.value})}/>
-                    </div>
-                    <div className="space-y-3 font-sans font-bold">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-bold">Resp. Devolución (Col X)</label>
-                      <select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase cursor-pointer shadow-inner shadow-slate-200 font-sans" value={editingDoc.responsable_devolucion || ''} onChange={e => setEditingDoc({...editingDoc, responsable_devolucion: e.target.value})}>
-                        <option value="">SELECCIONE...</option>
-                        {LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-3 font-sans font-bold">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-bold">Fecha Devolución (Col Y)</label>
-                      <input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner shadow-slate-200 shadow-inner" value={editingDoc.fecha_devolucion || ''} onChange={e => setEditingDoc({...editingDoc, fecha_devolucion: e.target.value})}/>
-                    </div>
-                    <div className="space-y-3 font-sans font-bold">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-bold">N° Documento Cierre (Col Z)</label>
-                      <input type="text" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner shadow-slate-200 shadow-inner" value={editingDoc.documento_cierre || ''} onChange={e => setEditingDoc({...editingDoc, documento_cierre: e.target.value})}/>
-                    </div>
-                    <div className="col-span-2 space-y-3 font-sans font-bold">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-bold">Observaciones Finales (Col AD)</label>
-                      <textarea className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-medium text-xs shadow-inner shadow-slate-200 shadow-inner shadow-slate-200 shadow-inner" rows="3" value={editingDoc.observaciones_finales || ''} onChange={e => setEditingDoc({...editingDoc, observaciones_finales: e.target.value})}></textarea>
-                    </div>
-                  </div>
-                )}
+  <div className="grid grid-cols-2 gap-12 animate-in fade-in duration-300 font-sans">
+    <div className="col-span-2 bg-emerald-50 p-12 rounded-[45px] border border-emerald-100 flex items-center gap-8 shadow-inner font-sans font-sans">
+       <input type="checkbox" className="w-12 h-12 accent-emerald-600 rounded-2xl shadow-sm cursor-pointer hover:scale-110 transition-transform shadow-lg" checked={editingDoc.cargado_sisged} onChange={e => setEditingDoc({...editingDoc, cargado_sisged: e.target.checked})}/>
+       <div>
+         <label className="font-black text-emerald-900 uppercase text-xs tracking-[0.2em] block mb-1">Cargado en SISGED (Col AB)</label>
+         <p className="text-[10px] text-emerald-700 font-bold opacity-60">Marque para finalizar documento como RECUPERADO.</p>
+       </div>
+    </div>
+    <div className="space-y-3 font-sans font-bold">
+      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado Final de Recuperación (Col AC)</label>
+      <select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase cursor-pointer shadow-inner font-bold" value={editingDoc.estado_final || 'PENDIENTE'} onChange={e => setEditingDoc({...editingDoc, estado_final: e.target.value})}>
+        <option value="PENDIENTE">PENDIENTE</option>
+        <option value="RECUPERADO">RECUPERADO</option>
+        <option value="RECONSTRUCCION">RECONSTRUCCION</option>
+      </select>
+    </div>
+    <div className="space-y-3 font-sans font-bold">
+      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Oficina de Destino (Col AA)</label>
+      <input type="text" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner shadow-slate-200" value={editingDoc.oficina_destino || ''} onChange={e => setEditingDoc({...editingDoc, oficina_destino: e.target.value})}/>
+    </div>
+    <div className="space-y-3 font-sans font-bold">
+      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Remisión (Col W)</label>
+      <input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner shadow-slate-200" value={editingDoc.fecha_remision || ''} onChange={e => setEditingDoc({...editingDoc, fecha_remision: e.target.value})}/>
+    </div>
+    <div className="space-y-3 font-sans font-bold">
+      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Resp. Devolución (Col X)</label>
+      <select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase cursor-pointer shadow-inner shadow-slate-200" value={editingDoc.responsable_devolucion || ''} onChange={e => setEditingDoc({...editingDoc, responsable_devolucion: e.target.value})}>
+        <option value="">SELECCIONE...</option>
+        {LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r}</option>)}
+      </select>
+    </div>
+    <div className="space-y-3 font-sans font-bold">
+      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Devolución (Col Y)</label>
+      <input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner shadow-slate-200" value={editingDoc.fecha_devolucion || ''} onChange={e => setEditingDoc({...editingDoc, fecha_devolucion: e.target.value})}/>
+    </div>
+    <div className="space-y-3 font-sans font-bold">
+      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">N° Documento Cierre (Col Z)</label>
+      <input type="text" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner shadow-slate-200" value={editingDoc.documento_cierre || ''} onChange={e => setEditingDoc({...editingDoc, documento_cierre: e.target.value})}/>
+    </div>
+    <div className="col-span-2 space-y-3 font-sans font-bold">
+      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Observaciones Finales (Col AD)</label>
+      <textarea className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-medium text-xs shadow-inner shadow-slate-200" rows="3" value={editingDoc.observaciones_finales || ''} onChange={e => setEditingDoc({...editingDoc, observaciones_finales: e.target.value})}></textarea>
+    </div>
+  </div>
+)}
               </div>
             </div>
             <div className="p-10 bg-slate-50 border-t flex justify-end gap-6 shrink-0 font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans"><button onClick={() => setEditingDoc(null)} className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-10 hover:text-slate-700 font-sans font-sans">Descartar</button>
