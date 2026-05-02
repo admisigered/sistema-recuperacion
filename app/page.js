@@ -570,7 +570,7 @@ export default function SistemaSIGERED() {
                           <div className="flex-1 font-sans">
                             <div className="flex justify-between items-center mb-2">
                               <p className="text-xs font-black text-slate-800 uppercase tracking-widest">{s.responsable}</p>
-                              <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full">{new Date(s.fecha).toLocaleDateString()}</span>
+                              <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full">{s.fecha.split('-').reverse().join('/')}</span>
                             </div>
                             <p className="text-[10px] font-black text-blue-600 uppercase mb-2">Canal: {s.medio}</p>
                             <p className="text-sm text-slate-500 font-medium italic">"{s.observaciones}"</p>
