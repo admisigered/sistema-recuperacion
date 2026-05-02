@@ -424,10 +424,10 @@ export default function SistemaSIGERED() {
             </div>
             <div className="flex flex-1 overflow-hidden font-sans font-sans font-sans font-sans">
               <div className="w-80 bg-slate-50 border-r p-10 space-y-4 shrink-0 font-sans font-bold">
-  {/* Botón 1: Siempre visible */}
+  {/* Etapa 1: Siempre visible para todos */}
   <button onClick={() => setActiveTab(1)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between ${activeTab === 1 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}>1. VERIFICACIÓN <UserCheck size={16}/></button>
   
-  {/* Botones 2 y 3: Solo si es EXTERNO */}
+  {/* Etapas 2 y 3: SOLO si el origen es EXTERNO */}
   {String(editingDoc.origen).toUpperCase() === 'EXTERNO' && (
     <>
       <button onClick={() => setActiveTab(2)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between shadow-sm ${activeTab === 2 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}>2. REQUERIMIENTO <Truck size={16}/></button>
@@ -435,7 +435,7 @@ export default function SistemaSIGERED() {
     </>
   )}
   
-  {/* Botón 4: Siempre visible (Esto corrige tu problema) */}
+  {/* Etapa 4: Siempre visible para todos (Debe estar FUERA de la llave de arriba) */}
   <button onClick={() => setActiveTab(4)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between shadow-sm ${activeTab === 4 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}>4. CIERRE <Save size={16}/></button>
 </div>
               <div className="flex-1 p-14 overflow-y-auto bg-white font-sans font-sans font-sans">
