@@ -20,6 +20,7 @@ const USUARIOS = [
 ];
 
 export default function SistemaSIGERED() {
+  // --- ESTADOS DEL SISTEMA ---
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [docs, setDocs] = useState([]);
@@ -38,8 +39,8 @@ export default function SistemaSIGERED() {
     search: '', 
     sede: '', 
     origen: '', 
-    estado: '', 
     etapa: '', 
+    estado: '', 
     responsable: '', 
     fechaInicio: '', 
     fechaFin: '' 
@@ -47,35 +48,45 @@ export default function SistemaSIGERED() {
 
   const ITEMS_PER_PAGE = 100;
 
-  // --- 1. LÓGICA DE NEGOCIO INTEGRAL (ANÁLISIS K, L, P, AB) ---
+  // --- 1. LÓGICA DE NEGOCIO INTEGRAL (ANÁLISIS DE ETAPAS K, L, P, AB) ---
   const getEtapaEstado = useCallback((doc) => {
     if (!doc) return { etapa: '-', estado: '-', color: 'bg-slate-100', border: 'border-slate-300' };
     
-    // REGLA SISGED (Col AB) -> CIERRE / RECUPERADO
+    // REGLA PRIORIDAD 1: ¿Se cargó al SISGED? (Col AB / cargado_sisged) -> CIERRE / RECUPERADO
     if (doc.cargado_sisged) return { etapa: 'CIERRE', estado: 'RECUPERADO', color: 'bg-green-100 text-green-700', border: 'border-green-500' };
 
-    // REGLA Etapa 1 -> Si se visualiza (Col L) -> CIERRE / RECUPERADO
+    // REGLA PRIORIDAD 2: Etapa 1 Verificación -> Si se visualiza (Col L) -> CIERRE / RECUPERADO
     if (doc.estado_visualizacion === 'SI SE VISUALIZA') return { etapa: 'CIERRE', estado: 'RECUPERADO', color: 'bg-green-100 text-green-700', border: 'border-green-500' };
 
-    // REGLA Etapa 1 -> No se visualiza
+    // REGLA PRIORIDAD 3: Etapa 1 Verificación -> No se visualiza
     if (doc.estado_visualizacion === 'NO SE VISUALIZA') {
         if (doc.origen === 'Interno') {
+            // Documentos Internos pasan directo a Cierre / Pendiente
             return { etapa: 'CIERRE', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
         } else {
-            // EXTERNO
+            // DOCUMENTOS EXTERNOS: Evaluación de flujo
+            // Si no tiene numero_documento (Col P) -> REQUERIMIENTO / PENDIENTE
             if (!doc.numero_documento) return { etapa: 'REQUERIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
-            if (doc.ultimo_seguimiento) return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' };
+            
+            // Si tiene numero_documento pero NO seguimientos -> SEGUIMIENTO / PENDIENTE
+            // Si tiene numero_documento Y seguimientos registrados -> SEGUIMIENTO / EN PROCESO
+            if (doc.ultimo_seguimiento) {
+                return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' };
+            }
             return { etapa: 'SEGUIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
         }
     }
 
+    // ESTADO INICIAL (Col K = PENDIENTE) -> VERIFICACION / PENDIENTE
     return { etapa: 'VERIFICACION', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
   }, []);
 
+  // --- 2. FUNCIONES DE CÁLCULO ---
   const calcularDiasHabiles = (fechaRef) => {
     if (!fechaRef) return 0;
     let start = new Date(fechaRef);
     let end = new Date();
+    if (start > end) return 0;
     let count = 0;
     while (start <= end) {
       if (start.getDay() !== 0 && start.getDay() !== 6) count++;
@@ -88,32 +99,34 @@ export default function SistemaSIGERED() {
     if (!val) return null;
     if (typeof val === 'number') return new Date((val - 25569) * 86400 * 1000).toISOString().split('T')[0];
     if (typeof val === 'string' && val.includes('/')) {
-        const p = val.split('/');
-        return `${p[2]}-${p[1]}-${p[0]}`;
+        const parts = val.split('/');
+        return `${parts[2]}-${parts[1]}-${parts[0]}`;
     }
     return val;
   };
 
-  // --- 2. GESTIÓN DE DATOS ---
+  // --- 3. GESTIÓN DE DATOS (SUPABASE) ---
   const fetchDocs = useCallback(async () => {
     setLoading(true);
     let from = (page - 1) * ITEMS_PER_PAGE;
     let to = from + ITEMS_PER_PAGE - 1;
     let query = supabase.from('documentos').select('*', { count: 'exact' });
 
-    if (filters.search) query = query.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%`);
+    // Aplicación de Filtros
+    if (filters.search) query = query.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%`);
     if (filters.sede) query = query.eq('sede', filters.sede);
     if (filters.origen) query = query.eq('origen', filters.origen);
     if (filters.responsable) query = query.eq('responsable_verificacion', filters.responsable);
     
-    // Filtro por Etapa (Lógica calculada en DB)
+    // Filtro por Etapa
     if (filters.etapa === 'VERIFICACION') query = query.is('estado_visualizacion', null);
     if (filters.etapa === 'REQUERIMIENTO') query = query.eq('estado_visualizacion', 'NO SE VISUALIZA').is('numero_documento', null);
+    if (filters.etapa === 'SEGUIMIENTO') query = query.eq('estado_visualizacion', 'NO SE VISUALIZA').not('numero_documento', 'is', null).eq('cargado_sisged', false);
     if (filters.etapa === 'CIERRE') query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
 
-    // Filtro por Estado
+    // Filtro por Estado (Nuevo solicitado)
     if (filters.estado === 'RECUPERADO') query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA,estado_final.eq.RECUPERADO');
-    if (filters.estado === 'EN PROCESO') query = query.not('ultimo_seguimiento', 'is', null).eq('cargado_sisged', false);
+    if (filters.estado === 'EN PROCESO') query = query.not('ultimo_seguimiento', 'is', null).eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
     if (filters.estado === 'PENDIENTE') query = query.eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA').is('ultimo_seguimiento', null);
 
     const { data, count, error } = await query.order('creado_at', { ascending: false }).range(from, to);
@@ -123,9 +136,10 @@ export default function SistemaSIGERED() {
 
   useEffect(() => { if (session) fetchDocs(); }, [session, fetchDocs]);
 
-  // --- 3. IMPORTACIÓN / EXPORTACIÓN (30 COLUMNAS A-AD) ---
+  // --- 4. IMPORTACIÓN / EXPORTACIÓN (30 COLUMNAS A-AD) ---
   const handleImport = (e) => {
     const file = e.target.files[0];
+    if (!file) return;
     const reader = new FileReader();
     reader.onload = async (evt) => {
       const data = XLSX.utils.sheet_to_json(XLSX.read(evt.target.result, { type: 'binary' }).Sheets[XLSX.read(evt.target.result, { type: 'binary' }).SheetNames[0]], { header: 1 });
@@ -136,14 +150,14 @@ export default function SistemaSIGERED() {
           origen: row[5], procedimiento: row[6], celular: String(row[7] || ''), responsable_verificacion: row[8],
           fecha_verificacion: formatExcelDate(row[9]), blank_k: row[10], estado_visualizacion: row[11], observaciones: row[12],
           responsable_requerimiento: row[13], fecha_elaboracion: formatExcelDate(row[14]), numero_documento: String(row[15] || ''),
-          fecha_notificacion: formatExcelDate(row[16]), medio_notificacion: row[17], fecha_remision: formatExcelDate(row[22]),
-          responsable_devolucion: row[23], fecha_devolucion: formatExcelDate(row[24]), documento_cierre: String(row[25] || ''),
+          fecha_notificacion: formatExcelDate(row[16]), medio_notificacion: row[17], blank_s: row[18], blank_t: row[19], blank_u: row[20], blank_v: row[21],
+          fecha_remision: formatExcelDate(row[22]), responsable_devolucion: row[23], fecha_devolucion: formatExcelDate(row[24]), documento_cierre: String(row[25] || ''),
           oficina_destino: row[26], cargado_sisged: String(row[27]).toUpperCase() === 'SI', estado_final: row[28] || 'PENDIENTE',
           observaciones_finales: row[29], creado_at: new Date().toISOString()
         };
       }).filter(Boolean);
-      await supabase.from('documentos').upsert(batch, { onConflict: 'cut,documento' });
-      fetchDocs();
+      const { error } = await supabase.from('documentos').upsert(batch, { onConflict: 'cut,documento' });
+      if (!error) { alert("Sincronización Exitosa"); fetchDocs(); } else { alert("Error: " + error.message); }
     };
     reader.readAsBinaryString(file);
   };
@@ -151,13 +165,14 @@ export default function SistemaSIGERED() {
   const handleExport = () => {
     const ws = XLSX.utils.json_to_sheet(docs);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "SIGERED");
+    XLSX.utils.book_append_sheet(wb, ws, "SIGERED_PROD");
     XLSX.writeFile(wb, "Reporte_SIGERED.xlsx");
   };
 
+  // --- 5. ACCIONES MASIVAS ---
   const handleBulkDelete = async () => {
     if (session.user !== 'Administrador') return alert("Permiso Denegado.");
-    if (confirm(`¿Eliminar ${selectedIds.length} registros?`)) {
+    if (confirm(`¿Eliminar ${selectedIds.length} registros seleccionados permanentemente?`)) {
       await supabase.from('documentos').delete().in('id', selectedIds);
       setSelectedIds([]); fetchDocs();
     }
@@ -165,7 +180,7 @@ export default function SistemaSIGERED() {
 
   const toggleSelectDoc = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
 
-  // --- 4. DASHBOARD Y GRÁFICO (BARRAS 50%) ---
+  // --- 6. DASHBOARD Y GRÁFICO (BARRAS 50%) ---
   const chartData = useMemo(() => {
     const counts = {
       'VERIFICACION': docs.filter(d => getEtapaEstado(d).etapa === 'VERIFICACION').length,
@@ -194,7 +209,10 @@ export default function SistemaSIGERED() {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6 font-sans">
         <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-md overflow-hidden border border-white">
-          <div className="bg-[#2563EB] p-12 text-center text-white"><h1 className="text-4xl font-black mb-2 tracking-tighter">SIGERED</h1><p className="text-xs font-bold uppercase tracking-widest opacity-80">Gestión de Recuperación</p></div>
+          <div className="bg-[#2563EB] p-12 text-center text-white">
+             <h1 className="text-4xl font-black mb-2 tracking-tighter">SIGERED</h1>
+             <p className="text-xs font-bold uppercase tracking-widest opacity-80">Gestión de Recuperación</p>
+          </div>
           <form onSubmit={handleLogin} className="p-10 space-y-6">
             <input type="text" placeholder="Usuario" className="w-full p-5 bg-slate-50 border rounded-3xl outline-none" onChange={e => setLoginData({...loginData, user: e.target.value})} required />
             <input type="password" placeholder="Contraseña" className="w-full p-5 bg-slate-50 border rounded-3xl outline-none" onChange={e => setLoginData({...loginData, pass: e.target.value})} required />
@@ -207,6 +225,7 @@ export default function SistemaSIGERED() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex text-slate-900 font-sans">
+      {/* SIDEBAR */}
       <aside className="w-64 bg-[#1E293B] text-slate-400 flex flex-col fixed h-full z-20 shadow-2xl">
         <div className="p-8 font-black text-white text-2xl tracking-tighter border-b border-slate-800">SIGERED</div>
         <nav className="flex-1 p-4 space-y-2 mt-4">
@@ -215,14 +234,14 @@ export default function SistemaSIGERED() {
           <button onClick={() => setView('reports')} className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl transition-all ${view === 'reports' ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-900/40' : 'hover:bg-slate-800'}`}><Download size={18}/> Reportes</button>
         </nav>
         <div className="p-6 border-t border-slate-800 flex items-center gap-3 bg-slate-900/50">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-white shadow-inner">{session.user[0]}</div>
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-white">{session.user[0]}</div>
           <div className="flex-1 overflow-hidden"><p className="text-xs font-bold text-white truncate">{session.user}</p><p className="text-[10px] uppercase font-bold text-slate-500">En Línea</p></div>
           <button onClick={() => setSession(null)}><LogOut size={18}/></button>
         </div>
       </aside>
 
       <main className="ml-64 flex-1 flex flex-col h-screen overflow-hidden">
-        {/* HEADER CON FILTROS INTEGRALES */}
+        {/* HEADER CON TODOS LOS FILTROS (DISEÑO SOLICITADO) */}
         <header className="bg-white border-b p-4 flex flex-wrap items-center gap-3 sticky top-0 z-10 px-8 shadow-sm h-auto min-h-[80px]">
           <div className="flex gap-2 mr-auto">
             <button onClick={() => setIsNewModalOpen(true)} className="bg-[#2563EB] text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-blue-700 shadow-sm"><Plus size={14}/> Nuevo</button>
@@ -233,13 +252,12 @@ export default function SistemaSIGERED() {
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative"><Search size={14} className="absolute left-3 top-3 text-slate-400"/><input type="text" placeholder="Buscar CUT..." className="bg-slate-50 border-none rounded-xl pl-9 pr-4 py-2.5 text-xs w-32 outline-none focus:ring-2 focus:ring-blue-500" onChange={e => setFilters({...filters, search: e.target.value})}/></div>
             
-            {/* FILTROS SEGÚN IMAGEN */}
             <select className="border rounded-xl p-2.5 text-[10px] font-black uppercase bg-white border-slate-200 cursor-pointer outline-none" onChange={e => setFilters({...filters, sede: e.target.value})}><option value="">SEDES</option><option value="SC">SC</option><option value="OD">OD</option></select>
             <select className="border rounded-xl p-2.5 text-[10px] font-black uppercase bg-white border-slate-200 cursor-pointer outline-none" onChange={e => setFilters({...filters, origen: e.target.value})}><option value="">ORIGEN</option><option value="Interno">Interno</option><option value="Externo">Externo</option></select>
             <select className="border rounded-xl p-2.5 text-[10px] font-black uppercase bg-white border-slate-200 cursor-pointer outline-none" onChange={e => setFilters({...filters, etapa: e.target.value})}><option value="">ETAPAS</option><option value="VERIFICACION">Verificación</option><option value="REQUERIMIENTO">Requerimiento</option><option value="SEGUIMIENTO">Seguimiento</option><option value="CIERRE">Cierre</option></select>
             
-            {/* --- FILTRO ESTADO (COLOR ACTUALIZADO A BLANCO) --- */}
-            <select className="border rounded-xl p-2.5 text-[10px] font-black uppercase bg-white border-slate-200 cursor-pointer outline-none" onChange={e => setFilters({...filters, estado: e.target.value})}>
+            {/* FILTRO ESTADO (COLOR ACTUALIZADO A BLANCO / SEGÚN IMAGEN) */}
+            <select className="border rounded-xl p-2.5 text-[10px] font-black uppercase bg-white border-slate-200 cursor-pointer outline-none shadow-sm" onChange={e => setFilters({...filters, estado: e.target.value})}>
                 <option value="">ESTADO</option>
                 <option value="PENDIENTE">PENDIENTE</option>
                 <option value="EN PROCESO">EN PROCESO</option>
@@ -260,6 +278,7 @@ export default function SistemaSIGERED() {
         <div className="p-10 overflow-y-auto flex-1 font-sans">
           {view === 'dashboard' ? (
             <div className="space-y-12 animate-in fade-in duration-500">
+              {/* KPIs ( DISEÑO IMAGEN SOLICITADA ) */}
               <div className="grid grid-cols-4 gap-8">
                 {[
                   { label: 'TOTAL REGISTROS', val: totalDocs, color: 'text-slate-800', border: 'border-b-blue-500' },
@@ -274,6 +293,7 @@ export default function SistemaSIGERED() {
                 ))}
               </div>
 
+              {/* GRÁFICO BARRAS 50% CON TOOLTIPS */}
               <div className="grid grid-cols-12 gap-8">
                 <div className="col-span-6 bg-white p-10 rounded-[40px] border border-slate-100 shadow-sm flex flex-col">
                   <h4 className="text-sm font-black text-slate-700 uppercase mb-12 flex items-center gap-2"><BarChart3 size={18} className="text-blue-600"/> Avance por Etapas</h4>
@@ -283,6 +303,7 @@ export default function SistemaSIGERED() {
                       const height = (count / chartData.max) * 100;
                       return (
                         <div key={etapa} className="relative flex-1 flex flex-col items-center group">
+                          {/* TOOLTIP NUMÉRICO HOVER */}
                           <div className="absolute bottom-[calc(100%+8px)] opacity-0 group-hover:opacity-100 transition-all bg-blue-600 text-white text-[11px] font-black px-3 py-1.5 rounded-xl shadow-xl z-10 whitespace-nowrap">{count} docs</div>
                           <div className="w-full bg-blue-600 rounded-t-xl transition-all duration-500 hover:bg-blue-700 cursor-pointer shadow-lg" style={{ height: `${height}%`, minHeight: count > 0 ? '4px' : '0' }}></div>
                           <p className="absolute -bottom-8 text-[9px] font-black text-slate-400 uppercase text-center w-full">{etapa}</p>
@@ -291,16 +312,17 @@ export default function SistemaSIGERED() {
                     })}
                   </div>
                 </div>
-                <div className="col-span-6 bg-blue-600 p-10 rounded-[40px] text-white flex items-center justify-between shadow-2xl shadow-blue-900/30">
-                    <div>
-                        <h4 className="text-xs font-black uppercase opacity-70 tracking-widest mb-2">Indicador de Éxito</h4>
+                <div className="col-span-6 bg-blue-600 p-10 rounded-[40px] text-white flex items-center justify-between shadow-2xl shadow-blue-900/30 overflow-hidden relative">
+                    <div className="relative z-10">
+                        <h4 className="text-xs font-black uppercase opacity-70 tracking-widest mb-2">Indicador Global de Éxito</h4>
                         <h3 className="text-6xl font-black">{totalDocs > 0 ? Math.round((docs.filter(d => getEtapaEstado(d).estado === 'RECUPERADO').length / totalDocs) * 100) : 0}%</h3>
-                        <p className="text-xs mt-4 opacity-80 font-bold leading-relaxed">Porcentaje basado en el cierre administrativo satisfactorio.</p>
+                        <p className="text-xs mt-4 opacity-80 font-bold leading-relaxed">Porcentaje de recuperación administrativa total.</p>
                     </div>
-                    <CheckCircle2 size={120} className="opacity-10"/>
+                    <CheckCircle2 size={120} className="opacity-10 absolute -right-4 -bottom-4"/>
                 </div>
               </div>
 
+              {/* AVANCE USUARIOS FILTRABLE POR FECHA */}
               <div className="grid grid-cols-3 gap-6">
                 {USUARIOS.map(u => {
                   const uDocs = docs.filter(d => {
@@ -349,10 +371,8 @@ export default function SistemaSIGERED() {
                         </td>
                         <td className="p-6 text-center font-black text-[10px] text-slate-600">{doc.sede}</td>
                         <td className="p-6 text-center"><span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase ${doc.origen === 'Interno' ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-blue-100 text-blue-700 border border-blue-200'}`}>{doc.origen || 'EXTERNO'}</span></td>
-                        <td className="p-6 text-center">
-                           <div className="flex flex-col items-center gap-1 mx-auto"><span className="text-[9px] font-black bg-slate-200 text-slate-500 px-3 py-1 rounded-lg uppercase">{status.etapa}</span><span className={`text-[10px] font-black px-4 py-1.5 rounded-xl border shadow-sm uppercase ${status.color}`}>{status.estado}</span></div>
-                        </td>
-                        <td className="p-6 text-center"><button onClick={() => { setEditingDoc(doc); setActiveTab(1); }} className="bg-white border-2 border-blue-50 text-blue-600 font-black text-[10px] px-5 py-2.5 rounded-2xl hover:bg-blue-600 hover:text-white transition-all uppercase shadow-sm">Detalles</button></td>
+                        <td className="p-6 text-center"><div className="flex flex-col items-center gap-1 mx-auto"><span className="text-[9px] font-black bg-slate-200 text-slate-500 px-3 py-1 rounded-lg uppercase tracking-tighter">{status.etapa}</span><span className={`text-[10px] font-black px-4 py-1.5 rounded-xl border shadow-sm uppercase ${status.color}`}>{status.estado}</span></div></td>
+                        <td className="p-6 text-center"><button onClick={() => { setEditingDoc(doc); setActiveTab(1); }} className="bg-white border-2 border-blue-50 text-blue-600 font-black text-[10px] px-5 py-2.5 rounded-2xl hover:bg-blue-600 hover:text-white transition-all uppercase tracking-widest shadow-sm">Detalles</button></td>
                       </tr>
                     )
                   })}
@@ -367,7 +387,7 @@ export default function SistemaSIGERED() {
         </div>
       </main>
 
-      {/* --- MODAL DETALLES TOTAL (SIN OMISIONES) --- */}
+      {/* --- MODAL DETALLES TOTAL (A-AD) SIN OMISIONES --- */}
       {editingDoc && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md flex items-center justify-center z-[100] p-10 font-sans">
           <div className="bg-white rounded-[50px] w-full max-w-6xl h-[88vh] flex flex-col overflow-hidden shadow-2xl border border-white/20">
@@ -389,21 +409,21 @@ export default function SistemaSIGERED() {
               <div className="flex-1 p-14 overflow-y-auto bg-white">
                 {activeTab === 1 && (
                   <div className="grid grid-cols-2 gap-12 animate-in fade-in duration-300">
-                    <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Responsable Verificación (Col I)</label><select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase" value={editingDoc.responsable_verificacion || ''} onChange={e => setEditingDoc({...editingDoc, responsable_verificacion: e.target.value})}><option value="">Seleccione...</option>{USUARIOS.map(u => <option key={u.user} value={u.user}>{u.user}</option>)}</select></div>
-                    <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Verificación (Col J)</label><input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs" value={editingDoc.fecha_verificacion || ''} onChange={e => setEditingDoc({...editingDoc, fecha_verificacion: e.target.value})}/></div>
-                    <div className="col-span-2 space-y-6 pt-6 text-center"><p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Estado de Visualización (Col L)</p>
+                    <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Responsable Verificación (Col I)</label><select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase cursor-pointer" value={editingDoc.responsable_verificacion || ''} onChange={e => setEditingDoc({...editingDoc, responsable_verificacion: e.target.value})}><option value="">Seleccione...</option>{USUARIOS.map(u => <option key={u.user} value={u.user}>{u.user}</option>)}</select></div>
+                    <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Verificación (Col J)</label><input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner" value={editingDoc.fecha_verificacion || ''} onChange={e => setEditingDoc({...editingDoc, fecha_verificacion: e.target.value})}/></div>
+                    <div className="col-span-2 space-y-6 pt-6 text-center font-sans"><p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">¿Se visualiza en el sistema? (Col L)</p>
                       <div className="grid grid-cols-2 gap-8"><button onClick={() => setEditingDoc({...editingDoc, estado_visualizacion: 'SI SE VISUALIZA'})} className={`p-10 rounded-[35px] border-2 font-black text-sm transition-all flex flex-col items-center gap-4 ${editingDoc.estado_visualizacion === 'SI SE VISUALIZA' ? 'border-green-600 bg-green-50 text-green-700 shadow-2xl shadow-green-900/10' : 'border-slate-50 bg-slate-50 text-slate-300'}`}><CheckCircle2 size={32}/> SÍ SE VISUALIZA</button>
                         <button onClick={() => setEditingDoc({...editingDoc, estado_visualizacion: 'NO SE VISUALIZA'})} className={`p-10 rounded-[35px] border-2 font-black text-sm transition-all flex flex-col items-center gap-4 ${editingDoc.estado_visualizacion === 'NO SE VISUALIZA' ? 'border-red-600 bg-red-50 text-red-700 shadow-2xl shadow-red-900/10' : 'border-slate-50 bg-slate-50 text-slate-300'}`}><AlertCircle size={32}/> NO SE VISUALIZA</button></div>
                     </div>
                   </div>
                 )}
                 {activeTab === 2 && (
-                  <div className="grid grid-cols-2 gap-12 animate-in fade-in duration-300">
-                    <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Responsable Requerimiento (Col N)</label><select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase" value={editingDoc.responsable_requerimiento || ''} onChange={e => setEditingDoc({...editingDoc, responsable_requerimiento: e.target.value})}><option value="">Seleccione...</option>{USUARIOS.map(u => <option key={u.user} value={u.user}>{u.user}</option>)}</select></div>
-                    <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Elaboración (Col O)</label><input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs" value={editingDoc.fecha_elaboracion || ''} onChange={e => setEditingDoc({...editingDoc, fecha_elaboracion: e.target.value})}/></div>
+                  <div className="grid grid-cols-2 gap-12 animate-in fade-in duration-300 font-sans">
+                    <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Resp. Requerimiento (Col N)</label><select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase" value={editingDoc.responsable_requerimiento || ''} onChange={e => setEditingDoc({...editingDoc, responsable_requerimiento: e.target.value})}><option value="">Seleccione...</option>{USUARIOS.map(u => <option key={u.user} value={u.user}>{u.user}</option>)}</select></div>
+                    <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Elaboración (Col O)</label><input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner" value={editingDoc.fecha_elaboracion || ''} onChange={e => setEditingDoc({...editingDoc, fecha_elaboracion: e.target.value})}/></div>
                     <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">N° Documento Generado (Col P)</label><input type="text" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs" value={editingDoc.numero_documento || ''} onChange={e => setEditingDoc({...editingDoc, numero_documento: e.target.value})}/></div>
-                    <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Notificación (Col Q)</label><input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs" value={editingDoc.fecha_notificacion || ''} onChange={e => setEditingDoc({...editingDoc, fecha_notificacion: e.target.value})}/></div>
-                    <div className="col-span-2 bg-blue-50 p-10 rounded-[40px] border border-blue-100 flex items-center justify-between shadow-inner"><div><p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Días Hábiles Transcurridos (Cálculo Automático)</p><p className="text-6xl font-black text-blue-600 mt-2">{calcularDiasHabiles(editingDoc.fecha_notificacion)}</p></div><Clock size={80} className="text-blue-200 opacity-50"/></div>
+                    <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Notificación (Col Q)</label><input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner" value={editingDoc.fecha_notificacion || ''} onChange={e => setEditingDoc({...editingDoc, fecha_notificacion: e.target.value})}/></div>
+                    <div className="col-span-2 bg-blue-50 p-10 rounded-[40px] border border-blue-100 flex items-center justify-between shadow-inner"><div><p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Días Hábiles Transcurridos (Cálculo Automático)</p><p className="text-6xl font-black text-blue-600 mt-2 tracking-tighter">{calcularDiasHabiles(editingDoc.fecha_notificacion)}</p></div><Clock size={80} className="text-blue-200 opacity-50"/></div>
                   </div>
                 )}
                 {activeTab === 3 && (
@@ -413,35 +433,36 @@ export default function SistemaSIGERED() {
                         const o = document.getElementById('s_obs').value; if(!o) return alert("Escriba un detalle.");
                         const { error } = await supabase.from('seguimientos').insert([{ documento_id: editingDoc.id, responsable: session.user, observaciones: o, fecha: new Date().toISOString() }]);
                         if(!error) { await supabase.from('documentos').update({ ultimo_seguimiento: new Date().toISOString() }).eq('id', editingDoc.id); document.getElementById('s_obs').value = ''; alert("Seguimiento Grabado"); fetchDocs(); }
-                      }} className="bg-blue-600 text-white font-black py-5 px-12 rounded-3xl text-xs uppercase shadow-2xl shadow-blue-200 tracking-[0.2em] hover:scale-105 transition-all">Grabar Registro</button>
+                      }} className="bg-blue-600 text-white font-black py-5 px-12 rounded-3xl text-xs uppercase shadow-2xl shadow-blue-200 tracking-[0.2em] hover:scale-105 transition-all outline-none">Grabar Registro</button>
                     </div>
-                    {seguimientos.map(s => (<div key={s.id} className="p-8 border border-slate-100 rounded-[35px] flex items-start gap-6 bg-white shadow-sm hover:shadow-md transition-shadow"><div className="bg-blue-100 p-4 rounded-2xl text-blue-600 shrink-0 shadow-inner"><MessageSquare size={24}/></div><div className="flex-1"><div className="flex justify-between items-center mb-2"><p className="text-xs font-black text-slate-800 uppercase tracking-widest">{s.responsable}</p><span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full">{new Date(s.fecha).toLocaleDateString()}</span></div><p className="text-sm text-slate-500 font-medium italic">"{s.observaciones}"</p></div></div>))}
+                    {seguimientos.map(s => (<div key={s.id} className="p-8 border border-slate-100 rounded-[35px] flex items-start gap-6 bg-white shadow-sm hover:shadow-md transition-shadow"><div className="bg-blue-100 p-4 rounded-2xl text-blue-600 shrink-0 shadow-inner"><MessageSquare size={24}/></div><div className="flex-1 font-sans"><div className="flex justify-between items-center mb-2"><p className="text-xs font-black text-slate-800 uppercase tracking-widest">{s.responsable}</p><span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full">{new Date(s.fecha).toLocaleDateString()}</span></div><p className="text-sm text-slate-500 font-medium italic">"{s.observaciones}"</p></div></div>))}
                   </div>
                 )}
                 {activeTab === 4 && (
-                  <div className="grid grid-cols-2 gap-12 animate-in fade-in duration-300">
-                    <div className="col-span-2 bg-emerald-50 p-12 rounded-[45px] border border-emerald-100 flex items-center gap-8 shadow-inner"><input type="checkbox" className="w-12 h-12 accent-emerald-600 rounded-2xl shadow-sm cursor-pointer hover:scale-110 transition-transform" checked={editingDoc.cargado_sisged} onChange={e => setEditingDoc({...editingDoc, cargado_sisged: e.target.checked})}/><div><label className="font-black text-emerald-900 uppercase text-xs tracking-[0.2em] block mb-1">Cargado en SISGED (Col AB)</label><p className="text-[10px] text-emerald-700 font-bold opacity-60">Marque para finalizar como RECUPERADO</p></div></div>
+                  <div className="grid grid-cols-2 gap-12 animate-in fade-in duration-300 font-sans">
+                    <div className="col-span-2 bg-emerald-50 p-12 rounded-[45px] border border-emerald-100 flex items-center gap-8 shadow-inner"><input type="checkbox" className="w-12 h-12 accent-emerald-600 rounded-2xl shadow-sm cursor-pointer hover:scale-110 transition-transform shadow-lg" checked={editingDoc.cargado_sisged} onChange={e => setEditingDoc({...editingDoc, cargado_sisged: e.target.checked})}/><div><label className="font-black text-emerald-900 uppercase text-xs tracking-[0.2em] block mb-1">Cargado en SISGED (Col AB)</label><p className="text-[10px] text-emerald-700 font-bold opacity-60">Marque para finalizar documento como RECUPERADO</p></div></div>
                     <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado Final (Col AC)</label><select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase cursor-pointer" value={editingDoc.estado_final || 'PENDIENTE'} onChange={e => setEditingDoc({...editingDoc, estado_final: e.target.value})}><option value="PENDIENTE">PENDIENTE</option><option value="RECUPERADO">RECUPERADO</option><option value="RECONSTRUCCION">RECONSTRUCCION</option></select></div>
                     <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Oficina de Destino (Col AA)</label><input type="text" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs" value={editingDoc.oficina_destino || ''} onChange={e => setEditingDoc({...editingDoc, oficina_destino: e.target.value})}/></div>
-                    <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Remisión (Col W)</label><input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs" value={editingDoc.fecha_remision || ''} onChange={e => setEditingDoc({...editingDoc, fecha_remision: e.target.value})}/></div>
+                    <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Remisión (Col W)</label><input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner" value={editingDoc.fecha_remision || ''} onChange={e => setEditingDoc({...editingDoc, fecha_remision: e.target.value})}/></div>
                     <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Resp. Devolución (Col X)</label><input type="text" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs" value={editingDoc.responsable_devolucion || ''} onChange={e => setEditingDoc({...editingDoc, responsable_devolucion: e.target.value})}/></div>
                     <div className="col-span-2 space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Observaciones Finales (Col AD)</label><textarea className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-medium text-xs shadow-inner" rows="3" value={editingDoc.observaciones_finales || ''} onChange={e => setEditingDoc({...editingDoc, observaciones_finales: e.target.value})}></textarea></div>
                   </div>
                 )}
               </div>
             </div>
-            <div className="p-10 bg-slate-50 border-t flex justify-end gap-6 shrink-0"><button onClick={() => setEditingDoc(null)} className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-10 hover:text-slate-700 transition-colors">Descartar</button><button onClick={async () => {
+            <div className="p-10 bg-slate-50 border-t flex justify-end gap-6 shrink-0 font-sans"><button onClick={() => setEditingDoc(null)} className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-10 hover:text-slate-700">Descartar</button><button onClick={async () => {
                 const { error } = await supabase.from('documentos').update(editingDoc).eq('id', editingDoc.id);
-                if (!error) { alert('Sincronización Exitosa'); setEditingDoc(null); fetchDocs(); }
-              }} className="bg-[#2563EB] text-white px-16 py-5 rounded-3xl font-black text-xs uppercase shadow-2xl tracking-[0.2em] hover:scale-[1.02] active:scale-95 transition-all">Sincronizar Cambios</button></div>
+                if (!error) { alert('Sincronizado'); setEditingDoc(null); fetchDocs(); }
+              }} className="bg-[#2563EB] text-white px-16 py-5 rounded-3xl font-black text-xs uppercase shadow-2xl tracking-[0.2em] hover:scale-[1.02] active:scale-95 transition-all outline-none">Sincronizar Cambios</button></div>
           </div>
         </div>
       )}
 
-      {/* --- MODAL NUEVO TOTAL --- */}
+      {/* --- MODAL NUEVO EXPEDIENTE (TOTAL) --- */}
       {isNewModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xl flex items-center justify-center z-[110] p-6 animate-in zoom-in duration-300">
-          <div className="bg-white rounded-[50px] w-full max-w-xl shadow-2xl p-12 space-y-10 border border-white">
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xl flex items-center justify-center z-[110] p-6 animate-in zoom-in duration-300 font-sans">
+          <div className="bg-white rounded-[50px] w-full max-w-xl shadow-2xl p-12 space-y-10 border border-white relative">
+            <button onClick={() => setIsNewModalOpen(false)} className="absolute right-8 top-8 text-slate-300 hover:text-slate-600 transition-colors"><X/></button>
             <h3 className="text-2xl font-black uppercase text-center tracking-tighter text-slate-800 tracking-[0.1em]">Nuevo Expediente</h3>
             <div className="grid grid-cols-2 gap-6">
               <input type="text" placeholder="CUT" className="w-full p-5 bg-slate-50 border-none rounded-3xl outline-none font-bold shadow-inner" id="n_cut" />
@@ -454,16 +475,10 @@ export default function SistemaSIGERED() {
               <select className="w-full p-5 bg-slate-50 border-none rounded-3xl font-black text-[10px] uppercase shadow-inner cursor-pointer" id="n_origen"><option value="Externo">Externo</option><option value="Interno">Interno</option></select>
             </div>
             <button onClick={async () => {
-              const doc = { 
-                cut: document.getElementById('n_cut').value, documento: document.getElementById('n_doc').value,
-                remitente: document.getElementById('n_rem').value, fecha_registro: document.getElementById('n_fecha').value,
-                celular: document.getElementById('n_cel').value, procedimiento: document.getElementById('n_proc').value,
-                sede: document.getElementById('n_sede').value, origen: document.getElementById('n_origen').value,
-                etapa_actual: 'VERIFICACION', estado_final: 'PENDIENTE', creado_at: new Date().toISOString()
-              };
+              const doc = { cut: document.getElementById('n_cut').value, documento: document.getElementById('n_doc').value, remitente: document.getElementById('n_rem').value, fecha_registro: document.getElementById('n_fecha').value, celular: document.getElementById('n_cel').value, procedimiento: document.getElementById('n_proc').value, sede: document.getElementById('n_sede').value, origen: document.getElementById('n_origen').value, etapa_actual: 'VERIFICACION', estado_final: 'PENDIENTE', creado_at: new Date().toISOString() };
               const { error } = await supabase.from('documentos').insert([doc]);
               if (!error) { setIsNewModalOpen(false); fetchDocs(); } else alert("Error (Verifique duplicados)");
-            }} className="w-full bg-[#2563EB] text-white py-6 rounded-[30px] font-black uppercase shadow-2xl tracking-[0.3em] hover:bg-blue-700 transition-all">Registrar Documento</button>
+            }} className="w-full bg-[#2563EB] text-white py-6 rounded-[30px] font-black uppercase shadow-2xl tracking-[0.3em] hover:bg-blue-700 transition-all active:scale-95 outline-none">Registrar Documento</button>
           </div>
         </div>
       )}
