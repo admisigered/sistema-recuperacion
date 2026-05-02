@@ -424,15 +424,20 @@ export default function SistemaSIGERED() {
             </div>
             <div className="flex flex-1 overflow-hidden font-sans font-sans font-sans font-sans">
               <div className="w-80 bg-slate-50 border-r p-10 space-y-4 shrink-0 font-sans font-sans font-bold">
-                <button onClick={() => setActiveTab(1)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between ${activeTab === 1 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}>1. VERIFICACIÓN <UserCheck size={16}/></button>
-                {String(editingDoc.origen).toUpperCase() === 'EXTERNO' && (
-                  <>
-                    <button onClick={() => setActiveTab(2)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between ${activeTab === 2 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}>2. REQUERIMIENTO <Truck size={16}/></button>
-                    <button onClick={() => setActiveTab(3)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between ${activeTab === 3 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}>3. SEGUIMIENTO ({seguimientos.length}) <MessageSquare size={16}/></button>
-                  </>
-                )}
-                <button onClick={() => setActiveTab(4)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between ${activeTab === 4 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}>4. CIERRE <Save size={16}/></button>
-              </div>
+  {/* Etapa 1 siempre visible */}
+  <button onClick={() => setActiveTab(1)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between ${activeTab === 1 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}>1. VERIFICACIÓN <UserCheck size={16}/></button>
+  
+  {/* Etapas 2 y 3 SOLO para Externos */}
+  {String(editingDoc.origen).toUpperCase() === 'EXTERNO' && (
+    <>
+      <button onClick={() => setActiveTab(2)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between shadow-sm ${activeTab === 2 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}>2. REQUERIMIENTO <Truck size={16}/></button>
+      <button onClick={() => setActiveTab(3)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between shadow-sm ${activeTab === 3 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}>3. SEGUIMIENTO ({seguimientos.length}) <MessageSquare size={16}/></button>
+    </>
+  )}
+  
+  {/* Etapa 4 siempre visible al final (esto arregla tu problema) */}
+  <button onClick={() => setActiveTab(4)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between shadow-sm ${activeTab === 4 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}>4. CIERRE <Save size={16}/></button>
+</div>
               <div className="flex-1 p-14 overflow-y-auto bg-white font-sans font-sans font-sans">
                 {activeTab === 1 && (
                   <div className="grid grid-cols-2 gap-12 animate-in fade-in duration-300 font-sans">
@@ -497,34 +502,49 @@ export default function SistemaSIGERED() {
                   <div className="space-y-12 animate-in fade-in duration-300 font-sans">
                     <div className="bg-slate-50 p-10 rounded-[40px] space-y-6 border border-slate-200">
                       <h4 className="font-black text-xs uppercase text-slate-600 tracking-widest">Registrar Nuevo Seguimiento</h4>
-                      <div className="grid grid-cols-2 gap-4">
-                        <select className="p-5 rounded-2xl border bg-white font-black text-[10px] uppercase shadow-inner outline-none" id="s_res">
-                          <option value="">RESPONSABLE...</option>
-                          {LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r}</option>)}
-                        </select>
-                        <select className="p-5 rounded-2xl border bg-white font-black text-[10px] uppercase shadow-inner outline-none" id="s_med">
-                          <option value="">MEDIO...</option>
-                          <option value="LLAMADA">LLAMADA</option>
-                          <option value="WHATSAPP">WHATSAPP</option>
-                          <option value="CORREO">CORREO</option>
-                        </select>
-                      </div>
+                     <div className="grid grid-cols-3 gap-4">
+  <div className="space-y-1">
+    <label className="text-[10px] font-bold text-slate-400 ml-1">FECHA SEGUIMIENTO</label>
+    <input type="date" id="s_fec" className="p-4 rounded-2xl border bg-white font-bold text-xs w-full shadow-inner" defaultValue={new Date().toISOString().split('T')[0]} />
+  </div>
+  <div className="space-y-1">
+    <label className="text-[10px] font-bold text-slate-400 ml-1">RESPONSABLE</label>
+    <select className="p-4 rounded-2xl border bg-white font-black text-[10px] uppercase shadow-inner outline-none w-full" id="s_res">
+      <option value="">RESPONSABLE...</option>
+      {LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r}</option>)}
+    </select>
+  </div>
+  <div className="space-y-1">
+    <label className="text-[10px] font-bold text-slate-400 ml-1">MEDIO</label>
+    <select className="p-5 rounded-2xl border bg-white font-black text-[10px] uppercase shadow-inner outline-none w-full" id="s_med">
+      <option value="">MEDIO...</option>
+      <option value="LLAMADA">LLAMADA</option>
+      <option value="WHATSAPP">WHATSAPP</option>
+      <option value="CORREO">CORREO</option>
+    </select>
+  </div>
+</div>
                       <textarea id="s_obs" className="w-full p-6 rounded-[30px] border border-slate-100 bg-white text-sm outline-none shadow-inner font-medium shadow-slate-200" rows="3" placeholder="Detalles del contacto con el remitente..."></textarea>
                       <button onClick={async () => {
-                        const o = document.getElementById('s_obs').value; 
-                        const r = document.getElementById('s_res').value; 
-                        const m = document.getElementById('s_med').value; 
-                        if(!o || !r || !m) return alert("Escriba todos los detalles.");
-                        const { error } = await supabase.from('seguimientos').insert([{ documento_id: editingDoc.id, responsable: r, medio: m, observaciones: o, fecha: new Date().toISOString() }]);
-                        if(!error) { 
-                          await supabase.from('documentos').update({ ultimo_seguimiento: new Date().toISOString() }).eq('id', editingDoc.id); 
-                          document.getElementById('s_obs').value = ''; 
-                          alert("Seguimiento Grabado"); 
-                          const { data } = await supabase.from('seguimientos').select('*').eq('documento_id', editingDoc.id).order('fecha', { ascending: false });
-                          setSeguimientos(data || []);
-                          fetchDocs(); 
-                        }
-                      }} className="bg-blue-600 text-white font-black py-5 px-12 rounded-3xl text-xs uppercase shadow-2xl shadow-blue-200 tracking-[0.2em] hover:scale-105 transition-all outline-none">Grabar Seguimiento</button>
+  const o = document.getElementById('s_obs').value; 
+  const r = document.getElementById('s_res').value; 
+  const m = document.getElementById('s_med').value; 
+  const f = document.getElementById('s_fec').value; // Captura la nueva fecha
+  if(!o || !r || !m || !f) return alert("Complete todos los campos, incluyendo la fecha.");
+  
+  const { error } = await supabase.from('seguimientos').insert([
+    { documento_id: editingDoc.id, responsable: r, medio: m, observaciones: o, fecha: f }
+  ]);
+  
+  if(!error) { 
+    await supabase.from('documentos').update({ ultimo_seguimiento: new Date().toISOString() }).eq('id', editingDoc.id); 
+    document.getElementById('s_obs').value = ''; 
+    alert("Seguimiento Grabado"); 
+    const { data } = await supabase.from('seguimientos').select('*').eq('documento_id', editingDoc.id).order('fecha', { ascending: false });
+    setSeguimientos(data || []);
+    fetchDocs(); 
+  }
+}} className="bg-blue-600 text-white font-black py-5 px-12 rounded-3xl text-xs uppercase shadow-2xl shadow-blue-200 tracking-[0.2em] hover:scale-105 transition-all outline-none">Grabar Seguimiento</button>
                     </div>
                     {seguimientos.map(s => (
                       <div key={s.id} className="p-8 border border-slate-100 rounded-[35px] flex items-start gap-6 bg-white shadow-sm hover:shadow-md transition-shadow font-sans">
