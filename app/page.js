@@ -200,24 +200,40 @@ export default function SistemaSIGERED() {
     if (!editingDoc) return;
     try {
         setLoading(true);
-        // Desestructuramos para no enviar campos calculados que Supabase no tiene
+        // Filtramos para enviar solo los campos que existen en la base de datos
         const { id, creado_at, ultimo_seguimiento, ...updateData } = editingDoc;
-        
-        const { error } = await supabase
-            .from('documentos')
-            .update(updateData)
-            .eq('id', id);
-
+        const { error } = await supabase.from('documentos').update(updateData).eq('id', id);
         if (error) throw error;
-
-        alert('Registro Sincronizado con Éxito'); 
+        alert('Sincronización Exitosa'); 
         setEditingDoc(null); 
-        await fetchDocs(); // Refresca la tabla principal
-    } catch (err) { 
-        alert('Error en el servidor: ' + err.message); 
-    } finally { 
-        setLoading(false); 
+        await fetchDocs(); // Refresca la tabla automáticamente
+    } catch (err) { alert('Error: ' + err.message); }
+    finally { setLoading(false); }
+  };
+
+  const handleBulkDelete = async () => {
+    if (session.user !== 'ADMINISTRADOR') return alert("Solo administrador.");
+    if (confirm(`¿Eliminar ${selectedIds.length} registros?`)) {
+      await supabase.from('documentos').delete().in('id', selectedIds);
+      setSelectedIds([]); fetchDocs();
     }
+  };
+
+  const handleDeleteIndividual = async (id) => {
+    if (session.user !== 'ADMINISTRADOR') return alert("Solo administrador.");
+    if (confirm("¿Eliminar registro?")) {
+      await supabase.from('documentos').delete().eq('id', id);
+      fetchDocs();
+    }
+  };
+
+  const toggleSelectDoc = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+
+  const handleExport = () => {
+    const ws = XLSX.utils.json_to_sheet(docs);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "SIGERED");
+    XLSX.writeFile(wb, "Reporte_Sistemas.xlsx");
   };
 
   // --- 6. DASHBOARD BARRAS ---
@@ -411,148 +427,11 @@ export default function SistemaSIGERED() {
                 <button onClick={() => setActiveTab(1)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between ${activeTab === 1 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}>1. VERIFICACIÓN <UserCheck size={16}/></button>
                 {String(editingDoc.origen).toUpperCase() === 'EXTERNO' && (
                   <>
-                    <button onClick={() => setActiveTab(2)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between ${activeTab === 2 && (
-  <div className="grid grid-cols-2 gap-12 animate-in fade-in duration-300">
-    <div className="space-y-3">
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Responsable del Requerimiento</label>
-      <select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase cursor-pointer shadow-inner" value={editingDoc.responsable_requerimiento || ''} onChange={e => setEditingDoc({...editingDoc, responsable_requerimiento: e.target.value})}>
-        <option value="">SELECCIONE...</option>
-        {LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r}</option>)}
-      </select>
-    </div>
-    <div className="space-y-3">
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha de Elaboración</label>
-      <input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner" value={editingDoc.fecha_elaboracion || ''} onChange={e => setEditingDoc({...editingDoc, fecha_elaboracion: e.target.value})}/>
-    </div>
-    <div className="space-y-3">
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Número de Documento Generado</label>
-      <input type="text" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner" value={editingDoc.numero_documento || ''} onChange={e => setEditingDoc({...editingDoc, numero_documento: e.target.value})}/>
-    </div>
-    <div className="space-y-3">
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha de Notificación</label>
-      <input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner" value={editingDoc.fecha_notificacion || ''} onChange={e => setEditingDoc({...editingDoc, fecha_notificacion: e.target.value})}/>
-    </div>
-    <div className="space-y-3">
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Medio de Notificación</label>
-      <select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase cursor-pointer shadow-inner" value={editingDoc.medio_notificacion || ''} onChange={e => setEditingDoc({...editingDoc, medio_notificacion: e.target.value})}>
-        <option value="">SELECCIONE...</option>
-        <option value="DIGITAL">DIGITAL</option>
-        <option value="COURIER">COURIER</option>
-      </select>
-    </div>
-    <div className="col-span-1 bg-blue-50 p-10 rounded-[40px] border border-blue-100 flex items-center justify-between shadow-inner">
-      <div>
-        <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Días Hábiles Transcurridos</p>
-        <p className="text-6xl font-black text-blue-600 mt-2">{calcularDiasHabiles(editingDoc.fecha_notificacion)}</p>
-      </div>
-      <Clock size={80} className="text-blue-200 opacity-50"/>
-    </div>
-    <div className="col-span-2 space-y-3">
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Observaciones Requerimiento</label>
-      <textarea className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-medium text-xs shadow-inner" rows="2" value={editingDoc.observaciones_requerimiento || ''} onChange={e => setEditingDoc({...editingDoc, observaciones_requerimiento: e.target.value})}></textarea>
-    </div>
-  </div>
-)}
-                    <button onClick={() => setActiveTab(3)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between ${activeTab === 3 && (
-  <div className="space-y-12 animate-in fade-in duration-300">
-    <div className="bg-slate-50 p-10 rounded-[40px] space-y-6 border border-slate-200">
-      <h4 className="font-black text-xs uppercase text-slate-600 tracking-widest">Registrar Nuevo Seguimiento</h4>
-      <div className="grid grid-cols-2 gap-4">
-        <select className="p-5 rounded-2xl border bg-white font-black text-[10px] uppercase shadow-inner outline-none" id="s_res">
-          <option value="">RESPONSABLE...</option>
-          {LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r}</option>)}
-        </select>
-        <select className="p-5 rounded-2xl border bg-white font-black text-[10px] uppercase shadow-inner outline-none" id="s_med">
-          <option value="">MEDIO...</option>
-          <option value="LLAMADA">LLAMADA</option>
-          <option value="WHATSAPP">WHATSAPP</option>
-          <option value="CORREO">CORREO</option>
-        </select>
-      </div>
-      <textarea id="s_obs" className="w-full p-6 rounded-[30px] border border-slate-100 bg-white text-sm outline-none shadow-inner font-medium shadow-slate-200" rows="3" placeholder="Detalles del contacto con el remitente..."></textarea>
-      <button onClick={async () => {
-        const o = document.getElementById('s_obs').value; 
-        const r = document.getElementById('s_res').value; 
-        const m = document.getElementById('s_med').value; 
-        if(!o || !r || !m) return alert("Escriba todos los detalles.");
-        const { error } = await supabase.from('seguimientos').insert([{ documento_id: editingDoc.id, responsable: r, medio: m, observaciones: o, fecha: new Date().toISOString() }]);
-        if(!error) { 
-          await supabase.from('documentos').update({ ultimo_seguimiento: new Date().toISOString() }).eq('id', editingDoc.id); 
-          document.getElementById('s_obs').value = ''; 
-          alert("Seguimiento Grabado"); 
-          // Recargar seguimientos locales
-          const { data } = await supabase.from('seguimientos').select('*').eq('documento_id', editingDoc.id).order('fecha', { ascending: false });
-          setSeguimientos(data || []);
-          fetchDocs(); 
-        }
-      }} className="bg-blue-600 text-white font-black py-5 px-12 rounded-3xl text-xs uppercase shadow-2xl shadow-blue-200 tracking-[0.2em] hover:scale-105 transition-all outline-none">Grabar Seguimiento</button>
-    </div>
-    <div className="space-y-8">
-      <h4 className="font-black text-[10px] uppercase text-slate-400 tracking-widest ml-4">Historial de Seguimientos ({seguimientos.length})</h4>
-      {seguimientos.map(s => (
-        <div key={s.id} className="p-8 border border-slate-100 rounded-[35px] flex items-start gap-6 bg-white shadow-sm hover:shadow-md transition-shadow">
-          <div className="bg-blue-100 p-4 rounded-2xl text-blue-600 shrink-0 shadow-inner"><MessageSquare size={24}/></div>
-          <div className="flex-1">
-            <div className="flex justify-between items-center mb-2">
-              <p className="text-xs font-black text-slate-800 uppercase tracking-widest">{s.responsable}</p>
-              <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full">{new Date(s.fecha).toLocaleDateString()}</span>
-            </div>
-            <p className="text-[10px] font-black text-blue-600 uppercase mb-2">Canal: {s.medio}</p>
-            <p className="text-sm text-slate-500 font-medium italic">"{s.observaciones}"</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
+                    <button onClick={() => setActiveTab(2)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between ${activeTab === 2 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}>2. REQUERIMIENTO <Truck size={16}/></button>
+                    <button onClick={() => setActiveTab(3)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between ${activeTab === 3 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}>3. SEGUIMIENTO ({seguimientos.length}) <MessageSquare size={16}/></button>
                   </>
                 )}
-                <button onClick={() => setActiveTab(4)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between ${activeTab === 4 && (
-  <div className="grid grid-cols-2 gap-12 animate-in fade-in duration-300">
-    <div className="col-span-2 bg-emerald-50 p-12 rounded-[45px] border border-emerald-100 flex items-center gap-8 shadow-inner">
-       <input type="checkbox" className="w-12 h-12 accent-emerald-600 rounded-2xl shadow-sm cursor-pointer hover:scale-110 transition-transform shadow-lg" checked={editingDoc.cargado_sisged} onChange={e => setEditingDoc({...editingDoc, cargado_sisged: e.target.checked})}/>
-       <div>
-         <label className="font-black text-emerald-900 uppercase text-xs tracking-[0.2em] block mb-1">Cargado en SISGED (Col AB)</label>
-         <p className="text-[10px] text-emerald-700 font-bold opacity-60">Marque para finalizar documento como RECUPERADO.</p>
-       </div>
-    </div>
-    <div className="space-y-3">
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado Final de Recuperación (Col AC)</label>
-      <select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase cursor-pointer shadow-inner" value={editingDoc.estado_final || 'PENDIENTE'} onChange={e => setEditingDoc({...editingDoc, estado_final: e.target.value})}>
-        <option value="PENDIENTE">PENDIENTE</option>
-        <option value="RECUPERADO">RECUPERADO</option>
-        <option value="RECONSTRUCCION">RECONSTRUCCION</option>
-      </select>
-    </div>
-    <div className="space-y-3">
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Oficina de Destino (Col AA)</label>
-      <input type="text" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner shadow-slate-200 shadow-inner" value={editingDoc.oficina_destino || ''} onChange={e => setEditingDoc({...editingDoc, oficina_destino: e.target.value})}/>
-    </div>
-    <div className="space-y-3">
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Remisión (Col W)</label>
-      <input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner shadow-slate-200 shadow-inner" value={editingDoc.fecha_remision || ''} onChange={e => setEditingDoc({...editingDoc, fecha_remision: e.target.value})}/>
-    </div>
-    <div className="space-y-3">
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Resp. Devolución (Col X)</label>
-      <select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase cursor-pointer shadow-inner shadow-slate-200 font-sans" value={editingDoc.responsable_devolucion || ''} onChange={e => setEditingDoc({...editingDoc, responsable_devolucion: e.target.value})}>
-        <option value="">SELECCIONE...</option>
-        {LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r}</option>)}
-      </select>
-    </div>
-    <div className="space-y-3">
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Devolución (Col Y)</label>
-      <input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner shadow-slate-200 shadow-inner" value={editingDoc.fecha_devolucion || ''} onChange={e => setEditingDoc({...editingDoc, fecha_devolucion: e.target.value})}/>
-    </div>
-    <div className="space-y-3">
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">N° Documento Cierre (Col Z)</label>
-      <input type="text" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner shadow-slate-200 shadow-inner" value={editingDoc.documento_cierre || ''} onChange={e => setEditingDoc({...editingDoc, documento_cierre: e.target.value})}/>
-    </div>
-    <div className="col-span-2 space-y-3">
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Observaciones Finales (Col AD)</label>
-      <textarea className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-medium text-xs shadow-inner shadow-slate-200 shadow-inner" rows="3" value={editingDoc.observaciones_finales || ''} onChange={e => setEditingDoc({...editingDoc, observaciones_finales: e.target.value})}></textarea>
-    </div>
-  </div>
-)}
+                <button onClick={() => setActiveTab(4)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between ${activeTab === 4 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}>4. CIERRE <Save size={16}/></button>
               </div>
               <div className="flex-1 p-14 overflow-y-auto bg-white font-sans font-sans font-sans">
                 {activeTab === 1 && (
@@ -571,23 +450,142 @@ export default function SistemaSIGERED() {
                     <div className="col-span-2 space-y-3 font-sans"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-sans font-bold">Observaciones (Col M)</label><textarea className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-medium text-xs shadow-inner shadow-slate-200 shadow-inner shadow-slate-200 shadow-slate-100 shadow-inner font-sans font-bold" rows="3" value={editingDoc.observaciones || ''} onChange={e => setEditingDoc({...editingDoc, observaciones: e.target.value})}></textarea></div>
                   </div>
                 )}
-                {activeTab === 3 && (
-                  <div className="space-y-12 animate-in fade-in duration-300 font-sans font-sans font-sans">
-                    <div className="bg-slate-50 p-10 rounded-[40px] space-y-6 border border-slate-200 font-sans font-sans font-sans"><h4 className="font-black text-xs uppercase text-slate-600 tracking-widest font-sans font-sans font-sans">Registrar Nuevo Seguimiento</h4><textarea id="s_obs" className="w-full p-6 rounded-[30px] border border-slate-100 bg-white text-sm outline-none shadow-inner font-medium shadow-slate-100 shadow-inner font-sans font-sans font-sans" rows="3" placeholder="Detalles del contacto con el remitente..."></textarea>
-                      <button onClick={async () => {
-                        const o = document.getElementById('s_obs').value; if(!o) return alert("Escriba un detalle.");
-                        const { error } = await supabase.from('seguimientos').insert([{ documento_id: editingDoc.id, responsable: session.user, observaciones: o, fecha: new Date().toISOString() }]);
-                        if(!error) { await supabase.from('documentos').update({ ultimo_seguimiento: new Date().toISOString() }).eq('id', editingDoc.id); document.getElementById('s_obs').value = ''; alert("Seguimiento Grabado"); fetchDocs(); }
-                      }} className="bg-blue-600 text-white font-black py-5 px-12 rounded-3xl text-xs uppercase shadow-2xl shadow-blue-200 tracking-[0.2em] hover:scale-105 transition-all outline-none font-sans font-sans font-sans">Grabar Seguimiento</button>
+               {activeTab === 2 && (
+                  <div className="grid grid-cols-2 gap-12 animate-in fade-in duration-300 font-sans">
+                    <div className="space-y-3 font-sans font-bold">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Responsable del Requerimiento</label>
+                      <select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase cursor-pointer shadow-inner" value={editingDoc.responsable_requerimiento || ''} onChange={e => setEditingDoc({...editingDoc, responsable_requerimiento: e.target.value})}>
+                        <option value="">SELECCIONE...</option>
+                        {LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
                     </div>
-                    {seguimientos.map(s => (<div key={s.id} className="p-8 border border-slate-100 rounded-[35px] flex items-start gap-6 bg-white shadow-sm hover:shadow-md transition-shadow font-sans font-sans font-sans"><div className="bg-blue-100 p-4 rounded-2xl text-blue-600 shrink-0 shadow-inner font-sans"><MessageSquare size={24}/></div><div className="flex-1 font-sans font-sans font-sans"><div className="flex justify-between items-center mb-2 font-sans font-sans font-sans font-sans font-sans"><p className="text-xs font-black text-slate-800 uppercase tracking-widest font-sans font-sans">{s.responsable}</p><span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full font-sans font-sans font-sans font-sans font-sans">{new Date(s.fecha).toLocaleDateString()}</span></div><p className="text-sm text-slate-500 font-medium italic font-sans font-sans font-sans font-sans font-sans">"{s.observaciones}"</p></div></div>))}
+                    <div className="space-y-3 font-sans font-bold">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha de Elaboración</label>
+                      <input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner" value={editingDoc.fecha_elaboracion || ''} onChange={e => setEditingDoc({...editingDoc, fecha_elaboracion: e.target.value})}/>
+                    </div>
+                    <div className="space-y-3 font-sans font-bold">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Número de Documento Generado</label>
+                      <input type="text" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner" value={editingDoc.numero_documento || ''} onChange={e => setEditingDoc({...editingDoc, numero_documento: e.target.value})}/>
+                    </div>
+                    <div className="space-y-3 font-sans font-bold">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha de Notificación</label>
+                      <input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner" value={editingDoc.fecha_notificacion || ''} onChange={e => setEditingDoc({...editingDoc, fecha_notificacion: e.target.value})}/>
+                    </div>
+                    <div className="space-y-3 font-sans font-bold">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Medio de Notificación</label>
+                      <select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase cursor-pointer shadow-inner" value={editingDoc.medio_notificacion || ''} onChange={e => setEditingDoc({...editingDoc, medio_notificacion: e.target.value})}>
+                        <option value="">SELECCIONE...</option>
+                        <option value="DIGITAL">DIGITAL</option>
+                        <option value="COURIER">COURIER</option>
+                      </select>
+                    </div>
+                    <div className="col-span-1 bg-blue-50 p-10 rounded-[40px] border border-blue-100 flex items-center justify-between shadow-inner">
+                      <div>
+                        <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Días Hábiles Transcurridos</p>
+                        <p className="text-6xl font-black text-blue-600 mt-2">{calcularDiasHabiles(editingDoc.fecha_notificacion)}</p>
+                      </div>
+                      <Clock size={80} className="text-blue-200 opacity-50"/>
+                    </div>
+                    <div className="col-span-2 space-y-3 font-sans font-bold">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Observaciones Requerimiento</label>
+                      <textarea className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-medium text-xs shadow-inner" rows="2" value={editingDoc.observaciones_requerimiento || ''} onChange={e => setEditingDoc({...editingDoc, observaciones_requerimiento: e.target.value})}></textarea>
+                    </div>
                   </div>
                 )}
+
+                {activeTab === 3 && (
+                  <div className="space-y-12 animate-in fade-in duration-300 font-sans">
+                    <div className="bg-slate-50 p-10 rounded-[40px] space-y-6 border border-slate-200">
+                      <h4 className="font-black text-xs uppercase text-slate-600 tracking-widest">Registrar Nuevo Seguimiento</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <select className="p-5 rounded-2xl border bg-white font-black text-[10px] uppercase shadow-inner outline-none" id="s_res">
+                          <option value="">RESPONSABLE...</option>
+                          {LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                        <select className="p-5 rounded-2xl border bg-white font-black text-[10px] uppercase shadow-inner outline-none" id="s_med">
+                          <option value="">MEDIO...</option>
+                          <option value="LLAMADA">LLAMADA</option>
+                          <option value="WHATSAPP">WHATSAPP</option>
+                          <option value="CORREO">CORREO</option>
+                        </select>
+                      </div>
+                      <textarea id="s_obs" className="w-full p-6 rounded-[30px] border border-slate-100 bg-white text-sm outline-none shadow-inner font-medium shadow-slate-200" rows="3" placeholder="Detalles del contacto con el remitente..."></textarea>
+                      <button onClick={async () => {
+                        const o = document.getElementById('s_obs').value; 
+                        const r = document.getElementById('s_res').value; 
+                        const m = document.getElementById('s_med').value; 
+                        if(!o || !r || !m) return alert("Escriba todos los detalles.");
+                        const { error } = await supabase.from('seguimientos').insert([{ documento_id: editingDoc.id, responsable: r, medio: m, observaciones: o, fecha: new Date().toISOString() }]);
+                        if(!error) { 
+                          await supabase.from('documentos').update({ ultimo_seguimiento: new Date().toISOString() }).eq('id', editingDoc.id); 
+                          document.getElementById('s_obs').value = ''; 
+                          alert("Seguimiento Grabado"); 
+                          const { data } = await supabase.from('seguimientos').select('*').eq('documento_id', editingDoc.id).order('fecha', { ascending: false });
+                          setSeguimientos(data || []);
+                          fetchDocs(); 
+                        }
+                      }} className="bg-blue-600 text-white font-black py-5 px-12 rounded-3xl text-xs uppercase shadow-2xl shadow-blue-200 tracking-[0.2em] hover:scale-105 transition-all outline-none">Grabar Seguimiento</button>
+                    </div>
+                    {seguimientos.map(s => (
+                      <div key={s.id} className="p-8 border border-slate-100 rounded-[35px] flex items-start gap-6 bg-white shadow-sm hover:shadow-md transition-shadow font-sans">
+                        <div className="bg-blue-100 p-4 rounded-2xl text-blue-600 shrink-0 shadow-inner"><MessageSquare size={24}/></div>
+                        <div className="flex-1 font-sans">
+                          <div className="flex justify-between items-center mb-2 font-sans">
+                            <p className="text-xs font-black text-slate-800 uppercase tracking-widest">{s.responsable}</p>
+                            <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full">{new Date(s.fecha).toLocaleDateString()}</span>
+                          </div>
+                          <p className="text-[10px] font-black text-blue-600 uppercase mb-2">Canal: {s.medio}</p>
+                          <p className="text-sm text-slate-500 font-medium italic">"{s.observaciones}"</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {activeTab === 4 && (
-                  <div className="grid grid-cols-2 gap-12 animate-in fade-in duration-300 font-sans font-sans font-sans font-sans font-sans">
-                    <div className="col-span-2 bg-emerald-50 p-12 rounded-[45px] border border-emerald-100 flex items-center gap-8 shadow-inner font-sans font-sans font-sans font-sans font-sans"><input type="checkbox" className="w-12 h-12 accent-emerald-600 rounded-2xl shadow-sm cursor-pointer hover:scale-110 transition-transform shadow-lg shadow-blue-900/10 font-sans font-sans font-sans font-bold" checked={editingDoc.cargado_sisged} onChange={e => setEditingDoc({...editingDoc, cargado_sisged: e.target.checked})}/><div><label className="font-black text-emerald-900 uppercase text-xs tracking-[0.2em] block mb-1 font-sans font-sans font-sans font-sans font-bold font-bold font-bold">Cargado en SISGED (Col AB)</label><p className="text-[10px] text-emerald-700 font-bold opacity-60 font-sans font-sans font-sans font-sans font-sans">Marque para finalizar documento como RECUPERADO institucionalmente.</p></div></div>
-                    <div className="space-y-3 font-sans font-sans font-sans font-sans font-bold font-bold font-bold"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-sans font-sans font-bold font-bold font-bold">Estado Final de Recuperación (Col AC)</label><select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase cursor-pointer shadow-inner font-bold font-bold" value={editingDoc.estado_final || 'PENDIENTE'} onChange={e => setEditingDoc({...editingDoc, estado_final: e.target.value})}><option value="PENDIENTE">PENDIENTE</option><option value="RECUPERADO">RECUPERADO</option><option value="RECONSTRUCCION">RECONSTRUCCION</option></select></div>
-                    <div className="col-span-2 space-y-3 font-sans font-sans font-sans font-sans font-sans font-bold font-bold font-bold font-sans font-bold font-bold"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-sans font-sans font-bold font-bold font-bold">Observaciones Finales (Col AD)</label><textarea className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-medium text-xs shadow-inner shadow-slate-200 shadow-inner shadow-slate-200 shadow-inner font-sans font-bold" rows="3" value={editingDoc.observaciones_finales || ''} onChange={e => setEditingDoc({...editingDoc, observaciones_finales: e.target.value})}></textarea></div>
+                  <div className="grid grid-cols-2 gap-12 animate-in fade-in duration-300 font-sans">
+                    <div className="col-span-2 bg-emerald-50 p-12 rounded-[45px] border border-emerald-100 flex items-center gap-8 shadow-inner font-sans">
+                       <input type="checkbox" className="w-12 h-12 accent-emerald-600 rounded-2xl shadow-sm cursor-pointer hover:scale-110 transition-transform shadow-lg" checked={editingDoc.cargado_sisged} onChange={e => setEditingDoc({...editingDoc, cargado_sisged: e.target.checked})}/>
+                       <div>
+                         <label className="font-black text-emerald-900 uppercase text-xs tracking-[0.2em] block mb-1">Cargado en SISGED (Col AB)</label>
+                         <p className="text-[10px] text-emerald-700 font-bold opacity-60">Marque para finalizar documento como RECUPERADO.</p>
+                       </div>
+                    </div>
+                    <div className="space-y-3 font-sans font-bold">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-bold">Estado Final (Col AC)</label>
+                      <select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase cursor-pointer shadow-inner" value={editingDoc.estado_final || 'PENDIENTE'} onChange={e => setEditingDoc({...editingDoc, estado_final: e.target.value})}>
+                        <option value="PENDIENTE">PENDIENTE</option>
+                        <option value="RECUPERADO">RECUPERADO</option>
+                        <option value="RECONSTRUCCION">RECONSTRUCCION</option>
+                      </select>
+                    </div>
+                    <div className="space-y-3 font-sans font-bold">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-bold">Oficina de Destino (Col AA)</label>
+                      <input type="text" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner shadow-slate-200 shadow-inner" value={editingDoc.oficina_destino || ''} onChange={e => setEditingDoc({...editingDoc, oficina_destino: e.target.value})}/>
+                    </div>
+                    <div className="space-y-3 font-sans font-bold">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-bold">Fecha Remisión (Col W)</label>
+                      <input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner shadow-slate-200 shadow-inner" value={editingDoc.fecha_remision || ''} onChange={e => setEditingDoc({...editingDoc, fecha_remision: e.target.value})}/>
+                    </div>
+                    <div className="space-y-3 font-sans font-bold">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-bold">Resp. Devolución (Col X)</label>
+                      <select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase cursor-pointer shadow-inner shadow-slate-200 font-sans" value={editingDoc.responsable_devolucion || ''} onChange={e => setEditingDoc({...editingDoc, responsable_devolucion: e.target.value})}>
+                        <option value="">SELECCIONE...</option>
+                        {LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-3 font-sans font-bold">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-bold">Fecha Devolución (Col Y)</label>
+                      <input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner shadow-slate-200 shadow-inner" value={editingDoc.fecha_devolucion || ''} onChange={e => setEditingDoc({...editingDoc, fecha_devolucion: e.target.value})}/>
+                    </div>
+                    <div className="space-y-3 font-sans font-bold">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-bold">N° Documento Cierre (Col Z)</label>
+                      <input type="text" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner shadow-slate-200 shadow-inner" value={editingDoc.documento_cierre || ''} onChange={e => setEditingDoc({...editingDoc, documento_cierre: e.target.value})}/>
+                    </div>
+                    <div className="col-span-2 space-y-3 font-sans font-bold">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-bold">Observaciones Finales (Col AD)</label>
+                      <textarea className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-medium text-xs shadow-inner shadow-slate-200 shadow-inner shadow-slate-200 shadow-inner" rows="3" value={editingDoc.observaciones_finales || ''} onChange={e => setEditingDoc({...editingDoc, observaciones_finales: e.target.value})}></textarea>
+                    </div>
                   </div>
                 )}
               </div>
