@@ -10,7 +10,7 @@ import {
   Calendar, Phone, BookOpen, MessageSquare, BarChart3, Truck, Briefcase, UserCheck
 } from 'lucide-react';
 
-// --- USUARIOS AUTORIZADOS SEGÚN REQUERIMIENTO ---
+// --- CONFIGURACIÓN DE USUARIOS ---
 const USUARIOS = [
   { user: 'Administrador', pass: 'admin123' },
   { user: 'Yanina', pass: '123456' },
@@ -19,8 +19,9 @@ const USUARIOS = [
   { user: 'Fernando', pass: '123456' }
 ];
 
+const LISTA_RESPONSABLES = ["ADMINISTRADOR", "YANINA", "CESAR", "XINA", "FERNANDO"];
+
 export default function SistemaSIGERED() {
-  // --- ESTADOS DEL SISTEMA ---
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [docs, setDocs] = useState([]);
@@ -33,42 +34,53 @@ export default function SistemaSIGERED() {
   const [activeTab, setActiveTab] = useState(1);
   const [seguimientos, setSeguimientos] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
-  const [filters, setFilters] = useState({ search: '', sede: '', origen: '', estado: '', etapa: '', responsable: '', fechaInicio: '', fechaFin: '' });
+  
+  // --- FILTROS GLOBALES ---
+  const [filters, setFilters] = useState({ 
+    search: '', sede: '', origen: '', estado: '', etapa: '', responsable: '', fechaInicio: '', fechaFin: '' 
+  });
 
   const ITEMS_PER_PAGE = 100;
 
-  // --- 1. LÓGICA DE NEGOCIO INTEGRAL (ANÁLISIS DE COLUMNAS K, L, P, AB) ---
+  // --- 1. LÓGICA DE NEGOCIO ANALÍTICA (K, L, P, AB) SIN NÚMEROS EN ETIQUETAS ---
   const getEtapaEstado = useCallback((doc) => {
     if (!doc) return { etapa: '-', estado: '-', color: 'bg-slate-100', border: 'border-slate-300' };
     
-    // REGLA PRIORIDAD 1: ¿Se cargó al SISGED? (Col AB / cargado_sisged) -> CIERRE / RECUPERADO
-    if (doc.cargado_sisged) return { etapa: 'CIERRE', estado: 'RECUPERADO', color: 'bg-green-100 text-green-700', border: 'border-green-500' };
+    const origen = String(doc.origen).toUpperCase();
+    const colK = String(doc.estado_verificacion_k || 'PENDIENTE').toUpperCase();
+    const colL = String(doc.estado_visualizacion).toUpperCase();
+    const colP = doc.numero_documento;
+    const colAB = doc.cargado_sisged;
 
-    // REGLA PRIORIDAD 2: Etapa 1 Verificación -> Si se visualiza (Col L) -> CIERRE / RECUPERADO
-    if (doc.estado_visualizacion === 'SI SE VISUALIZA') return { etapa: 'CIERRE', estado: 'RECUPERADO', color: 'bg-green-100 text-green-700', border: 'border-green-500' };
+    // REGLA: SISGED o VISUALIZADO -> CIERRE / RECUPERADO
+    if (colAB || colL === 'SI SE VISUALIZA') {
+        return { etapa: 'CIERRE', estado: 'RECUPERADO', color: 'bg-green-100 text-green-700', border: 'border-green-500' };
+    }
 
-    // REGLA PRIORIDAD 3: Etapa 1 Verificación -> No se visualiza (Col L)
-    if (doc.estado_visualizacion === 'NO SE VISUALIZA') {
-        if (doc.origen === 'Interno') {
+    // REGLA: Col K PENDIENTE -> VERIFICACION / PENDIENTE
+    if (colK === 'PENDIENTE') {
+        return { etapa: 'VERIFICACION', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
+    }
+
+    // REGLA: Col K VERIFICADO y NO VISUALIZA
+    if (colK === 'VERIFICADO' && colL === 'NO SE VISUALIZA') {
+        if (origen === 'INTERNO') {
             return { etapa: 'CIERRE', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
         } else {
-            // DOCUMENTOS EXTERNOS: REQUERIMIENTO / SEGUIMIENTO
-            if (!doc.numero_documento) return { etapa: 'REQUERIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
+            // EXTERNO: Requerimiento / Seguimiento
+            if (!colP) return { etapa: 'REQUERIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
             if (doc.ultimo_seguimiento) return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' };
             return { etapa: 'SEGUIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
         }
     }
-
-    // ESTADO POR DEFECTO: VERIFICACION / PENDIENTE
     return { etapa: 'VERIFICACION', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
   }, []);
 
-  // --- 2. CÁLCULOS TÉCNICOS ---
+  // --- 2. CÁLCULOS Y SOPORTE ---
   const calcularDiasHabiles = (fechaRef) => {
     if (!fechaRef) return 0;
     let start = new Date(fechaRef);
     let end = new Date();
-    if (start > end) return 0;
     let count = 0;
     while (start <= end) {
       if (start.getDay() !== 0 && start.getDay() !== 6) count++;
@@ -81,13 +93,13 @@ export default function SistemaSIGERED() {
     if (!val) return null;
     if (typeof val === 'number') return new Date((val - 25569) * 86400 * 1000).toISOString().split('T')[0];
     if (typeof val === 'string' && val.includes('/')) {
-        const p = val.split('/');
-        return `${p[2]}-${p[1]}-${p[0]}`;
+        const parts = val.split('/');
+        return `${parts[2]}-${parts[1]}-${parts[0]}`;
     }
     return val;
   };
 
-  // --- 3. GESTIÓN DE DATOS (IMPORTACIÓN A-AD COMPLETA) ---
+  // --- 3. GESTIÓN DE DATOS ---
   const fetchDocs = useCallback(async () => {
     setLoading(true);
     let from = (page - 1) * ITEMS_PER_PAGE;
@@ -99,17 +111,14 @@ export default function SistemaSIGERED() {
     if (filters.origen) query = query.eq('origen', filters.origen);
     if (filters.responsable) query = query.eq('responsable_verificacion', filters.responsable);
     
-    // Filtro por Etapa Lógica
     if (filters.etapa) {
-      if (filters.etapa === 'VERIFICACION') query = query.is('estado_visualizacion', null);
-      if (filters.etapa === 'REQUERIMIENTO') query = query.eq('estado_visualizacion', 'NO SE VISUALIZA').is('numero_documento', null);
-      if (filters.etapa === 'SEGUIMIENTO') query = query.eq('estado_visualizacion', 'NO SE VISUALIZA').not('numero_documento', 'is', null).eq('cargado_sisged', false);
-      if (filters.etapa === 'CIERRE') query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
+        if (filters.etapa === 'VERIFICACION') query = query.is('estado_verificacion_k', 'PENDIENTE');
+        if (filters.etapa === 'REQUERIMIENTO') query = query.eq('estado_verificacion_k', 'VERIFICADO').is('numero_documento', null);
+        if (filters.etapa === 'CIERRE') query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
     }
 
-    // Filtro por Estado (Adicionado)
-    if (filters.estado === 'RECUPERADO') query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA,estado_final.eq.RECUPERADO');
-    if (filters.estado === 'EN PROCESO') query = query.not('ultimo_seguimiento', 'is', null).eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
+    if (filters.estado === 'RECUPERADO') query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
+    if (filters.estado === 'EN PROCESO') query = query.not('ultimo_seguimiento', 'is', null).eq('cargado_sisged', false);
     if (filters.estado === 'PENDIENTE') query = query.eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA').is('ultimo_seguimiento', null);
 
     const { data, count, error } = await query.order('creado_at', { ascending: false }).range(from, to);
@@ -119,8 +128,10 @@ export default function SistemaSIGERED() {
 
   useEffect(() => { if (session) fetchDocs(); }, [session, fetchDocs]);
 
+  // IMPORTACIÓN A-AD COMPLETA
   const handleImport = (e) => {
     const file = e.target.files[0];
+    if (!file) return;
     const reader = new FileReader();
     reader.onload = async (evt) => {
       const data = XLSX.utils.sheet_to_json(XLSX.read(evt.target.result, { type: 'binary' }).Sheets[XLSX.read(evt.target.result, { type: 'binary' }).SheetNames[0]], { header: 1 });
@@ -128,11 +139,11 @@ export default function SistemaSIGERED() {
         if (!row[1]) return null;
         return {
           sede: row[0], cut: String(row[1]), documento: String(row[2]), remitente: row[3], fecha_registro: formatExcelDate(row[4]),
-          origen: row[5], procedimiento: row[6], celular: String(row[7] || ''), responsable_verificacion: row[8],
-          fecha_verificacion: formatExcelDate(row[9]), blank_k: row[10], estado_visualizacion: row[11], observaciones: row[12],
-          responsable_requerimiento: row[13], fecha_elaboracion: formatExcelDate(row[14]), numero_documento: String(row[15] || ''),
+          origen: row[5], procedimiento: row[6], celular: String(row[7] || ''), responsable_verificacion: String(row[8] || '').toUpperCase(),
+          fecha_verificacion: formatExcelDate(row[9]), estado_verificacion_k: row[10], estado_visualizacion: row[11], observaciones: row[12],
+          responsable_requerimiento: String(row[13] || '').toUpperCase(), fecha_elaboracion: formatExcelDate(row[14]), numero_documento: String(row[15] || ''),
           fecha_notificacion: formatExcelDate(row[16]), medio_notificacion: row[17], fecha_remision: formatExcelDate(row[22]),
-          responsable_devolucion: row[23], fecha_devolucion: formatExcelDate(row[24]), documento_cierre: String(row[25] || ''),
+          responsable_devolucion: String(row[23] || '').toUpperCase(), fecha_devolucion: formatExcelDate(row[24]), documento_cierre: String(row[25] || ''),
           oficina_destino: row[26], cargado_sisged: String(row[27]).toUpperCase() === 'SI', estado_final: row[28] || 'PENDIENTE',
           observaciones_finales: row[29], creado_at: new Date().toISOString()
         };
@@ -146,12 +157,12 @@ export default function SistemaSIGERED() {
   const handleExport = () => {
     const ws = XLSX.utils.json_to_sheet(docs);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "REPORTE_SIGERED");
+    XLSX.utils.book_append_sheet(wb, ws, "SIGERED");
     XLSX.writeFile(wb, "Reporte_SIGERED.xlsx");
   };
 
   const handleBulkDelete = async () => {
-    if (confirm(`¿Eliminar ${selectedIds.length} registros permanentemente?`)) {
+    if (confirm(`¿Eliminar ${selectedIds.length} registros?`)) {
       await supabase.from('documentos').delete().in('id', selectedIds);
       setSelectedIds([]); fetchDocs();
     }
@@ -159,7 +170,6 @@ export default function SistemaSIGERED() {
 
   const toggleSelectDoc = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
 
-  // --- 4. DASHBOARD Y GRÁFICOS (BARRAS 50% + TOOLTIPS) ---
   const chartData = useMemo(() => {
     const counts = {
       'VERIFICACION': docs.filter(d => getEtapaEstado(d).etapa === 'VERIFICACION').length,
@@ -171,12 +181,6 @@ export default function SistemaSIGERED() {
     return { counts, max };
   }, [docs, getEtapaEstado]);
 
-  const handleLogin = (e) => {
-    e.preventDefault();
-    const valid = USUARIOS.find(u => u.user === loginData.user && u.pass === loginData.pass);
-    if (valid) setSession(valid); else alert('Credenciales incorrectas');
-  };
-
   useEffect(() => {
     if (editingDoc?.id) {
       supabase.from('seguimientos').select('*').eq('documento_id', editingDoc.id).order('fecha', { ascending: false })
@@ -184,15 +188,21 @@ export default function SistemaSIGERED() {
     }
   }, [editingDoc]);
 
+  const handleLogin = (e) => {
+    e.preventDefault();
+    const valid = USUARIOS.find(u => u.user.toLowerCase() === loginData.user.toLowerCase() && u.pass === loginData.pass);
+    if (valid) setSession(valid); else alert('Credenciales incorrectas');
+  };
+
   if (!session) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6 font-sans">
         <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-md overflow-hidden border border-white">
-          <div className="bg-[#2563EB] p-12 text-center text-white"><h1 className="text-4xl font-black mb-2 tracking-tighter">SIGERED</h1><p className="text-xs font-bold uppercase tracking-widest opacity-80">Gestión de Recuperación</p></div>
+          <div className="bg-[#2563EB] p-12 text-center text-white"><h1 className="text-4xl font-black mb-2">SIGERED</h1><p className="text-xs uppercase font-bold tracking-widest opacity-80">Gestión de Recuperación</p></div>
           <form onSubmit={handleLogin} className="p-10 space-y-6">
             <input type="text" placeholder="Usuario" className="w-full p-5 bg-slate-50 border rounded-3xl outline-none" onChange={e => setLoginData({...loginData, user: e.target.value})} required />
             <input type="password" placeholder="Contraseña" className="w-full p-5 bg-slate-50 border rounded-3xl outline-none" onChange={e => setLoginData({...loginData, pass: e.target.value})} required />
-            <button type="submit" className="w-full bg-[#2563EB] text-white py-5 rounded-3xl font-black shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all">INICIAR SESIÓN</button>
+            <button type="submit" className="w-full bg-[#2563EB] text-white py-5 rounded-3xl font-black shadow-xl">INICIAR SESIÓN</button>
           </form>
         </div>
       </div>
@@ -201,7 +211,6 @@ export default function SistemaSIGERED() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex text-slate-900 font-sans">
-      {/* SIDEBAR */}
       <aside className="w-64 bg-[#1E293B] text-slate-400 flex flex-col fixed h-full z-20 shadow-2xl">
         <div className="p-8 font-black text-white text-2xl tracking-tighter">SIGERED</div>
         <nav className="flex-1 p-4 space-y-2 mt-4">
@@ -209,51 +218,36 @@ export default function SistemaSIGERED() {
           <button onClick={() => setView('list')} className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl transition-all ${view === 'list' ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-900/40' : 'hover:bg-slate-800'}`}><FileText size={18}/> Gestión</button>
         </nav>
         <div className="p-6 border-t border-slate-800 flex items-center gap-3 bg-slate-900/50">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-white shadow-inner">{session.user[0]}</div>
-          <div className="flex-1 overflow-hidden"><p className="text-xs font-bold text-white truncate">{session.user}</p><p className="text-[10px] uppercase font-bold text-slate-500">En Línea</p></div>
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-white uppercase">{session.user[0]}</div>
+          <div className="flex-1 overflow-hidden"><p className="text-xs font-bold text-white truncate uppercase">{session.user}</p><p className="text-[10px] uppercase font-bold text-slate-500">En Línea</p></div>
           <button onClick={() => setSession(null)}><LogOut size={18}/></button>
         </div>
       </aside>
 
       <main className="ml-64 flex-1 flex flex-col h-screen overflow-hidden">
-        {/* HEADER CON FILTROS INTEGRALES */}
+        {/* HEADER CON TODOS LOS FILTROS E IMAGEN */}
         <header className="bg-white border-b p-4 flex flex-wrap items-center gap-3 sticky top-0 z-10 px-8 shadow-sm h-auto min-h-[80px]">
           <div className="flex gap-2 mr-auto">
-            <button onClick={() => setIsNewModalOpen(true)} className="bg-[#2563EB] text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-blue-700 shadow-sm"><Plus size={14}/> Nuevo</button>
-            <label className="bg-white border border-slate-200 px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer hover:bg-slate-50 shadow-sm"><Upload size={14}/> Importar <input type="file" className="hidden" onChange={handleImport}/></label>
-            <button onClick={handleExport} className="bg-white border border-slate-200 px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-slate-50 shadow-sm"><Download size={14}/> Reporte</button>
+            <button onClick={() => setIsNewModalOpen(true)} className="bg-[#2563EB] text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-blue-700 shadow-sm"><Plus size={14}/> Nuevo</button>
+            <label className="bg-white border border-slate-200 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer hover:bg-slate-50 shadow-sm"><Upload size={14}/> Importar <input type="file" className="hidden" onChange={handleImport}/></label>
+            <button onClick={handleExport} className="bg-white border border-slate-200 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-slate-50 shadow-sm"><Download size={14}/> Reporte</button>
             {selectedIds.length > 0 && <button onClick={handleBulkDelete} className="bg-red-600 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg"><Trash2 size={14}/> Eliminar ({selectedIds.length})</button>}
           </div>
           
-          <div className="flex flex-wrap items-center gap-2 ml-auto">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="relative"><Search size={14} className="absolute left-3 top-3 text-slate-400"/><input type="text" placeholder="Buscar CUT..." className="bg-slate-50 border-none rounded-xl pl-9 pr-4 py-2.5 text-xs w-32 outline-none focus:ring-2 focus:ring-blue-500" onChange={e => setFilters({...filters, search: e.target.value})}/></div>
-            <select className="border rounded-xl p-2.5 text-[10px] font-black uppercase bg-white cursor-pointer outline-none shadow-sm" onChange={e => setFilters({...filters, sede: e.target.value})}><option value="">SEDES</option><option value="SC">SC</option><option value="OD">OD</option></select>
-            <select className="border rounded-xl p-2.5 text-[10px] font-black uppercase bg-white cursor-pointer outline-none shadow-sm" onChange={e => setFilters({...filters, origen: e.target.value})}><option value="">ORIGEN</option><option value="Interno">Interno</option><option value="Externo">Externo</option></select>
-            <select className="border rounded-xl p-2.5 text-[10px] font-black uppercase bg-white cursor-pointer outline-none shadow-sm" onChange={e => setFilters({...filters, etapa: e.target.value})}><option value="">ETAPAS</option><option value="VERIFICACION">Verificación</option><option value="REQUERIMIENTO">Requerimiento</option><option value="SEGUIMIENTO">Seguimiento</option><option value="CIERRE">Cierre</option></select>
-            
-            {/* FILTRO ESTADO SOLICITADO */}
-            <select className="border rounded-xl p-2.5 text-[10px] font-black uppercase bg-white cursor-pointer outline-none shadow-sm" onChange={e => setFilters({...filters, estado: e.target.value})}>
-                <option value="">ESTADO</option>
-                <option value="PENDIENTE">PENDIENTE</option>
-                <option value="EN PROCESO">EN PROCESO</option>
-                <option value="RECUPERADO">RECUPERADO</option>
-            </select>
-
-            <select className="border rounded-xl p-2.5 text-[10px] font-black uppercase bg-white cursor-pointer outline-none shadow-sm" onChange={e => setFilters({...filters, responsable: e.target.value})}><option value="">RESPONSABLE</option>{USUARIOS.map(u => <option key={u.user} value={u.user}>{u.user}</option>)}</select>
-            
-            <div className="flex items-center gap-1 border border-slate-200 rounded-xl px-3 py-1.5 bg-slate-50">
-                <Calendar size={12} className="text-slate-400"/>
-                <input type="date" className="bg-transparent text-[9px] font-bold outline-none" onChange={e => setFilters({...filters, fechaInicio: e.target.value})} title="Desde" />
-                <span className="text-slate-300">-</span>
-                <input type="date" className="bg-transparent text-[9px] font-bold outline-none" onChange={e => setFilters({...filters, fechaFin: e.target.value})} title="Hasta" />
-            </div>
+            <select className="border rounded-xl p-2.5 text-[10px] font-black uppercase bg-white border-slate-200 outline-none cursor-pointer" onChange={e => setFilters({...filters, sede: e.target.value})}><option value="">SEDES</option><option value="SC">SC</option><option value="OD">OD</option></select>
+            <select className="border rounded-xl p-2.5 text-[10px] font-black uppercase bg-white border-slate-200 outline-none cursor-pointer" onChange={e => setFilters({...filters, origen: e.target.value})}><option value="">ORIGEN</option><option value="Interno">Interno</option><option value="Externo">Externo</option></select>
+            <select className="border rounded-xl p-2.5 text-[10px] font-black uppercase bg-white border-slate-200 outline-none cursor-pointer" onChange={e => setFilters({...filters, etapa: e.target.value})}><option value="">ETAPAS</option><option value="VERIFICACION">Verificación</option><option value="REQUERIMIENTO">Requerimiento</option><option value="SEGUIMIENTO">Seguimiento</option><option value="CIERRE">Cierre</option></select>
+            <select className="border rounded-xl p-2.5 text-[10px] font-black uppercase bg-white border-slate-200 outline-none cursor-pointer shadow-sm" onChange={e => setFilters({...filters, estado: e.target.value})}><option value="">ESTADO</option><option value="PENDIENTE">PENDIENTE</option><option value="EN PROCESO">EN PROCESO</option><option value="RECUPERADO">RECUPERADO</option></select>
+            <select className="border rounded-xl p-2.5 text-[10px] font-black uppercase bg-white border-slate-200 outline-none cursor-pointer" onChange={e => setFilters({...filters, responsable: e.target.value})}><option value="">RESPONSABLE</option>{LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r}</option>)}</select>
+            <div className="flex items-center gap-1 border border-slate-200 rounded-xl px-3 py-1.5 bg-slate-50"><Calendar size={12} className="text-slate-400"/><input type="date" className="bg-transparent text-[9px] font-bold outline-none" onChange={e => setFilters({...filters, fechaInicio: e.target.value})} /><span className="text-slate-300">-</span><input type="date" className="bg-transparent text-[9px] font-bold outline-none" onChange={e => setFilters({...filters, fechaFin: e.target.value})} /></div>
           </div>
         </header>
 
         <div className="p-10 overflow-y-auto flex-1 font-sans">
           {view === 'dashboard' ? (
             <div className="space-y-12 animate-in fade-in duration-500">
-              {/* KPIs INTEGRALES */}
               <div className="grid grid-cols-4 gap-8">
                 {[
                   { label: 'TOTAL REGISTROS', val: totalDocs, color: 'text-slate-800', border: 'border-b-blue-500' },
@@ -268,7 +262,7 @@ export default function SistemaSIGERED() {
                 ))}
               </div>
 
-              {/* GRÁFICO DE BARRAS 50% ANCHO CON TOOLTIPS */}
+              {/* GRÁFICO BARRAS 50% */}
               <div className="grid grid-cols-12 gap-8">
                 <div className="col-span-6 bg-white p-10 rounded-[40px] border border-slate-100 shadow-sm flex flex-col">
                   <h4 className="text-sm font-black text-slate-700 uppercase mb-12 flex items-center gap-2"><BarChart3 size={18} className="text-blue-600"/> Avance por Etapas</h4>
@@ -278,31 +272,30 @@ export default function SistemaSIGERED() {
                       const height = (count / chartData.max) * 100;
                       return (
                         <div key={etapa} className="relative flex-1 flex flex-col items-center group">
-                          {/* TOOLTIP HOVER DINÁMICO */}
                           <div className="absolute bottom-[calc(100%+8px)] opacity-0 group-hover:opacity-100 transition-all bg-blue-600 text-white text-[11px] font-black px-3 py-1.5 rounded-xl shadow-xl z-10 whitespace-nowrap">{count} docs</div>
                           <div className="w-full bg-blue-600 rounded-t-xl transition-all duration-500 hover:bg-blue-700 cursor-pointer shadow-lg" style={{ height: `${height}%`, minHeight: count > 0 ? '4px' : '0' }}></div>
-                          <p className="absolute -bottom-8 text-[9px] font-black text-slate-400 uppercase text-center w-full">{etapa}</p>
+                          <p className="absolute -bottom-8 text-[9px] font-black text-slate-400 uppercase text-center w-full tracking-tighter">{etapa}</p>
                         </div>
                       )
                     })}
                   </div>
                 </div>
-                <div className="col-span-6 bg-blue-600 p-10 rounded-[40px] text-white flex items-center justify-between shadow-2xl shadow-blue-900/30 overflow-hidden relative">
+                <div className="col-span-6 bg-blue-600 p-10 rounded-[40px] text-white flex items-center justify-between shadow-2xl relative overflow-hidden">
                     <div className="relative z-10">
-                        <h4 className="text-xs font-black uppercase opacity-70 tracking-widest mb-2">Indicador Global de Éxito</h4>
+                        <h4 className="text-xs font-black uppercase opacity-70 tracking-widest mb-2">Indicador de Éxito</h4>
                         <h3 className="text-6xl font-black">{totalDocs > 0 ? Math.round((docs.filter(d => getEtapaEstado(d).estado === 'RECUPERADO').length / totalDocs) * 100) : 0}%</h3>
-                        <p className="text-xs mt-4 opacity-80 font-bold leading-relaxed">Éxito total en recuperación administrativa.</p>
+                        <p className="text-xs mt-4 opacity-80 font-bold leading-relaxed">Porcentaje basado en el cierre administrativo.</p>
                     </div>
                     <CheckCircle2 size={120} className="opacity-10 absolute -right-4 -bottom-4"/>
                 </div>
               </div>
 
-              {/* AVANCE USUARIOS FILTRABLE POR FECHA */}
+              {/* AVANCE USUARIOS FILTRABLE */}
               <div className="grid grid-cols-3 gap-6 font-sans">
                 {USUARIOS.map(u => {
                   const uDocs = docs.filter(d => {
-                    const matchUser = d.responsable_verificacion === u.user;
-                    if (!matchUser) return false;
+                    const m = d.responsable_verificacion === u.user.toUpperCase();
+                    if (!m) return false;
                     if (filters.fechaInicio && d.fecha_registro < filters.fechaInicio) return false;
                     if (filters.fechaFin && d.fecha_registro > filters.fechaFin) return false;
                     return true;
@@ -321,16 +314,13 @@ export default function SistemaSIGERED() {
               </div>
             </div>
           ) : (
-            /* TABLA DE GESTIÓN INTEGRAL (ORIGEN + SELECCIÓN MASIVA HABILITADA) */
+            /* TABLA GESTIÓN */
             <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
                <table className="w-full text-left border-collapse">
                 <thead className="bg-slate-50 border-b text-[10px] font-black text-slate-400 uppercase tracking-widest">
                   <tr>
                     <th className="p-6 pl-10 w-16 text-center border-r">
-                        <button onClick={() => {
-                            if (selectedIds.length === docs.length && docs.length > 0) setSelectedIds([]);
-                            else setSelectedIds(docs.map(d => d.id));
-                        }}>
+                        <button onClick={() => { if(selectedIds.length === docs.length && docs.length > 0) setSelectedIds([]); else setSelectedIds(docs.map(d => d.id)); }}>
                           {selectedIds.length === docs.length && docs.length > 0 ? <CheckSquare size={22} className="text-blue-600 mx-auto"/> : <Square size={22} className="text-slate-300 mx-auto"/>}
                         </button>
                     </th>
@@ -359,10 +349,8 @@ export default function SistemaSIGERED() {
                         </td>
                         <td className="p-6 text-center">
                           <div className="flex items-center justify-center gap-3">
-                             <button onClick={() => { setEditingDoc(doc); setActiveTab(1); }} className="bg-white border-2 border-blue-50 text-blue-600 font-black text-[10px] px-5 py-2.5 rounded-2xl hover:bg-blue-600 hover:text-white transition-all uppercase tracking-widest shadow-sm">Detalles</button>
-                             {session.user === 'Administrador' && (
-                                <button onClick={async () => { if(confirm("¿Eliminar?")) { await supabase.from('documentos').delete().eq('id', doc.id); fetchDocs(); } }} className="bg-white border-2 border-red-50 text-red-500 p-2.5 rounded-2xl hover:bg-red-600 hover:text-white transition-all shadow-sm"><Trash2 size={16}/></button>
-                             )}
+                             <button onClick={() => { setEditingDoc(doc); setActiveTab(1); }} className="bg-white border-2 border-blue-50 text-blue-600 font-black text-[10px] px-5 py-2.5 rounded-2xl hover:bg-blue-600 hover:text-white transition-all uppercase shadow-sm">Detalles</button>
+                             {session.user === 'Administrador' && (<button onClick={async () => { if(confirm("¿Eliminar?")) { await supabase.from('documentos').delete().eq('id', doc.id); fetchDocs(); } }} className="bg-white border-2 border-red-50 text-red-500 p-2.5 rounded-2xl hover:bg-red-600 hover:text-white transition-all shadow-sm"><Trash2 size={16}/></button>)}
                           </div>
                         </td>
                       </tr>
@@ -370,8 +358,7 @@ export default function SistemaSIGERED() {
                   })}
                 </tbody>
               </table>
-              <div className="p-10 bg-slate-50 flex justify-between items-center border-t border-slate-100">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Página {page} • Total: {totalDocs} registros</p>
+              <div className="p-10 bg-slate-50 flex justify-between items-center border-t border-slate-100"><p className="text-xs font-black text-slate-400 uppercase tracking-widest">Página {page} • Total: {totalDocs}</p>
                 <div className="flex gap-4"><button onClick={() => setPage(p => p - 1)} disabled={page === 1} className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center hover:bg-blue-600 hover:text-white shadow-sm disabled:opacity-20 transition-all"><ChevronLeft size={20}/></button><button onClick={() => setPage(p => p + 1)} disabled={page * 100 >= totalDocs} className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center hover:bg-blue-600 hover:text-white shadow-sm disabled:opacity-20 transition-all"><ChevronRight size={20}/></button></div>
               </div>
             </div>
@@ -379,15 +366,15 @@ export default function SistemaSIGERED() {
         </div>
       </main>
 
-      {/* --- MODAL DETALLES SIN RECORTE (A-AD INTEGRAL) --- */}
+      {/* --- MODAL DETALLES TOTAL (A-AD) --- */}
       {editingDoc && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md flex items-center justify-center z-[100] p-10 font-sans">
-          <div className="bg-white rounded-[50px] w-full max-w-6xl h-[88vh] flex flex-col overflow-hidden shadow-2xl border border-white/20">
+          <div className="bg-white rounded-[50px] w-full max-w-6xl h-[88vh] flex flex-col overflow-hidden shadow-2xl border border-white/20 font-sans">
             <div className="p-10 bg-[#1E293B] text-white flex justify-between items-center shrink-0">
               <div><h3 className="text-2xl font-black tracking-tight">{editingDoc.cut} • {editingDoc.documento}</h3><p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest mt-2">{editingDoc.origen} • {editingDoc.sede}</p></div>
-              <button onClick={() => setEditingDoc(null)} className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 flex items-center justify-center font-bold hover:rotate-90 transition-transform">✕</button>
+              <button onClick={() => setEditingDoc(null)} className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 flex items-center justify-center font-bold transition-transform hover:rotate-90">✕</button>
             </div>
-            <div className="flex flex-1 overflow-hidden font-sans">
+            <div className="flex flex-1 overflow-hidden">
               <div className="w-80 bg-slate-50 border-r p-10 space-y-4 shrink-0 font-sans">
                 <button onClick={() => setActiveTab(1)} className={`w-full text-left p-6 rounded-[30px] font-black text-xs transition-all flex items-center justify-between ${activeTab === 1 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}>1. VERIFICACIÓN <UserCheck size={16}/></button>
                 {editingDoc.origen === 'Externo' && (
@@ -401,9 +388,14 @@ export default function SistemaSIGERED() {
               <div className="flex-1 p-14 overflow-y-auto bg-white font-sans">
                 {activeTab === 1 && (
                   <div className="grid grid-cols-2 gap-12 animate-in fade-in duration-300">
-                    <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Responsable Verificación (Col I)</label><select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase cursor-pointer" value={editingDoc.responsable_verificacion || ''} onChange={e => setEditingDoc({...editingDoc, responsable_verificacion: e.target.value})}><option value="">Seleccione...</option>{USUARIOS.map(u => <option key={u.user} value={u.user}>{u.user}</option>)}</select></div>
-                    <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Verificación (Col J)</label><input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner shadow-slate-200" value={editingDoc.fecha_verificacion || ''} onChange={e => setEditingDoc({...editingDoc, fecha_verificacion: e.target.value})}/></div>
-                    <div className="col-span-2 space-y-6 pt-6 text-center font-sans"><p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Estado de Visualización (Col L)</p>
+                    <div className="space-y-3 font-sans"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-sans">Resp. Verificación (Col I)</label>
+                      <select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase cursor-pointer" value={editingDoc.responsable_verificacion || ''} onChange={e => setEditingDoc({...editingDoc, responsable_verificacion: e.target.value})}>
+                        <option value="">SELECCIONE...</option>{LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-3 font-sans"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-sans">Fecha Verificación (Col J)</label><input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner" value={editingDoc.fecha_verificacion || ''} onChange={e => setEditingDoc({...editingDoc, fecha_verificacion: e.target.value})}/></div>
+                    <div className="col-span-2 space-y-3 font-sans"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-sans">Estado Etapa (Col K)</label><select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase" value={editingDoc.estado_verificacion_k || ''} onChange={e => setEditingDoc({...editingDoc, estado_verificacion_k: e.target.value})}><option value="PENDIENTE">PENDIENTE</option><option value="VERIFICADO">VERIFICADO</option></select></div>
+                    <div className="col-span-2 space-y-6 pt-6 text-center font-sans"><p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] font-sans">Estado de Visualización (Col L)</p>
                       <div className="grid grid-cols-2 gap-8"><button onClick={() => setEditingDoc({...editingDoc, estado_visualizacion: 'SI SE VISUALIZA'})} className={`p-10 rounded-[35px] border-2 font-black text-sm transition-all flex flex-col items-center gap-4 ${editingDoc.estado_visualizacion === 'SI SE VISUALIZA' ? 'border-green-600 bg-green-50 text-green-700 shadow-2xl shadow-green-900/10' : 'border-slate-50 bg-slate-50 text-slate-300'}`}><CheckCircle2 size={32}/> SÍ SE VISUALIZA</button>
                         <button onClick={() => setEditingDoc({...editingDoc, estado_visualizacion: 'NO SE VISUALIZA'})} className={`p-10 rounded-[35px] border-2 font-black text-sm transition-all flex flex-col items-center gap-4 ${editingDoc.estado_visualizacion === 'NO SE VISUALIZA' ? 'border-red-600 bg-red-50 text-red-700 shadow-2xl shadow-red-900/10' : 'border-slate-50 bg-slate-50 text-slate-300'}`}><AlertCircle size={32}/> NO SE VISUALIZA</button></div>
                     </div>
@@ -411,66 +403,79 @@ export default function SistemaSIGERED() {
                 )}
                 {activeTab === 2 && (
                   <div className="grid grid-cols-2 gap-12 animate-in fade-in duration-300 font-sans">
-                    <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Responsable Requerimiento (Col N)</label><select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase" value={editingDoc.responsable_requerimiento || ''} onChange={e => setEditingDoc({...editingDoc, responsable_requerimiento: e.target.value})}><option value="">Seleccione...</option>{USUARIOS.map(u => <option key={u.user} value={u.user}>{u.user}</option>)}</select></div>
-                    <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Elaboración (Col O)</label><input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner shadow-slate-200" value={editingDoc.fecha_elaboracion || ''} onChange={e => setEditingDoc({...editingDoc, fecha_elaboracion: e.target.value})}/></div>
-                    <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">N° Documento Generado (Col P)</label><input type="text" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs" value={editingDoc.numero_documento || ''} onChange={e => setEditingDoc({...editingDoc, numero_documento: e.target.value})}/></div>
-                    <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Notificación (Col Q)</label><input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner shadow-slate-200" value={editingDoc.fecha_notificacion || ''} onChange={e => setEditingDoc({...editingDoc, fecha_notificacion: e.target.value})}/></div>
-                    <div className="col-span-2 bg-blue-50 p-10 rounded-[40px] border border-blue-100 flex items-center justify-between shadow-inner"><div><p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Días Hábiles Transcurridos (Cálculo Automático)</p><p className="text-6xl font-black text-blue-600 mt-2 tracking-tighter">{calcularDiasHabiles(editingDoc.fecha_notificacion)}</p></div><Clock size={80} className="text-blue-200 opacity-50"/></div>
+                    <div className="space-y-3 font-sans"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-sans">Resp. Requerimiento (Col N)</label>
+                      <select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase cursor-pointer" value={editingDoc.responsable_requerimiento || ''} onChange={e => setEditingDoc({...editingDoc, responsable_requerimiento: e.target.value})}>
+                        <option value="">SELECCIONE...</option>{LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-3 font-sans"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-sans">Fecha Elaboración (Col O)</label><input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner" value={editingDoc.fecha_elaboracion || ''} onChange={e => setEditingDoc({...editingDoc, fecha_elaboracion: e.target.value})}/></div>
+                    <div className="space-y-3 font-sans"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-sans">N° Documento Generado (Col P)</label><input type="text" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner" value={editingDoc.numero_documento || ''} onChange={e => setEditingDoc({...editingDoc, numero_documento: e.target.value})}/></div>
+                    <div className="space-y-3 font-sans"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-sans">Fecha Notificación (Col Q)</label><input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner" value={editingDoc.fecha_notificacion || ''} onChange={e => setEditingDoc({...editingDoc, fecha_notificacion: e.target.value})}/></div>
+                    <div className="col-span-2 bg-blue-50 p-10 rounded-[40px] border border-blue-100 flex items-center justify-between shadow-inner"><div><p className="text-[10px] font-black text-blue-400 uppercase tracking-widest font-sans">Días Hábiles Transcurridos (Cálculo Automático)</p><p className="text-6xl font-black text-blue-600 mt-2 tracking-tighter">{calcularDiasHabiles(editingDoc.fecha_notificacion)}</p></div><Clock size={80} className="text-blue-200 opacity-50"/></div>
                   </div>
                 )}
                 {activeTab === 3 && (
-                  <div className="space-y-12 animate-in fade-in duration-300">
-                    <div className="bg-slate-50 p-10 rounded-[40px] space-y-6 border border-slate-200"><h4 className="font-black text-xs uppercase text-slate-600 tracking-widest">Registrar Nuevo Seguimiento</h4><textarea id="s_obs" className="w-full p-6 rounded-[30px] border border-slate-100 bg-white text-sm outline-none shadow-inner font-medium shadow-slate-200" rows="3" placeholder="Detalles del contacto con el remitente..."></textarea>
+                  <div className="space-y-12 animate-in fade-in duration-300 font-sans">
+                    <div className="bg-slate-50 p-10 rounded-[40px] space-y-6 border border-slate-200 font-sans"><h4 className="font-black text-xs uppercase text-slate-600 tracking-widest font-sans">Registrar Nuevo Seguimiento</h4><textarea id="s_obs" className="w-full p-6 rounded-[30px] border border-slate-100 bg-white text-sm outline-none shadow-inner shadow-slate-200 font-sans" rows="3" placeholder="Detalles del contacto con el remitente..."></textarea>
                       <button onClick={async () => {
                         const o = document.getElementById('s_obs').value; if(!o) return alert("Escriba un detalle.");
                         const { error } = await supabase.from('seguimientos').insert([{ documento_id: editingDoc.id, responsable: session.user, observaciones: o, fecha: new Date().toISOString() }]);
                         if(!error) { await supabase.from('documentos').update({ ultimo_seguimiento: new Date().toISOString() }).eq('id', editingDoc.id); document.getElementById('s_obs').value = ''; alert("Seguimiento Grabado"); fetchDocs(); }
-                      }} className="bg-blue-600 text-white font-black py-5 px-12 rounded-3xl text-xs uppercase shadow-2xl shadow-blue-200 tracking-[0.2em] hover:scale-105 transition-all outline-none">Grabar Seguimiento</button>
+                      }} className="bg-blue-600 text-white font-black py-5 px-12 rounded-3xl text-xs uppercase shadow-2xl shadow-blue-200 tracking-[0.2em] hover:scale-105 transition-all outline-none font-sans">Grabar Seguimiento</button>
                     </div>
-                    {seguimientos.map(s => (<div key={s.id} className="p-8 border border-slate-100 rounded-[35px] flex items-start gap-6 bg-white shadow-sm hover:shadow-md transition-shadow font-sans"><div className="bg-blue-100 p-4 rounded-2xl text-blue-600 shrink-0 shadow-inner"><MessageSquare size={24}/></div><div className="flex-1 font-sans"><div className="flex justify-between items-center mb-2 font-sans"><p className="text-xs font-black text-slate-800 uppercase tracking-widest">{s.responsable}</p><span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full">{new Date(s.fecha).toLocaleDateString()}</span></div><p className="text-sm text-slate-500 font-medium italic">"{s.observaciones}"</p></div></div>))}
+                    {seguimientos.map(s => (<div key={s.id} className="p-8 border border-slate-100 rounded-[35px] flex items-start gap-6 bg-white shadow-sm hover:shadow-md transition-shadow font-sans"><div className="bg-blue-100 p-4 rounded-2xl text-blue-600 shrink-0 shadow-inner font-sans"><MessageSquare size={24}/></div><div className="flex-1 font-sans"><div className="flex justify-between items-center mb-2 font-sans"><p className="text-xs font-black text-slate-800 uppercase tracking-widest font-sans">{s.responsable}</p><span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full">{new Date(s.fecha).toLocaleDateString()}</span></div><p className="text-sm text-slate-500 font-medium italic font-sans font-sans">"{s.observaciones}"</p></div></div>))}
                   </div>
                 )}
                 {activeTab === 4 && (
                   <div className="grid grid-cols-2 gap-12 animate-in fade-in duration-300 font-sans">
-                    <div className="col-span-2 bg-emerald-50 p-12 rounded-[45px] border border-emerald-100 flex items-center gap-8 shadow-inner"><input type="checkbox" className="w-12 h-12 accent-emerald-600 rounded-2xl shadow-sm cursor-pointer hover:scale-110 transition-transform shadow-lg" checked={editingDoc.cargado_sisged} onChange={e => setEditingDoc({...editingDoc, cargado_sisged: e.target.checked})}/><div><label className="font-black text-emerald-900 uppercase text-xs tracking-[0.2em] block mb-1">Cargado en SISGED (Col AB)</label><p className="text-[10px] text-emerald-700 font-bold opacity-60">Marque para finalizar documento como RECUPERADO institucionalmente.</p></div></div>
-                    <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Estado Final de Recuperación (Col AC)</label><select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase cursor-pointer" value={editingDoc.estado_final || 'PENDIENTE'} onChange={e => setEditingDoc({...editingDoc, estado_final: e.target.value})}><option value="PENDIENTE">PENDIENTE</option><option value="RECUPERADO">RECUPERADO</option><option value="RECONSTRUCCION">RECONSTRUCCION</option></select></div>
-                    <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Oficina de Destino (Col AA)</label><input type="text" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner" value={editingDoc.oficina_destino || ''} onChange={e => setEditingDoc({...editingDoc, oficina_destino: e.target.value})}/></div>
-                    <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Remisión (Col W)</label><input type="date" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner" value={editingDoc.fecha_remision || ''} onChange={e => setEditingDoc({...editingDoc, fecha_remision: e.target.value})}/></div>
-                    <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Resp. Devolución (Col X)</label><input type="text" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner" value={editingDoc.responsable_devolucion || ''} onChange={e => setEditingDoc({...editingDoc, responsable_devolucion: e.target.value})}/></div>
-                    <div className="col-span-2 space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Observaciones Finales (Col AD)</label><textarea className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-medium text-xs shadow-inner shadow-slate-200" rows="3" value={editingDoc.observaciones_finales || ''} onChange={e => setEditingDoc({...editingDoc, observaciones_finales: e.target.value})}></textarea></div>
+                    <div className="col-span-2 bg-emerald-50 p-12 rounded-[45px] border border-emerald-100 flex items-center gap-8 shadow-inner font-sans"><input type="checkbox" className="w-12 h-12 accent-emerald-600 rounded-2xl shadow-sm cursor-pointer hover:scale-110 transition-transform shadow-lg" checked={editingDoc.cargado_sisged} onChange={e => setEditingDoc({...editingDoc, cargado_sisged: e.target.checked})}/><div><label className="font-black text-emerald-900 uppercase text-xs tracking-[0.2em] block mb-1 font-sans">Cargado en SISGED (Col AB)</label><p className="text-[10px] text-emerald-700 font-bold opacity-60 font-sans">Marque para finalizar documento como RECUPERADO institucionalmente.</p></div></div>
+                    <div className="space-y-3 font-sans font-sans"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-sans">Estado Final (Col AC)</label><select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase cursor-pointer" value={editingDoc.estado_final || 'PENDIENTE'} onChange={e => setEditingDoc({...editingDoc, estado_final: e.target.value})}><option value="PENDIENTE">PENDIENTE</option><option value="RECUPERADO">RECUPERADO</option><option value="RECONSTRUCCION">RECONSTRUCCION</option></select></div>
+                    <div className="space-y-3 font-sans font-sans"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-sans font-sans">Oficina de Destino (Col AA)</label><input type="text" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs shadow-inner shadow-slate-200" value={editingDoc.oficina_destino || ''} onChange={e => setEditingDoc({...editingDoc, oficina_destino: e.target.value})}/></div>
+                    <div className="space-y-3 font-sans font-sans font-sans"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-sans">Resp. Devolución (Col X)</label>
+                      <select className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-black text-xs uppercase cursor-pointer" value={editingDoc.responsable_devolucion || ''} onChange={e => setEditingDoc({...editingDoc, responsable_devolucion: e.target.value})}>
+                        <option value="">SELECCIONE...</option>{LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                    <div className="col-span-2 space-y-3 font-sans font-sans"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 font-sans">Observaciones Finales (Col AD)</label><textarea className="w-full p-5 bg-slate-50 border border-slate-100 rounded-[24px] font-medium text-xs shadow-inner shadow-slate-200 font-sans" rows="3" value={editingDoc.observaciones_finales || ''} onChange={e => setEditingDoc({...editingDoc, observaciones_finales: e.target.value})}></textarea></div>
                   </div>
                 )}
               </div>
             </div>
-            <div className="p-10 bg-slate-50 border-t flex justify-end gap-6 shrink-0 font-sans"><button onClick={() => setEditingDoc(null)} className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-10 hover:text-slate-700">Descartar</button><button onClick={async () => {
+            <div className="p-10 bg-slate-50 border-t flex justify-end gap-6 shrink-0 font-sans"><button onClick={() => setEditingDoc(null)} className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-10 hover:text-slate-700 font-sans font-sans">Descartar</button><button onClick={async () => {
                 const { error } = await supabase.from('documentos').update(editingDoc).eq('id', editingDoc.id);
                 if (!error) { alert('Sincronizado'); setEditingDoc(null); fetchDocs(); }
-              }} className="bg-[#2563EB] text-white px-16 py-5 rounded-3xl font-black text-xs uppercase shadow-2xl tracking-[0.2em] hover:scale-[1.02] active:scale-95 transition-all outline-none">Sincronizar Cambios</button></div>
+              }} className="bg-[#2563EB] text-white px-16 py-5 rounded-3xl font-black text-xs uppercase shadow-2xl tracking-[0.2em] hover:scale-[1.02] active:scale-95 transition-all outline-none font-sans">Sincronizar Cambios</button></div>
           </div>
         </div>
       )}
 
-      {/* --- MODAL NUEVO EXPEDIENTE (CAMPOS REQUERIDOS COMPLETOS) --- */}
+      {/* --- MODAL NUEVO EXPEDIENTE TOTAL --- */}
       {isNewModalOpen && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xl flex items-center justify-center z-[110] p-6 animate-in zoom-in duration-300 font-sans">
-          <div className="bg-white rounded-[50px] w-full max-w-xl shadow-2xl p-12 space-y-10 border border-white relative">
+          <div className="bg-white rounded-[50px] w-full max-w-xl shadow-2xl p-12 space-y-10 border border-white relative font-sans font-sans">
             <button onClick={() => setIsNewModalOpen(false)} className="absolute right-8 top-8 text-slate-300 hover:text-slate-600 transition-colors"><X/></button>
-            <h3 className="text-2xl font-black uppercase text-center tracking-tighter text-slate-800 tracking-[0.1em]">Nuevo Expediente</h3>
-            <div className="grid grid-cols-2 gap-6">
-              <input type="text" placeholder="CUT" className="w-full p-5 bg-slate-50 border-none rounded-3xl outline-none font-bold shadow-inner shadow-slate-200" id="n_cut" />
-              <input type="text" placeholder="Documento" className="w-full p-5 bg-slate-50 border-none rounded-3xl outline-none font-bold shadow-inner shadow-slate-200" id="n_doc" />
-              <input type="text" placeholder="Remitente" className="w-full p-5 bg-slate-50 border-none rounded-3xl outline-none font-bold shadow-inner col-span-2 shadow-slate-200" id="n_rem" />
-              <input type="date" className="w-full p-5 bg-slate-50 border-none rounded-3xl outline-none font-bold shadow-inner col-span-2 shadow-slate-200" id="n_fecha" />
-              <div className="relative col-span-2"><Phone size={16} className="absolute left-4 top-5 text-slate-300"/><input type="text" placeholder="Celular" className="w-full p-5 pl-12 bg-slate-50 border-none rounded-3xl outline-none font-bold shadow-inner shadow-slate-200" id="n_cel" /></div>
-              <div className="relative col-span-2"><Briefcase size={16} className="absolute left-4 top-5 text-slate-300"/><input type="text" placeholder="Procedimiento TUPA" className="w-full p-5 pl-12 bg-slate-50 border-none rounded-3xl outline-none font-bold shadow-inner shadow-slate-200" id="n_proc" /></div>
-              <select className="w-full p-5 bg-slate-50 border-none rounded-3xl font-black text-[10px] uppercase shadow-inner shadow-slate-200 cursor-pointer" id="n_sede"><option value="SC">SEDE CENTRAL (SC)</option><option value="OD">ÓRGANO DESCONCENTRADO (OD)</option></select>
-              <select className="w-full p-5 bg-slate-50 border-none rounded-3xl font-black text-[10px] uppercase shadow-inner shadow-slate-200 cursor-pointer" id="n_origen"><option value="Externo">Externo</option><option value="Interno">Interno</option></select>
+            <h3 className="text-2xl font-black uppercase text-center tracking-tighter text-slate-800 tracking-[0.1em] font-sans font-sans">Nuevo Expediente</h3>
+            <div className="grid grid-cols-2 gap-6 font-sans">
+              <input type="text" placeholder="CUT" className="w-full p-5 bg-slate-50 border-none rounded-3xl outline-none font-bold shadow-inner font-sans font-sans" id="n_cut" />
+              <input type="text" placeholder="Documento" className="w-full p-5 bg-slate-50 border-none rounded-3xl outline-none font-bold shadow-inner font-sans font-sans" id="n_doc" />
+              <input type="text" placeholder="Remitente / Entidad" className="w-full p-5 bg-slate-50 border-none rounded-3xl outline-none font-bold shadow-inner col-span-2 shadow-slate-200 font-sans" id="n_rem" />
+              <input type="date" className="w-full p-5 bg-slate-50 border-none rounded-3xl font-bold shadow-inner shadow-slate-200 col-span-2 outline-none font-sans" id="n_fecha" />
+              <div className="relative col-span-2 font-sans font-sans font-sans font-sans"><Phone size={16} className="absolute left-4 top-5 text-slate-300 font-sans"/><input type="text" placeholder="Celular" className="w-full p-5 pl-12 bg-slate-50 border-none rounded-3xl outline-none font-bold shadow-inner font-sans font-sans" id="n_cel" /></div>
+              <div className="relative col-span-2 font-sans font-sans font-sans"><Briefcase size={16} className="absolute left-4 top-5 text-slate-300 font-sans"/><input type="text" placeholder="Procedimiento TUPA" className="w-full p-5 pl-12 bg-slate-50 border-none rounded-3xl outline-none font-bold shadow-inner font-sans font-sans" id="n_proc" /></div>
+              <select className="w-full p-5 bg-slate-50 border-none rounded-3xl font-black text-[10px] uppercase shadow-inner cursor-pointer font-sans" id="n_sede"><option value="SC">SEDE CENTRAL (SC)</option><option value="OD">ÓRGANO DESCONCENTRADO (OD)</option></select>
+              <select className="w-full p-5 bg-slate-50 border-none rounded-3xl font-black text-[10px] uppercase shadow-inner cursor-pointer font-sans" id="n_origen"><option value="Externo">Externo</option><option value="Interno">Interno</option></select>
             </div>
             <button onClick={async () => {
-              const doc = { cut: document.getElementById('n_cut').value, documento: document.getElementById('n_doc').value, remitente: document.getElementById('n_rem').value, fecha_registro: document.getElementById('n_fecha').value, celular: document.getElementById('n_cel').value, procedimiento: document.getElementById('n_proc').value, sede: document.getElementById('n_sede').value, origen: document.getElementById('n_origen').value, etapa_actual: 'VERIFICACION', estado_final: 'PENDIENTE', creado_at: new Date().toISOString() };
+              const doc = { 
+                cut: document.getElementById('n_cut').value, documento: document.getElementById('n_doc').value,
+                remitente: document.getElementById('n_rem').value, fecha_registro: document.getElementById('n_fecha').value,
+                celular: document.getElementById('n_cel').value, procedimiento: document.getElementById('n_proc').value,
+                sede: document.getElementById('n_sede').value, origen: document.getElementById('n_origen').value,
+                etapa_actual: 'VERIFICACION', estado_final: 'PENDIENTE', creado_at: new Date().toISOString()
+              };
               const { error } = await supabase.from('documentos').insert([doc]);
-              if (!error) { setIsNewModalOpen(false); fetchDocs(); } else alert("Error (CUT+Doc ya existe o datos inválidos)");
-            }} className="w-full bg-[#2563EB] text-white py-6 rounded-[30px] font-black uppercase shadow-2xl shadow-blue-200 tracking-[0.3em] hover:bg-blue-700 transition-all outline-none">Registrar Documento</button>
+              if (!error) { setIsNewModalOpen(false); fetchDocs(); } else alert("Error (Verifique CUT+Doc duplicado)");
+            }} className="w-full bg-[#2563EB] text-white py-6 rounded-[30px] font-black uppercase shadow-2xl tracking-[0.3em] hover:bg-blue-700 transition-all outline-none font-sans font-sans font-sans font-sans">Registrar Documento</button>
           </div>
         </div>
       )}
