@@ -498,67 +498,86 @@ export default function SistemaSIGERED() {
                   </div>
                 )}
 
-                {activeTab === 3 && (
+               {activeTab === 3 && (
                   <div className="space-y-12 animate-in fade-in duration-300 font-sans">
                     <div className="bg-slate-50 p-10 rounded-[40px] space-y-6 border border-slate-200">
                       <h4 className="font-black text-xs uppercase text-slate-600 tracking-widest">Registrar Nuevo Seguimiento</h4>
-                     <div className="grid grid-cols-3 gap-4">
-  <div className="space-y-1">
-    <label className="text-[10px] font-bold text-slate-400 ml-1">FECHA SEGUIMIENTO</label>
-    <input type="date" id="s_fec" className="p-4 rounded-2xl border bg-white font-bold text-xs w-full shadow-inner" defaultValue={new Date().toISOString().split('T')[0]} />
-  </div>
-  <div className="space-y-1">
-    <label className="text-[10px] font-bold text-slate-400 ml-1">RESPONSABLE</label>
-    <select className="p-4 rounded-2xl border bg-white font-black text-[10px] uppercase shadow-inner outline-none w-full" id="s_res">
-      <option value="">RESPONSABLE...</option>
-      {LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r}</option>)}
-    </select>
-  </div>
-  <div className="space-y-1">
-    <label className="text-[10px] font-bold text-slate-400 ml-1">MEDIO</label>
-    <select className="p-5 rounded-2xl border bg-white font-black text-[10px] uppercase shadow-inner outline-none w-full" id="s_med">
-      <option value="">MEDIO...</option>
-      <option value="LLAMADA">LLAMADA</option>
-      <option value="WHATSAPP">WHATSAPP</option>
-      <option value="CORREO">CORREO</option>
-    </select>
-  </div>
-</div>
-                      <textarea id="s_obs" className="w-full p-6 rounded-[30px] border border-slate-100 bg-white text-sm outline-none shadow-inner font-medium shadow-slate-200" rows="3" placeholder="Detalles del contacto con el remitente..."></textarea>
-                      <button onClick={async () => {
-  const o = document.getElementById('s_obs').value; 
-  const r = document.getElementById('s_res').value; 
-  const m = document.getElementById('s_med').value; 
-  const f = document.getElementById('s_fec').value; // Captura la nueva fecha
-  if(!o || !r || !m || !f) return alert("Complete todos los campos, incluyendo la fecha.");
-  
-  const { error } = await supabase.from('seguimientos').insert([
-    { documento_id: editingDoc.id, responsable: r, medio: m, observaciones: o, fecha: f }
-  ]);
-  
-  if(!error) { 
-    await supabase.from('documentos').update({ ultimo_seguimiento: new Date().toISOString() }).eq('id', editingDoc.id); 
-    document.getElementById('s_obs').value = ''; 
-    alert("Seguimiento Grabado"); 
-    const { data } = await supabase.from('seguimientos').select('*').eq('documento_id', editingDoc.id).order('fecha', { ascending: false });
-    setSeguimientos(data || []);
-    fetchDocs(); 
-  }
-}} className="bg-blue-600 text-white font-black py-5 px-12 rounded-3xl text-xs uppercase shadow-2xl shadow-blue-200 tracking-[0.2em] hover:scale-105 transition-all outline-none">Grabar Seguimiento</button>
-                    </div>
-                    {seguimientos.map(s => (
-                      <div key={s.id} className="p-8 border border-slate-100 rounded-[35px] flex items-start gap-6 bg-white shadow-sm hover:shadow-md transition-shadow font-sans">
-                        <div className="bg-blue-100 p-4 rounded-2xl text-blue-600 shrink-0 shadow-inner"><MessageSquare size={24}/></div>
-                        <div className="flex-1 font-sans">
-                          <div className="flex justify-between items-center mb-2 font-sans">
-                            <p className="text-xs font-black text-slate-800 uppercase tracking-widest">{s.responsable}</p>
-                            <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full">{new Date(s.fecha).toLocaleDateString()}</span>
-                          </div>
-                          <p className="text-[10px] font-black text-blue-600 uppercase mb-2">Canal: {s.medio}</p>
-                          <p className="text-sm text-slate-500 font-medium italic">"{s.observaciones}"</p>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 ml-1">FECHA</label>
+                          <input type="date" id="s_fec" className="w-full p-4 rounded-2xl border bg-white font-bold text-xs shadow-inner outline-none" defaultValue={new Date().toISOString().split('T')[0]} />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 ml-1">RESPONSABLE</label>
+                          <select className="w-full p-5 rounded-2xl border bg-white font-black text-[10px] uppercase shadow-inner outline-none" id="s_res">
+                            <option value="">SELECCIONE...</option>
+                            {LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r}</option>)}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 ml-1">MEDIO</label>
+                          <select className="w-full p-5 rounded-2xl border bg-white font-black text-[10px] uppercase shadow-inner outline-none" id="s_med">
+                            <option value="">MEDIO...</option>
+                            <option value="LLAMADA">LLAMADA</option>
+                            <option value="WHATSAPP">WHATSAPP</option>
+                            <option value="CORREO">CORREO</option>
+                          </select>
                         </div>
                       </div>
-                    ))}
+                      <textarea id="s_obs" className="w-full p-6 rounded-[30px] border border-slate-100 bg-white text-sm outline-none shadow-inner font-medium" rows="3" placeholder="Detalles del contacto con el remitente..."></textarea>
+                      <button 
+                        onClick={async () => {
+                          const o = document.getElementById('s_obs').value; 
+                          const r = document.getElementById('s_res').value; 
+                          const m = document.getElementById('s_med').value; 
+                          const f = document.getElementById('s_fec').value;
+                          
+                          if(!o || !r || !m || !f) return alert("Por favor, complete todos los campos (Fecha, Responsable, Medio y Observación).");
+                          
+                          try {
+                            const { error: insertError } = await supabase.from('seguimientos').insert([
+                              { documento_id: editingDoc.id, responsable: r, medio: m, observaciones: o, fecha: f }
+                            ]);
+                            
+                            if(insertError) throw insertError;
+
+                            // Actualizar la fecha del último seguimiento en el documento principal
+                            await supabase.from('documentos').update({ ultimo_seguimiento: new Date().toISOString() }).eq('id', editingDoc.id); 
+                            
+                            document.getElementById('s_obs').value = ''; 
+                            alert("Seguimiento Grabado con éxito"); 
+
+                            // Recargar el historial de seguimientos en el modal
+                            const { data: newData } = await supabase.from('seguimientos').select('*').eq('documento_id', editingDoc.id).order('fecha', { ascending: false });
+                            setSeguimientos(newData || []);
+                            
+                            // Refrescar la tabla principal para actualizar el estado a "EN PROCESO"
+                            fetchDocs(); 
+                          } catch (err) {
+                            alert("Error al grabar: " + err.message);
+                          }
+                        }} 
+                        className="bg-blue-600 text-white font-black py-5 px-12 rounded-3xl text-xs uppercase shadow-2xl shadow-blue-200 tracking-[0.2em] hover:scale-105 transition-all outline-none"
+                      >
+                        Grabar Seguimiento
+                      </button>
+                    </div>
+                    <div className="space-y-8">
+                      <h4 className="font-black text-[10px] uppercase text-slate-400 tracking-widest ml-4">Historial de Seguimientos ({seguimientos.length})</h4>
+                      {seguimientos.map(s => (
+                        <div key={s.id} className="p-8 border border-slate-100 rounded-[35px] flex items-start gap-6 bg-white shadow-sm hover:shadow-md transition-shadow">
+                          <div className="bg-blue-100 p-4 rounded-2xl text-blue-600 shrink-0 shadow-inner"><MessageSquare size={24}/></div>
+                          <div className="flex-1 font-sans">
+                            <div className="flex justify-between items-center mb-2">
+                              <p className="text-xs font-black text-slate-800 uppercase tracking-widest">{s.responsable}</p>
+                              <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full">{new Date(s.fecha).toLocaleDateString()}</span>
+                            </div>
+                            <p className="text-[10px] font-black text-blue-600 uppercase mb-2">Canal: {s.medio}</p>
+                            <p className="text-sm text-slate-500 font-medium italic">"{s.observaciones}"</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
