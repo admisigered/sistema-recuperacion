@@ -131,12 +131,31 @@ export default function SistemaSIGERED() {
     if (filters.estado === 'EN PROCESO') query = query.not('ultimo_seguimiento', 'is', null).eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
     if (filters.estado === 'PENDIENTE') query = query.eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA').is('ultimo_seguimiento', null);
 
-    // Filtro Etapa Lógica
+    // --- FILTRO ETAPA LÓGICA (REEMPLAZO COMPLETO) ---
     if (filters.etapa) {
-        if (filters.etapa === 'VERIFICACION') query = query.eq('estado_verificacion_k', 'PENDIENTE');
-        if (filters.etapa === 'REQUERIMIENTO') query = query.eq('estado_verificacion_k', 'VERIFICADO').is('numero_documento', null);
-        if (filters.etapa === 'SEGUIMIENTO') query = query.eq('estado_verificacion_k', 'VERIFICADO').not('numero_documento', 'is', null).eq('cargado_sisged', false);
-        if (filters.etapa === 'CIERRE') query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
+      if (filters.etapa === 'VERIFICACION') {
+        // Regla: Columna K es PENDIENTE
+        query = query.eq('estado_verificacion_k', 'PENDIENTE');
+      } 
+      else if (filters.etapa === 'REQUERIMIENTO') {
+        // Regla: Verificado, NO SE VISUALIZA, es EXTERNO y NO tiene N° Documento (Col P)
+        query = query.eq('estado_verificacion_k', 'VERIFICADO')
+                     .eq('estado_visualizacion', 'NO SE VISUALIZA')
+                     .eq('origen', 'Externo')
+                     .or('numero_documento.is.null,numero_documento.eq.""');
+      } 
+      else if (filters.etapa === 'SEGUIMIENTO') {
+        // Regla: Verificado, NO SE VISUALIZA, es EXTERNO y SÍ tiene N° Documento (Col P)
+        query = query.eq('estado_verificacion_k', 'VERIFICADO')
+                     .eq('estado_visualizacion', 'NO SE VISUALIZA')
+                     .eq('origen', 'Externo')
+                     .not('numero_documento', 'is', null)
+                     .neq('numero_documento', '');
+      } 
+      else if (filters.etapa === 'CIERRE') {
+        // Regla: SISGED es SI (true) OR Visualización es SI OR (Interno + No se visualiza)
+        query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA,and(origen.eq.Interno,estado_visualizacion.eq.NO SE VISUALIZA)');
+      }
     }
 
     const { data, count, error } = await query.order('creado_at', { ascending: false }).range(from, to);
