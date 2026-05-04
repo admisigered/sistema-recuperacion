@@ -120,20 +120,16 @@ export default function SistemaSIGERED() {
     let to = from + ITEMS_PER_PAGE - 1;
     let query = supabase.from('documentos').select('*', { count: 'exact' });
 
-    // --- FILTROS DE BÚSQUEDA ---
-    // --- FILTROS DE BÚSQUEDA ---
+   // --- FILTROS ---
     if (filters.search) {
       query = query.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%`);
     }
     if (filters.sede) query = query.eq('sede', filters.sede);
     if (filters.origen) query = query.eq('origen', filters.origen);
-
-    // --- FILTRO DE RESPONSABLE ---
     if (filters.responsable) {
       query = query.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable}`);
     }
 
-    // --- FILTRO DE ESTADO ---
     if (filters.estado) {
       if (filters.estado === 'RECUPERADO') {
         query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
@@ -144,25 +140,17 @@ export default function SistemaSIGERED() {
       }
     }
 
-    // --- FILTRO DE ETAPA (Sincronizado con etiquetas visuales) ---
     if (filters.etapa) {
       if (filters.etapa === 'VERIFICACION') {
         query = query.eq('estado_verificacion_k', 'PENDIENTE').eq('cargado_sisged', false);
-      }
-      else if (filters.etapa === 'REQUERIMIENTO') {
-        // Solo externos verificados sin numero de documento
+      } else if (filters.etapa === 'REQUERIMIENTO') {
         query = query.eq('origen', 'Externo').eq('estado_verificacion_k', 'VERIFICADO').eq('estado_visualizacion', 'NO SE VISUALIZA').is('numero_documento', null).eq('cargado_sisged', false);
-      }
-      else if (filters.etapa === 'SEGUIMIENTO') {
-        // Solo externos verificados con numero de documento
+      } else if (filters.etapa === 'SEGUIMIENTO') {
         query = query.eq('origen', 'Externo').eq('estado_verificacion_k', 'VERIFICADO').eq('estado_visualizacion', 'NO SE VISUALIZA').not('numero_documento', 'is', null).eq('cargado_sisged', false);
-      }
-      else if (filters.etapa === 'CIERRE') {
-        // Recuperados (SISGED o SI Visualiza)
+      } else if (filters.etapa === 'CIERRE') {
         query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
       }
     }
-
     const { data, count, error } = await query.order('creado_at', { ascending: false }).range(from, to);
     if (!error) { setDocs(data || []); setTotalDocs(count || 0); }
     setLoading(false);
