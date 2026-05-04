@@ -212,6 +212,19 @@ export default function SistemaSIGERED() {
       } else {
           alert("Error al guardar: " + error.message);
       }
+        if (!error) {
+    alert("Importación guardada en la base de datos");
+    fetchDocs();
+} else {
+    alert("Error al guardar: " + error.message);
+}
+      } catch (err) {
+        alert("Error al importar: " + err.message);
+      }
+    };
+
+    reader.readAsBinaryString(file);
+  };
 
   // --- 5. SINCRONIZACIÓN Y ELIMINACIÓN ---
  const handleSyncChanges = async () => {
