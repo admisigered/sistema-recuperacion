@@ -121,50 +121,58 @@ export default function SistemaSIGERED() {
     let to = from + ITEMS_PER_PAGE - 1;
     let query = supabase.from('documentos').select('*', { count: 'exact' });
 
+    // 1. Filtros Básicos
     if (filters.search) query = query.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%`);
     if (filters.sede) query = query.eq('sede', filters.sede);
     if (filters.origen) query = query.eq('origen', filters.origen);
     if (filters.responsable) query = query.eq('responsable_verificacion', filters.responsable);
     
-    // Filtro Estado Lógico
-    if (filters.estado === 'RECUPERADO') query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA,estado_final.eq.RECUPERADO');
-    if (filters.estado === 'EN PROCESO') query = query.not('ultimo_seguimiento', 'is', null).eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
-    if (filters.estado === 'PENDIENTE') query = query.eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA').is('ultimo_seguimiento', null);
-
-    // --- FILTRO ETAPA LÓGICA (CORRECCIÓN ANALÍTICA COMPLETA) ---
-    if (filters.etapa) {
-      if (filters.etapa === 'VERIFICACION') {
-        // Regla: Columna K es PENDIENTE
-        query = query.eq('estado_verificacion_k', 'PENDIENTE');
-      } 
-      else if (filters.etapa === 'REQUERIMIENTO') {
-        // Regla: Verificado + No Visualiza + Externo + SIN N° Documento (Col P)
-        query = query
-          .eq('estado_verificacion_k', 'VERIFICADO')
-          .eq('estado_visualizacion', 'NO SE VISUALIZA')
-          .eq('origen', 'Externo')
-          .or('numero_documento.is.null,numero_documento.eq.""');
-      } 
-      else if (filters.etapa === 'SEGUIMIENTO') {
-        // Regla: Verificado + No Visualiza + Externo + CON N° Documento (Col P)
-        query = query
-          .eq('estado_verificacion_k', 'VERIFICADO')
-          .eq('estado_visualizacion', 'NO SE VISUALIZA')
-          .eq('origen', 'Externo')
-          .not('numero_documento', 'is', null)
-          .neq('numero_documento', '');
-      } 
-      else if (filters.etapa === 'CIERRE') {
-        // Regla: SISGED es SI (true) OR Visualización es SI OR (Interno + No se visualiza + Verificado)
-        query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA,and(origen.eq.Interno,estado_verificacion_k.eq.VERIFICADO,estado_visualizacion.eq.NO SE VISUALIZA)');
-      }
+    // 2. Filtro por ESTADO (PENDIENTE / EN PROCESO / RECUPERADO)
+    if (filters.estado) {
+        if (filters.estado === 'RECUPERADO') {
+            query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
+        } else if (filters.estado === 'EN PROCESO') {
+            query = query.not('ultimo_seguimiento', 'is', null).eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
+        } else if (filters.estado === 'PENDIENTE') {
+            query = query.eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA').is('ultimo_seguimiento', null);
+        }
     }
+
+    // 3. Filtro por ETAPA (Lógica analítica estricta)
+    if (filters.etapa) {
+        if (filters.etapa === 'VERIFICACION') {
+            // Regla: Columna K es PENDIENTE y NO está en Cierre
+            query = query.eq('estado_verificacion_k', 'PENDIENTE')
+                         .neq('estado_visualizacion', 'SI SE VISUALIZA')
+                         .eq('cargado_sisged', false);
+        } 
+        else if (filters.etapa === 'REQUERIMIENTO') {
+            // Regla: Verificado + No Visualiza + Externo + SIN N° Documento (Col P) + NO cargado SISGED
+            query = query.eq('estado_verificacion_k', 'VERIFICADO')
+                         .eq('estado_visualizacion', 'NO SE VISUALIZA')
+                         .eq('origen', 'Externo')
+                         .eq('cargado_sisged', false)
+                         .or('numero_documento.is.null,numero_documento.eq.""');
+        } 
+        else if (filters.etapa === 'SEGUIMIENTO') {
+            // Regla: Verificado + No Visualiza + Externo + CON N° Documento (Col P) + NO cargado SISGED
+            query = query.eq('estado_verificacion_k', 'VERIFICADO')
+                         .eq('estado_visualizacion', 'NO SE VISUALIZA')
+                         .eq('origen', 'Externo')
+                         .eq('cargado_sisged', false)
+                         .not('numero_documento', 'is', null)
+                         .neq('numero_documento', '');
+        } 
+        else if (filters.etapa === 'CIERRE') {
+            // Regla: SISGED es SI (true) OR Visualización es SI OR (Interno + No se visualiza + Verificado)
+            query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA,and(origen.eq.Interno,estado_verificacion_k.eq.VERIFICADO,estado_visualizacion.eq.NO SE VISUALIZA)');
+        }
+    }
+
     const { data, count, error } = await query.order('creado_at', { ascending: false }).range(from, to);
     if (!error) { setDocs(data || []); setTotalDocs(count || 0); }
     setLoading(false);
   }, [page, filters]);
-
-  useEffect(() => { if (session) fetchDocs(); }, [session, fetchDocs]);
 
   // --- 4. IMPORTACIÓN A-AD (LOGICA COL L Y RESPONSABLE CORREGIDA) ---
   const handleImport = (e) => {
