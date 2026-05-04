@@ -121,56 +121,34 @@ export default function SistemaSIGERED() {
     let to = from + ITEMS_PER_PAGE - 1;
     let query = supabase.from('documentos').select('*', { count: 'exact' });
 
-    // 1. Filtros Básicos
+    // Filtros de búsqueda y básicos
     if (filters.search) query = query.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%`);
     if (filters.sede) query = query.eq('sede', filters.sede);
     if (filters.origen) query = query.eq('origen', filters.origen);
     if (filters.responsable) query = query.eq('responsable_verificacion', filters.responsable);
     
-    // 2. Filtro por ESTADO (PENDIENTE / EN PROCESO / RECUPERADO)
-    if (filters.estado) {
-        if (filters.estado === 'RECUPERADO') {
-            query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
-        } else if (filters.estado === 'EN PROCESO') {
-            query = query.not('ultimo_seguimiento', 'is', null).eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
-        } else if (filters.estado === 'PENDIENTE') {
-            query = query.eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA').is('ultimo_seguimiento', null);
-        }
-    }
+    // Filtro por ESTADO
+    if (filters.estado === 'RECUPERADO') query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
+    if (filters.estado === 'EN PROCESO') query = query.not('ultimo_seguimiento', 'is', null).eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
+    if (filters.estado === 'PENDIENTE') query = query.eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA').is('ultimo_seguimiento', null);
 
-    // 3. Filtro por ETAPA (Lógica analítica estricta)
+    // Filtro por ETAPA (Traducción de reglas K, L, P, AB a SQL)
     if (filters.etapa) {
-        if (filters.etapa === 'VERIFICACION') {
-            // Regla: Columna K es PENDIENTE y NO está en Cierre
-            query = query.eq('estado_verificacion_k', 'PENDIENTE')
-                         .neq('estado_visualizacion', 'SI SE VISUALIZA')
-                         .eq('cargado_sisged', false);
-        } 
-        else if (filters.etapa === 'REQUERIMIENTO') {
-            // Regla: Verificado + No Visualiza + Externo + SIN N° Documento (Col P) + NO cargado SISGED
-            query = query.eq('estado_verificacion_k', 'VERIFICADO')
-                         .eq('estado_visualizacion', 'NO SE VISUALIZA')
-                         .eq('origen', 'Externo')
-                         .eq('cargado_sisged', false)
-                         .or('numero_documento.is.null,numero_documento.eq.""');
-        } 
-        else if (filters.etapa === 'SEGUIMIENTO') {
-            // Regla: Verificado + No Visualiza + Externo + CON N° Documento (Col P) + NO cargado SISGED
-            query = query.eq('estado_verificacion_k', 'VERIFICADO')
-                         .eq('estado_visualizacion', 'NO SE VISUALIZA')
-                         .eq('origen', 'Externo')
-                         .eq('cargado_sisged', false)
-                         .not('numero_documento', 'is', null)
-                         .neq('numero_documento', '');
-        } 
-        else if (filters.etapa === 'CIERRE') {
-            // Regla: SISGED es SI (true) OR Visualización es SI OR (Interno + No se visualiza + Verificado)
-            query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA,and(origen.eq.Interno,estado_verificacion_k.eq.VERIFICADO,estado_visualizacion.eq.NO SE VISUALIZA)');
-        }
+      if (filters.etapa === 'VERIFICACION') query = query.eq('estado_verificacion_k', 'PENDIENTE');
+      if (filters.etapa === 'REQUERIMIENTO') query = query.eq('estado_verificacion_k', 'VERIFICADO').eq('estado_visualizacion', 'NO SE VISUALIZA').eq('origen', 'Externo').is('numero_documento', null);
+      if (filters.etapa === 'SEGUIMIENTO') query = query.eq('estado_verificacion_k', 'VERIFICADO').eq('estado_visualizacion', 'NO SE VISUALIZA').not('numero_documento', 'is', null);
+      if (filters.etapa === 'CIERRE') query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA,origen.eq.Interno');
     }
 
     const { data, count, error } = await query.order('creado_at', { ascending: false }).range(from, to);
-    if (!error) { setDocs(data || []); setTotalDocs(count || 0); }
+    
+    if (error) {
+      console.error("Error de Supabase:", error.message);
+      setDocs([]);
+    } else {
+      setDocs(data || []);
+      setTotalDocs(count || 0);
+    }
     setLoading(false);
   }, [page, filters]);
 
@@ -192,38 +170,48 @@ export default function SistemaSIGERED() {
         };
 
         const batch = data.slice(1).map(row => {
-          if (!row[1]) return null;
-          
-          // Lógica de autoselección basada en Columna L (Indice 11)
-          let visualizacionAuto = String(row[11] || '').toUpperCase().trim();
-          if (visualizacionAuto.includes("SI") || visualizacionAuto === "VERIFICADO") visualizacionAuto = "SI SE VISUALIZA";
-          else if (visualizacionAuto.includes("NO")) visualizacionAuto = "NO SE VISUALIZA";
-          else visualizacionAuto = "";
+        if (!row[1] || !row[2]) return null; // Saltar filas sin CUT o DOCUMENTO
 
-          return {
-            sede: row[0], cut: String(row[1]), documento: String(row[2]), remitente: row[3], fecha_registro: formatExcelDate(row[4]),
-            origen: row[5], procedimiento: row[6], celular: String(row[7] || ''), 
-            responsable_verificacion: validarRes(row[8]),
-            fecha_verificacion: formatExcelDate(row[9]), 
-            estado_verificacion_k: row[10] || 'PENDIENTE', 
-            estado_visualizacion: visualizacionAuto, // Autoselección Col L
-            observaciones: row[12],
-            responsable_requerimiento: validarRes(row[13]), fecha_elaboracion: formatExcelDate(row[14]), numero_documento: String(row[15] || ''),
-            fecha_notificacion: formatExcelDate(row[16]), medio_notificacion: row[17],
-            fecha_remision: formatExcelDate(row[22]), responsable_devolucion: validarRes(row[23]), fecha_devolucion: formatExcelDate(row[24]), 
-            documento_cierre: String(row[25] || ''), oficina_destino: row[26], 
-            cargado_sisged: String(row[27]).toUpperCase() === 'SI', estado_final: row[28] || 'PENDIENTE',
-            observaciones_finales: row[29], creado_at: new Date().toISOString()
-          };
-        }).filter(Boolean);
-        const { error } = await supabase.from('documentos').upsert(batch, { onConflict: 'cut,documento' });
-        if (error) throw error;
-        alert("Sincronización Masiva Exitosa"); fetchDocs();
-      } catch (err) { alert("Error al importar: " + err.message); }
-    };
-    reader.readAsBinaryString(file);
-    e.target.value = null;
-  };
+        // Regla de Responsable: Si no está en la lista, es ADMINISTRADOR
+        const validarNombre = (nombre) => {
+            const n = String(nombre || '').toUpperCase().trim();
+            return LISTA_RESPONSABLES.includes(n) ? n : "ADMINISTRADOR";
+        };
+
+        // Regla de Visualización: Basada en Columna L (Indice 11)
+        let visAuto = String(row[11] || '').toUpperCase().trim();
+        if (visAuto.includes("SI") || visAuto === "VERIFICADO") visAuto = "SI SE VISUALIZA";
+        else if (visAuto.includes("NO")) visAuto = "NO SE VISUALIZA";
+        else visAuto = "NO SE VISUALIZA"; // Por defecto si no se visualiza
+
+        return {
+          sede: row[0], cut: String(row[1]), documento: String(row[2]), remitente: row[3], fecha_registro: formatExcelDate(row[4]),
+          origen: row[5], procedimiento: row[6], celular: String(row[7] || ''), 
+          responsable_verificacion: validarNombre(row[8]),
+          fecha_verificacion: formatExcelDate(row[9]), 
+          estado_verificacion_k: row[10] || 'PENDIENTE', 
+          estado_visualizacion: visAuto, 
+          observaciones: row[12],
+          responsable_requerimiento: validarNombre(row[13]), 
+          fecha_elaboracion: formatExcelDate(row[14]), 
+          numero_documento: String(row[15] || ''),
+          fecha_remision: formatExcelDate(row[22]), 
+          responsable_devolucion: validarNombre(row[23]), 
+          cargado_sisged: String(row[27]).toUpperCase() === 'SI', 
+          estado_final: row[28] || 'PENDIENTE',
+          observaciones_finales: row[29], 
+          creado_at: new Date().toISOString()
+        };
+      }).filter(Boolean);
+
+      // Usar upsert para asegurar que se guarde o actualice
+      const { error } = await supabase.from('documentos').upsert(batch, { onConflict: 'cut,documento' });
+      if (!error) {
+          alert("Importación guardada en la base de datos");
+          fetchDocs();
+      } else {
+          alert("Error al guardar: " + error.message);
+      }
 
   // --- 5. SINCRONIZACIÓN Y ELIMINACIÓN ---
  const handleSyncChanges = async () => {
