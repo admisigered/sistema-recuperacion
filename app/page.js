@@ -75,22 +75,20 @@ export default function SistemaSIGERED() {
         return { etapa: 'VERIFICACION', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
     }
 
-    // 4. REGLA DE REQUERIMIENTO / SEGUIMIENTO PENDIENTE
+    // REGLA 4: VERIFICADO Y NO SE VISUALIZA
     if (colK === 'VERIFICADO' && colL === 'NO SE VISUALIZA') {
         if (origen === 'INTERNO') {
+            // Internos pasan directo a CIERRE si están verificados
             return { etapa: 'CIERRE', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
         } else {
-            // Si no tiene número de documento generado, está en etapa de REQUERIMIENTO
-            if (!doc.numero_documento || doc.numero_documento === 'null' || doc.numero_documento === '') {
+            // EXTERNOS: La diferencia la hace el Número de Documento (Col P)
+            if (!doc.numero_documento || doc.numero_documento === '' || doc.numero_documento === 'null') {
                 return { etapa: 'REQUERIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
             }
-            // Si tiene número de documento pero no tiene seguimientos (ya pasó el filtro 2), está en SEGUIMIENTO PENDIENTE
+            // Si ya tiene número de documento, es SEGUIMIENTO
             return { etapa: 'SEGUIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
         }
     }
-
-    return { etapa: 'VERIFICACION', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
-  }, []);
 
   // --- 2. FUNCIONES DE APOYO ---
   const formatExcelDate = (val) => {
@@ -154,33 +152,37 @@ export default function SistemaSIGERED() {
       }
     }
 
-    // --- CORRECCIÓN DEFINITIVA: FILTRO DE ETAPA (Sincronizado con getEtapaEstado) ---
+    // --- CORRECCIÓN FINAL DE FILTROS POR ETAPA ---
     if (filters.etapa) {
-      if (filters.etapa === 'CIERRE') {
-        // CIERRE es: Recuperados (SISGED/Visualización) O Documentos Internos ya verificados
-        query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA,and(origen.eq.Interno,estado_verificacion_k.eq.VERIFICADO)');
-      }
-      else if (filters.etapa === 'VERIFICACION') {
-        // VERIFICACION es: Cualquier documento donde K sea PENDIENTE y no esté recuperado
+      if (filters.etapa === 'VERIFICACION') {
+        // Etapa 1: Siempre que K sea PENDIENTE (Internos y Externos)
         query = query.eq('estado_verificacion_k', 'PENDIENTE')
                      .eq('cargado_sisged', false)
                      .neq('estado_visualizacion', 'SI SE VISUALIZA');
       }
       else if (filters.etapa === 'REQUERIMIENTO') {
-        // REQUERIMIENTO es: SOLO Externos, Verificados, No Visualizados, Sin N° Documento y NO recuperados
+        // Etapa 2: SOLO EXTERNOS, Verificados, No Visualizan y SIN número de documento
         query = query.eq('origen', 'Externo')
                      .eq('estado_verificacion_k', 'VERIFICADO')
                      .eq('estado_visualizacion', 'NO SE VISUALIZA')
-                     .is('numero_documento', null)
-                     .eq('cargado_sisged', false);
+                     .eq('cargado_sisged', false)
+                     // Filtro estricto para detectar campo vacío o nulo
+                     .or('numero_documento.is.null,numero_documento.eq."",numero_documento.eq.null');
       }
       else if (filters.etapa === 'SEGUIMIENTO') {
-        // SEGUIMIENTO es: SOLO Externos, Verificados, No Visualizados, YA tienen N° Documento (o seguimiento) y NO recuperados
+        // Etapa 3: SOLO EXTERNOS, Verificados, No Visualizan y YA TIENEN número de documento
         query = query.eq('origen', 'Externo')
                      .eq('estado_verificacion_k', 'VERIFICADO')
                      .eq('estado_visualizacion', 'NO SE VISUALIZA')
+                     .eq('cargado_sisged', false)
+                     // Debe tener un número de documento válido
                      .not('numero_documento', 'is', null)
-                     .eq('cargado_sisged', false);
+                     .neq('numero_documento', '')
+                     .neq('numero_documento', 'null');
+      }
+      else if (filters.etapa === 'CIERRE') {
+        // Etapa 4: Recuperados O Internos que ya fueron verificados
+        query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA,and(origen.eq.Interno,estado_verificacion_k.eq.VERIFICADO)');
       }
     }
 
