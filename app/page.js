@@ -506,18 +506,18 @@ export default function SistemaSIGERED() {
                       <h4 className="font-black text-xs uppercase text-slate-600 tracking-widest">Registrar Nuevo Seguimiento</h4>
                       <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-400 ml-1">FECHA</label>
+                          <label className="text-[10px] font-bold text-slate-400 ml-1 uppercase">Fecha</label>
                           <input type="date" id="s_fec" className="w-full p-4 rounded-2xl border bg-white font-bold text-xs shadow-inner outline-none" defaultValue={new Date().toISOString().split('T')[0]} />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-400 ml-1">RESPONSABLE</label>
+                          <label className="text-[10px] font-bold text-slate-400 ml-1 uppercase">Responsable</label>
                           <select className="w-full p-5 rounded-2xl border bg-white font-black text-[10px] uppercase shadow-inner outline-none" id="s_res">
                             <option value="">SELECCIONE...</option>
                             {LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r}</option>)}
                           </select>
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-400 ml-1">MEDIO</label>
+                          <label className="text-[10px] font-bold text-slate-400 ml-1 uppercase">Medio</label>
                           <select className="w-full p-5 rounded-2xl border bg-white font-black text-[10px] uppercase shadow-inner outline-none" id="s_med">
                             <option value="">MEDIO...</option>
                             <option value="LLAMADA">LLAMADA</option>
@@ -527,45 +527,48 @@ export default function SistemaSIGERED() {
                         </div>
                       </div>
                       <textarea id="s_obs" className="w-full p-6 rounded-[30px] border border-slate-100 bg-white text-sm outline-none shadow-inner font-medium" rows="3" placeholder="Detalles del contacto con el remitente..."></textarea>
+                      
+                      {/* BOTÓN CORREGIDO - SIN ERROR DE SINTAXIS */}
                       <button 
-                       <button 
-  onClick={async () => {
-    const o = document.getElementById('s_obs').value; 
-    const r = document.getElementById('s_res').value; 
-    const m = document.getElementById('s_med').value; 
-    const f = document.getElementById('s_fec').value;
-    
-    if(!o || !r || !m || !f) return alert("Por favor, complete todos los campos.");
-    
-    try {
-      const now = new Date().toISOString();
-      const { error: insertError } = await supabase.from('seguimientos').insert([
-        { documento_id: editingDoc.id, responsable: r, medio: m, observaciones: o, fecha: f }
-      ]);
-      
-      if(insertError) throw insertError;
+                        onClick={async () => {
+                          const o = document.getElementById('s_obs').value; 
+                          const r = document.getElementById('s_res').value; 
+                          const m = document.getElementById('s_med').value; 
+                          const f = document.getElementById('s_fec').value;
+                          
+                          if(!o || !r || !m || !f) return alert("Por favor, complete todos los campos.");
+                          
+                          try {
+                            const now = new Date().toISOString();
+                            const { error: insertError } = await supabase.from('seguimientos').insert([
+                              { documento_id: editingDoc.id, responsable: r, medio: m, observaciones: o, fecha: f }
+                            ]);
+                            
+                            if(insertError) throw insertError;
 
-      // Actualizar base de datos
-      await supabase.from('documentos').update({ ultimo_seguimiento: now }).eq('id', editingDoc.id); 
-      
-      // ACTUALIZACIÓN LOCAL: Cambia el estado a EN PROCESO inmediatamente
-      setEditingDoc(prev => ({ ...prev, ultimo_seguimiento: now }));
-      
-      document.getElementById('s_obs').value = ''; 
-      alert("Seguimiento Grabado"); 
+                            // 1. Actualizar base de datos
+                            await supabase.from('documentos').update({ ultimo_seguimiento: now }).eq('id', editingDoc.id); 
+                            
+                            // 2. ACTUALIZACIÓN LOCAL: Esto hace que el estado cambie a "EN PROCESO" al instante
+                            setEditingDoc(prev => ({ ...prev, ultimo_seguimiento: now }));
+                            
+                            document.getElementById('s_obs').value = ''; 
+                            alert("Seguimiento Grabado"); 
 
-      // Recargar historial
-      const { data: newData } = await supabase.from('seguimientos').select('*').eq('documento_id', editingDoc.id).order('fecha', { ascending: false });
-      setSeguimientos(newData || []);
-      fetchDocs(); 
-    } catch (err) {
-      alert("Error: " + err.message);
-    }
-  }} 
-  className="bg-blue-600 text-white font-black py-5 px-12 rounded-3xl text-xs uppercase shadow-2xl shadow-blue-200 tracking-[0.2em] hover:scale-105 transition-all outline-none"
->
-  Grabar Seguimiento
-</button>
+                            // 3. Recargar historial
+                            const { data: newData } = await supabase.from('seguimientos').select('*').eq('documento_id', editingDoc.id).order('fecha', { ascending: false });
+                            setSeguimientos(newData || []);
+                            
+                            // 4. Refrescar tabla del fondo
+                            fetchDocs(); 
+                          } catch (err) {
+                            alert("Error: " + err.message);
+                          }
+                        }} 
+                        className="bg-blue-600 text-white font-black py-5 px-12 rounded-3xl text-xs uppercase shadow-2xl shadow-blue-200 tracking-[0.2em] hover:scale-105 transition-all outline-none"
+                      >
+                        Grabar Seguimiento
+                      </button>
                     </div>
                     <div className="space-y-8">
                       <h4 className="font-black text-[10px] uppercase text-slate-400 tracking-widest ml-4">Historial de Seguimientos ({seguimientos.length})</h4>
