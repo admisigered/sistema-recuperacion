@@ -57,36 +57,33 @@ export default function SistemaSIGERED() {
     const origen = String(doc.origen || '').toUpperCase();
     const colK = String(doc.estado_verificacion_k || 'PENDIENTE').toUpperCase();
     const colL = String(doc.estado_visualizacion || '').toUpperCase();
-    const colP = doc.numero_documento;
     const colAB = doc.cargado_sisged;
 
-    // 1. REGLA DE CIERRE: Si está en SISGED o se visualiza, es RECUPERADO
+    // 1. REGLA DE CIERRE: RECUPERADO
     if (colAB === true || colAB === 'true' || colL === 'SI SE VISUALIZA') {
         return { etapa: 'CIERRE', estado: 'RECUPERADO', color: 'bg-green-100 text-green-700', border: 'border-green-500' };
     }
-
-    // 2. REGLA DE SEGUIMIENTO EN PROCESO: Si tiene algún seguimiento registrado, pasa a EN PROCESO
+    // 2. REGLA DE SEGUIMIENTO EN PROCESO
     if (doc.ultimo_seguimiento) {
         return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' };
     }
-
-    // 3. REGLA DE VERIFICACION: Si la Columna K sigue pendiente
+    // 3. REGLA DE VERIFICACION: PENDIENTE
     if (colK === 'PENDIENTE') {
         return { etapa: 'VERIFICACION', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
     }
-
-    // REGLA 4: VERIFICADO Y NO SE VISUALIZA (Dentro de getEtapaEstado)
+    // 4. REGLA DE REQUERIMIENTO / SEGUIMIENTO PENDIENTE
     if (colK === 'VERIFICADO' && colL === 'NO SE VISUALIZA') {
         if (origen === 'INTERNO') {
             return { etapa: 'CIERRE', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
         } else {
-            // CORRECCIÓN: Validación estricta para etapa REQUERIMIENTO
             if (!doc.numero_documento || doc.numero_documento === '' || doc.numero_documento === 'null') {
                 return { etapa: 'REQUERIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
             }
             return { etapa: 'SEGUIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
         }
     }
+    return { etapa: 'VERIFICACION', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
+  }, []); // <--- Aquí faltaban estos cierres
 
   // --- 2. FUNCIONES DE APOYO ---
   const formatExcelDate = (val) => {
