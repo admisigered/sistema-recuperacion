@@ -66,9 +66,9 @@ export default function SistemaSIGERED() {
     }
 
     // REGLA 2: SEGUIMIENTO / EN PROCESO (Si tiene algún seguimiento registrado)
-    if (doc.ultimo_seguimiento) {
-        return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' };
-    }
+if (doc.ultimo_seguimiento) {
+    return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' };
+}
 
     // REGLA 3: VERIFICACION / PENDIENTE (Si la Columna K sigue pendiente)
     if (colK === 'PENDIENTE') {
@@ -80,18 +80,11 @@ if (colK === 'VERIFICADO' && colL === 'NO SE VISUALIZA') {
     if (origen === 'INTERNO') {
         return { etapa: 'CIERRE', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
     } else {
-        // EXTERNO: Si no hay documento P, es Requerimiento
         if (!colP || colP === '' || colP === 'null') {
             return { etapa: 'REQUERIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
         }
-        // Si hay documento P, es SEGUIMIENTO. 
-        // Verificamos si tiene seguimiento para poner EN PROCESO o PENDIENTE
-        return { 
-            etapa: 'SEGUIMIENTO', 
-            estado: doc.ultimo_seguimiento ? 'EN PROCESO' : 'PENDIENTE', 
-            color: doc.ultimo_seguimiento ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700',
-            border: doc.ultimo_seguimiento ? 'border-orange-500' : 'border-red-500'
-        };
+        // Cambio aquí: Si es externo y tiene documento P, pero no tiene seguimiento aún
+        return { etapa: 'SEGUIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
     }
 }
     
@@ -128,30 +121,23 @@ if (colK === 'VERIFICADO' && colL === 'NO SE VISUALIZA') {
     if (filters.search) query = query.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%`);
     if (filters.sede) query = query.eq('sede', filters.sede);
     if (filters.origen) query = query.eq('origen', filters.origen);
-    if (filters.responsable) {
+    // Filtro Responsable (Usar ilike para evitar errores de mayúsculas)
+if (filters.responsable) {
     query = query.ilike('responsable_verificacion', `%${filters.responsable}%`);
 }   
     if (filters.estado === 'RECUPERADO') {
     query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
-}
-if (filters.estado === 'EN PROCESO') {
+} else if (filters.estado === 'EN PROCESO') {
     query = query.not('ultimo_seguimiento', 'is', null).eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
-}
-if (filters.estado === 'PENDIENTE') {
+} else if (filters.estado === 'PENDIENTE') {
     query = query.is('ultimo_seguimiento', null).eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
 }
 
-    if (filters.etapa === 'VERIFICACION') {
-    query = query.eq('estado_verificacion_k', 'PENDIENTE').eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
-}
-if (filters.etapa === 'REQUERIMIENTO') {
-    query = query.eq('estado_verificacion_k', 'VERIFICADO').is('numero_documento', null).eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
-}
-if (filters.etapa === 'SEGUIMIENTO') {
-    query = query.eq('estado_verificacion_k', 'VERIFICADO').not('numero_documento', 'is', null).eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
-}
-if (filters.etapa === 'CIERRE') {
-    query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
+    if (filters.etapa) {
+    if (filters.etapa === 'VERIFICACION') query = query.eq('estado_verificacion_k', 'PENDIENTE');
+    if (filters.etapa === 'REQUERIMIENTO') query = query.eq('estado_verificacion_k', 'VERIFICADO').is('numero_documento', null).eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
+    if (filters.etapa === 'SEGUIMIENTO') query = query.eq('estado_verificacion_k', 'VERIFICADO').not('numero_documento', 'is', null).eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
+    if (filters.etapa === 'CIERRE') query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
 }
 
     const { data, count, error } = await query.order('creado_at', { ascending: false }).range(from, to);
