@@ -122,56 +122,66 @@ export default function SistemaSIGERED() {
     let to = from + ITEMS_PER_PAGE - 1;
     let query = supabase.from('documentos').select('*', { count: 'exact' });
 
-    if (filters.search) query = query.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%`);
+    // --- FILTROS DE BÚSQUEDA Y SELECCIÓN SIMPLE ---
+    if (filters.search) {
+      query = query.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%`);
+    }
     if (filters.sede) query = query.eq('sede', filters.sede);
     if (filters.origen) query = query.eq('origen', filters.origen);
-if (filters.responsable) {
-  query = query.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable}`);
-}
-    
-    // REEMPLAZAR EL BLOQUE "Filtro Estado Lógico" por este:
-if (filters.estado) {
-    if (filters.estado === 'RECUPERADO') {
-        query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
+
+    // --- CORRECCIÓN: FILTRO DE RESPONSABLE (Busca en todos los campos de responsabilidad) ---
+    if (filters.responsable) {
+      query = query.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable}`);
     }
-    if (filters.estado === 'EN PROCESO') {
-        // Un documento está EN PROCESO si tiene al menos un seguimiento y NO está recuperado
+
+    // --- CORRECCIÓN: FILTRO DE ESTADO LÓGICO ---
+    if (filters.estado) {
+      if (filters.estado === 'RECUPERADO') {
+        // Regla: SISGED es true O Visualización es SI
+        query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
+      } 
+      else if (filters.estado === 'EN PROCESO') {
+        // Regla: Tiene seguimiento Y NO está recuperado
         query = query.not('ultimo_seguimiento', 'is', null)
                      .eq('cargado_sisged', false)
                      .neq('estado_visualizacion', 'SI SE VISUALIZA');
-    }
-    if (filters.estado === 'PENDIENTE') {
-        // Un documento está PENDIENTE si NO tiene seguimientos y NO está recuperado
+      } 
+      else if (filters.estado === 'PENDIENTE') {
+        // Regla: NO tiene seguimiento Y NO está recuperado
         query = query.is('ultimo_seguimiento', null)
                      .eq('cargado_sisged', false)
                      .neq('estado_visualizacion', 'SI SE VISUALIZA');
+      }
     }
-}
 
-    // REEMPLAZAR EL BLOQUE "Filtro Etapa Lógica" por este:
-if (filters.etapa) {
-    if (filters.etapa === 'VERIFICACION') {
+    // --- CORRECCIÓN: FILTRO DE ETAPA LÓGICA ---
+    if (filters.etapa) {
+      if (filters.etapa === 'VERIFICACION') {
+        // Etapa 1: K es PENDIENTE y no está recuperado
         query = query.eq('estado_verificacion_k', 'PENDIENTE')
                      .eq('cargado_sisged', false)
                      .neq('estado_visualizacion', 'SI SE VISUALIZA');
-    }
-    if (filters.etapa === 'REQUERIMIENTO') {
+      }
+      else if (filters.etapa === 'REQUERIMIENTO') {
+        // Etapa 2: K Verificado, No Visualiza, Sin N° Documento y no recuperado
         query = query.eq('estado_verificacion_k', 'VERIFICADO')
                      .eq('estado_visualizacion', 'NO SE VISUALIZA')
-                     .is('numero_documento', null)
+                     .or('numero_documento.is.null,numero_documento.eq.""')
                      .eq('cargado_sisged', false);
-    }
-    if (filters.etapa === 'SEGUIMIENTO') {
-        // Es seguimiento si tiene número de documento o si ya tiene algún seguimiento registrado
+      }
+      else if (filters.etapa === 'SEGUIMIENTO') {
+        // Etapa 3: K Verificado, No Visualiza, CON N° Documento y no recuperado
         query = query.eq('estado_verificacion_k', 'VERIFICADO')
                      .eq('estado_visualizacion', 'NO SE VISUALIZA')
                      .not('numero_documento', 'is', null)
+                     .neq('numero_documento', '')
                      .eq('cargado_sisged', false);
-    }
-    if (filters.etapa === 'CIERRE') {
+      }
+      else if (filters.etapa === 'CIERRE') {
+        // Etapa 4: Ya está cargado o se visualiza
         query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
+      }
     }
-}
 
     const { data, count, error } = await query.order('creado_at', { ascending: false }).range(from, to);
     if (!error) { setDocs(data || []); setTotalDocs(count || 0); }
