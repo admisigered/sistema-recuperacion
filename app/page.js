@@ -124,7 +124,9 @@ export default function SistemaSIGERED() {
     if (filters.search) query = query.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%`);
     if (filters.sede) query = query.eq('sede', filters.sede);
     if (filters.origen) query = query.eq('origen', filters.origen);
-    // Reemplaza query.eq('responsable_verificacion', ...) por:
+if (filters.responsable) {
+  query = query.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable}`);
+}
     
     // Para RECUPERADO:
 if (filters.estado === 'RECUPERADO') {
