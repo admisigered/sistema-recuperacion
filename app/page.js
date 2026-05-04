@@ -121,68 +121,45 @@ export default function SistemaSIGERED() {
     let query = supabase.from('documentos').select('*', { count: 'exact' });
 
     // --- FILTROS DE BÚSQUEDA Y SELECCIÓN SIMPLE ---
+    // --- FILTROS DE BÚSQUEDA ---
     if (filters.search) {
       query = query.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%`);
     }
     if (filters.sede) query = query.eq('sede', filters.sede);
     if (filters.origen) query = query.eq('origen', filters.origen);
-
-    // --- CORRECCIÓN: FILTRO DE RESPONSABLE (Busca en todos los campos de responsabilidad) ---
     if (filters.responsable) {
       query = query.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable}`);
     }
 
-    // --- CORRECCIÓN: FILTRO DE ESTADO LÓGICO ---
+    // --- FILTRO DE ESTADO LÓGICO ---
     if (filters.estado) {
       if (filters.estado === 'RECUPERADO') {
-        // Regla: SISGED es true O Visualización es SI
         query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
       } 
       else if (filters.estado === 'EN PROCESO') {
-        // Regla: Tiene seguimiento Y NO está recuperado
-        query = query.not('ultimo_seguimiento', 'is', null)
-                     .eq('cargado_sisged', false)
-                     .neq('estado_visualizacion', 'SI SE VISUALIZA');
+        query = query.not('ultimo_seguimiento', 'is', null).eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
       } 
       else if (filters.estado === 'PENDIENTE') {
-        // Regla: NO tiene seguimiento Y NO está recuperado
-        query = query.is('ultimo_seguimiento', null)
-                     .eq('cargado_sisged', false)
-                     .neq('estado_visualizacion', 'SI SE VISUALIZA');
+        query = query.is('ultimo_seguimiento', null).eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
       }
     }
 
-    // --- CORRECCIÓN FINAL DE FILTROS POR ETAPA ---
+    // --- FILTRO DE ETAPA (Sincronizado con la etiqueta visual) ---
     if (filters.etapa) {
       if (filters.etapa === 'VERIFICACION') {
-        // Etapa 1: Siempre que K sea PENDIENTE (Internos y Externos)
-        query = query.eq('estado_verificacion_k', 'PENDIENTE')
-                     .eq('cargado_sisged', false)
-                     .neq('estado_visualizacion', 'SI SE VISUALIZA');
+        query = query.eq('estado_verificacion_k', 'PENDIENTE').eq('cargado_sisged', false);
       }
       else if (filters.etapa === 'REQUERIMIENTO') {
-        // Etapa 2: SOLO EXTERNOS, Verificados, No Visualizan y SIN número de documento
-        query = query.eq('origen', 'Externo')
-                     .eq('estado_verificacion_k', 'VERIFICADO')
-                     .eq('estado_visualizacion', 'NO SE VISUALIZA')
-                     .eq('cargado_sisged', false)
-                     // Filtro estricto para detectar campo vacío o nulo
-                     .or('numero_documento.is.null,numero_documento.eq."",numero_documento.eq.null');
+        // Solo Externos verificados sin documento generado
+        query = query.eq('origen', 'Externo').eq('estado_verificacion_k', 'VERIFICADO').eq('estado_visualizacion', 'NO SE VISUALIZA').is('numero_documento', null).eq('cargado_sisged', false);
       }
       else if (filters.etapa === 'SEGUIMIENTO') {
-        // Etapa 3: SOLO EXTERNOS, Verificados, No Visualizan y YA TIENEN número de documento
-        query = query.eq('origen', 'Externo')
-                     .eq('estado_verificacion_k', 'VERIFICADO')
-                     .eq('estado_visualizacion', 'NO SE VISUALIZA')
-                     .eq('cargado_sisged', false)
-                     // Debe tener un número de documento válido
-                     .not('numero_documento', 'is', null)
-                     .neq('numero_documento', '')
-                     .neq('numero_documento', 'null');
+        // Solo Externos verificados que ya tienen número de documento
+        query = query.eq('origen', 'Externo').eq('estado_verificacion_k', 'VERIFICADO').eq('estado_visualizacion', 'NO SE VISUALIZA').not('numero_documento', 'is', null).eq('cargado_sisged', false);
       }
       else if (filters.etapa === 'CIERRE') {
-        // Etapa 4: Recuperados O Internos que ya fueron verificados
-        query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA,and(origen.eq.Interno,estado_verificacion_k.eq.VERIFICADO)');
+        // Recuperados o Internos verificados
+        query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA,origen.eq.Interno');
       }
     }
 
