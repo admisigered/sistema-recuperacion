@@ -60,35 +60,37 @@ export default function SistemaSIGERED() {
     const colP = doc.numero_documento;
     const colAB = doc.cargado_sisged;
 
-    const getEtapaEstado = useCallback((doc) => {
-    // ... (validaciones iniciales)
-
-    // 1. CIERRE (Prioridad máxima)
-    if (colAB === true || colL === 'SI SE VISUALIZA') {
-        return { etapa: 'CIERRE', estado: 'RECUPERADO', ... };
+    // 1. REGLA DE CIERRE: Si está en SISGED o se visualiza, es RECUPERADO
+    if (colAB === true || colAB === 'true' || colL === 'SI SE VISUALIZA') {
+        return { etapa: 'CIERRE', estado: 'RECUPERADO', color: 'bg-green-100 text-green-700', border: 'border-green-500' };
     }
 
-    // 2. SEGUIMIENTO / EN PROCESO (Si ya se grabó algo en la Etapa 3)
+    // 2. REGLA DE SEGUIMIENTO EN PROCESO: Si tiene algún seguimiento registrado, pasa a EN PROCESO
     if (doc.ultimo_seguimiento) {
-        return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', ... };
+        return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' };
     }
 
-    // 3. VERIFICACION PENDIENTE
+    // 3. REGLA DE VERIFICACION: Si la Columna K sigue pendiente
     if (colK === 'PENDIENTE') {
-        return { etapa: 'VERIFICACION', estado: 'PENDIENTE', ... };
+        return { etapa: 'VERIFICACION', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
     }
 
-    // 4. REQUERIMIENTO O SEGUIMIENTO PENDIENTE (Sin seguimientos aún)
+    // 4. REGLA DE REQUERIMIENTO / SEGUIMIENTO PENDIENTE
     if (colK === 'VERIFICADO' && colL === 'NO SE VISUALIZA') {
-        if (origen === 'INTERNO') return { etapa: 'CIERRE', estado: 'PENDIENTE', ... };
-        
-        if (!doc.numero_documento) {
-            return { etapa: 'REQUERIMIENTO', estado: 'PENDIENTE', ... };
+        if (origen === 'INTERNO') {
+            return { etapa: 'CIERRE', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
+        } else {
+            // Si no tiene número de documento generado, está en etapa de REQUERIMIENTO
+            if (!doc.numero_documento || doc.numero_documento === 'null' || doc.numero_documento === '') {
+                return { etapa: 'REQUERIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
+            }
+            // Si tiene número de documento pero no tiene seguimientos (ya pasó el filtro 2), está en SEGUIMIENTO PENDIENTE
+            return { etapa: 'SEGUIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
         }
-        return { etapa: 'SEGUIMIENTO', estado: 'PENDIENTE', ... };
     }
-    // ...
-}, []);
+
+    return { etapa: 'VERIFICACION', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
+  }, []);
 
   // --- 2. FUNCIONES DE APOYO ---
   const formatExcelDate = (val) => {
