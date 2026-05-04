@@ -16,8 +16,8 @@
     "xlsx": "latest",
     "clsx": "latest",
     "tailwind-merge": "latest",
-    "tailwindcss": "3.4.3",
-    "postcss": "8.4.38",
-    "autoprefixer": "10.4.19"
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/postcss": "^4.0.0",
+    "postcss": "^8.5.1"
   }
 }
