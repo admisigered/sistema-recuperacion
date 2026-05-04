@@ -526,37 +526,42 @@ export default function SistemaSIGERED() {
                       </div>
                       <textarea id="s_obs" className="w-full p-6 rounded-[30px] border border-slate-100 bg-white text-sm outline-none shadow-inner font-medium" rows="3" placeholder="Detalles del contacto con el remitente..."></textarea>
                       <button 
-                        onClick={async () => {
-                          const o = document.getElementById('s_obs').value; 
-                          const r = document.getElementById('s_res').value; 
-                          const m = document.getElementById('s_med').value; 
-                          const f = document.getElementById('s_fec').value;
-                          
-                          if(!o || !r || !m || !f) return alert("Por favor, complete todos los campos (Fecha, Responsable, Medio y Observación).");
-                          
-                          try {
-                            const { error: insertError } = await supabase.from('seguimientos').insert([
-                              { documento_id: editingDoc.id, responsable: r, medio: m, observaciones: o, fecha: f }
-                            ]);
-                            
-                            if(insertError) throw insertError;
+                       onClick={async () => {
+  const o = document.getElementById('s_obs').value; 
+  const r = document.getElementById('s_res').value; 
+  const m = document.getElementById('s_med').value; 
+  const f = document.getElementById('s_fec').value;
+  
+  if(!o || !r || !m || !f) return alert("Por favor, complete todos los campos (Fecha, Responsable, Medio y Observación).");
+  
+  try {
+    const { error: insertError } = await supabase.from('seguimientos').insert([
+      { documento_id: editingDoc.id, responsable: r, medio: m, observaciones: o, fecha: f }
+    ]);
+    
+    if(insertError) throw insertError;
 
-                            // Actualizar la fecha del último seguimiento en el documento principal
-                            await supabase.from('documentos').update({ ultimo_seguimiento: new Date().toISOString() }).eq('id', editingDoc.id); 
-                            
-                            document.getElementById('s_obs').value = ''; 
-                            alert("Seguimiento Grabado con éxito"); 
+    const now = new Date().toISOString();
 
-                            // Recargar el historial de seguimientos en el modal
-                            const { data: newData } = await supabase.from('seguimientos').select('*').eq('documento_id', editingDoc.id).order('fecha', { ascending: false });
-                            setSeguimientos(newData || []);
-                            
-                            // Refrescar la tabla principal para actualizar el estado a "EN PROCESO"
-                            fetchDocs(); 
-                          } catch (err) {
-                            alert("Error al grabar: " + err.message);
-                          }
-                        }} 
+    // 1. Actualizar la base de datos
+    await supabase.from('documentos').update({ ultimo_seguimiento: now }).eq('id', editingDoc.id); 
+
+    // 2. ACTUALIZACIÓN LOCAL (ESTA ES LA LÍNEA CLAVE PARA QUE CAMBIE A "EN PROCESO")
+    setEditingDoc(prev => ({ ...prev, ultimo_seguimiento: now }));
+    
+    document.getElementById('s_obs').value = ''; 
+    alert("Seguimiento Grabado con éxito"); 
+
+    // Recargar el historial de seguimientos en el modal
+    const { data: newData } = await supabase.from('seguimientos').select('*').eq('documento_id', editingDoc.id).order('fecha', { ascending: false });
+    setSeguimientos(newData || []);
+    
+    // Refrescar la tabla principal 
+    fetchDocs(); 
+  } catch (err) {
+    alert("Error al grabar: " + err.message);
+  }
+}}
                         className="bg-blue-600 text-white font-black py-5 px-12 rounded-3xl text-xs uppercase shadow-2xl shadow-blue-200 tracking-[0.2em] hover:scale-105 transition-all outline-none"
                       >
                         Grabar Seguimiento
