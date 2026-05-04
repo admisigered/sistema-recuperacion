@@ -310,7 +310,7 @@ export default function SistemaSIGERED() {
   if (!session) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6 font-sans">
-        <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-md overflow-hidden border border-white">
+        <div className="bg-white rounded-4xl shadow-2xl w-full max-w-md overflow-hidden border border-white">
           <div className="bg-brand-blue p-12 text-center text-white font-sans">
              <h1 className="text-4xl font-black mb-2 tracking-tighter uppercase">SIGERED</h1>
              <p className="text-xs font-bold uppercase tracking-widest opacity-80">Gestión de Recuperación</p>
@@ -375,7 +375,7 @@ export default function SistemaSIGERED() {
               </div>
 
               <div className="grid grid-cols-12 gap-8">
-                <div className="col-span-6 bg-white p-10 rounded-[40px] border border-slate-100 shadow-sm flex flex-col shadow-slate-200">
+                <div className="col-span-6 bg-white p-10 rounded-4xl border border-slate-100 shadow-sm flex flex-col shadow-slate-200">
                   <h4 className="text-sm font-black text-slate-700 uppercase mb-12 flex items-center gap-2"><BarChart3 size={18} className="text-blue-600"/> Avance por Etapas</h4>
                   <div className="flex-1 flex items-end justify-around gap-6 h-64 border-b border-l border-slate-100 px-6 pb-2 relative font-sans">
                     {['VERIFICACION', 'REQUERIMIENTO', 'SEGUIMIENTO', 'CIERRE'].map((etapa) => {
@@ -391,7 +391,7 @@ export default function SistemaSIGERED() {
                     })}
                   </div>
                 </div>
-                <div className="col-span-6 bg-blue-600 p-10 rounded-[40px] text-white flex items-center justify-between shadow-2xl relative overflow-hidden">
+                <div className="col-span-6 bg-blue-600 p-10 rounded-4xl text-white flex items-center justify-between shadow-2xl relative overflow-hidden">
                     <div className="relative z-10">
                         <h4 className="text-xs font-black uppercase opacity-70 tracking-widest mb-2 uppercase">Indicador de Éxito</h4>
                         <h3 className="text-6xl font-black">{totalDocs > 0 ? Math.round((docs.filter(d => getEtapaEstado(d).estado === 'RECUPERADO').length / totalDocs) * 100) : 0}%</h3>
@@ -417,7 +417,7 @@ export default function SistemaSIGERED() {
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in shadow-slate-100">
+            <div className="bg-white rounded-4xl shadow-sm border border-slate-100 overflow-hidden animate-in fade-in shadow-slate-100">
                <table className="w-full text-left font-sans font-bold font-sans">
                 <thead className="bg-slate-50 border-b text-[10px] font-black text-slate-400 uppercase tracking-widest font-sans font-bold">
                   <tr>
@@ -530,7 +530,7 @@ export default function SistemaSIGERED() {
                         <option value="COURIER">COURIER</option>
                       </select>
                     </div>
-                    <div className="col-span-1 bg-blue-50 p-10 rounded-[40px] border border-blue-100 flex items-center justify-between shadow-inner">
+                    <div className="col-span-1 bg-blue-50 p-10 rounded-4xl border border-blue-100 flex items-center justify-between shadow-inner">
                       <div>
                         <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Días Hábiles Transcurridos</p>
                         <p className="text-6xl font-black text-blue-600 mt-2">{calcularDiasHabiles(editingDoc.fecha_notificacion)}</p>
@@ -546,7 +546,7 @@ export default function SistemaSIGERED() {
 
                {activeTab === 3 && (
                   <div className="space-y-12 animate-in fade-in duration-300 font-sans">
-                    <div className="bg-slate-50 p-10 rounded-[40px] space-y-6 border border-slate-200">
+                    <div className="bg-slate-50 p-10 rounded-4xl space-y-6 border border-slate-200">
                       <h4 className="font-black text-xs uppercase text-slate-600 tracking-widest">Registrar Nuevo Seguimiento</h4>
                       <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-1">
