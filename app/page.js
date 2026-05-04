@@ -6,8 +6,8 @@ import * as XLSX from 'xlsx';
 import { 
   LayoutDashboard, FileText, Upload, Download, Search, 
   LogOut, ChevronLeft, ChevronRight, Save, Plus, Clock, 
-  CheckCircle2, AlertCircle, Trash2, Filter, X, CheckSquare, Square, 
-  Calendar, Phone, BookOpen, MessageSquare, BarChart3, Truck, Briefcase, UserCheck
+  CheckCircle2, AlertCircle, Trash2, X, CheckSquare, Square, 
+  Calendar, Phone, MessageSquare, BarChart3, Truck, Briefcase, UserCheck
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE USUARIOS AUTORIZADOS ---
@@ -140,7 +140,7 @@ export default function SistemaSIGERED() {
         query = query.eq('estado_verificacion_k', 'PENDIENTE').eq('cargado_sisged', false);
       }
       else if (filters.etapa === 'REQUERIMIENTO') {
-        // CORRECCIÓN: Filtra Externos verificados que NO tienen número de documento
+        // CORRECCIÓN: Detecta nulos y vacíos para mostrar REQUERIMIENTO
         query = query.eq('origen', 'Externo')
                      .eq('estado_verificacion_k', 'VERIFICADO')
                      .eq('estado_visualizacion', 'NO SE VISUALIZA')
@@ -148,7 +148,6 @@ export default function SistemaSIGERED() {
                      .or('numero_documento.is.null,numero_documento.eq.""');
       }
       else if (filters.etapa === 'SEGUIMIENTO') {
-        // CORRECCIÓN: Filtra Externos verificados que YA tienen número de documento
         query = query.eq('origen', 'Externo')
                      .eq('estado_verificacion_k', 'VERIFICADO')
                      .eq('estado_visualizacion', 'NO SE VISUALIZA')
@@ -157,7 +156,6 @@ export default function SistemaSIGERED() {
                      .neq('numero_documento', '');
       }
       else if (filters.etapa === 'CIERRE') {
-        // CORRECCIÓN: Recuperados o Internos verificados (Ruta directa)
         query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA,and(origen.eq.Interno,estado_verificacion_k.eq.VERIFICADO)');
       }
     }
@@ -437,7 +435,7 @@ export default function SistemaSIGERED() {
             </div>
           )}
         </div>
-      </main>
+      </main> {/* <--- AGREGA ESTA LÍNEA AQUÍ PARA CERRAR EL MAIN */}
 
       {/* --- MODAL DETALLES TOTAL (A-AD INTEGRAL) --- */}
       {editingDoc && (
