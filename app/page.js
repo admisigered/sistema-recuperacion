@@ -154,32 +154,33 @@ export default function SistemaSIGERED() {
       }
     }
 
-    // --- CORRECCIÓN: FILTRO DE ETAPA LÓGICA ---
+    // --- CORRECCIÓN DEFINITIVA: FILTRO DE ETAPA (Sincronizado con getEtapaEstado) ---
     if (filters.etapa) {
-      if (filters.etapa === 'VERIFICACION') {
-        // Etapa 1: K es PENDIENTE y no está recuperado
+      if (filters.etapa === 'CIERRE') {
+        // CIERRE es: Recuperados (SISGED/Visualización) O Documentos Internos ya verificados
+        query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA,and(origen.eq.Interno,estado_verificacion_k.eq.VERIFICADO)');
+      }
+      else if (filters.etapa === 'VERIFICACION') {
+        // VERIFICACION es: Cualquier documento donde K sea PENDIENTE y no esté recuperado
         query = query.eq('estado_verificacion_k', 'PENDIENTE')
                      .eq('cargado_sisged', false)
                      .neq('estado_visualizacion', 'SI SE VISUALIZA');
       }
       else if (filters.etapa === 'REQUERIMIENTO') {
-        // Etapa 2: K Verificado, No Visualiza, Sin N° Documento y no recuperado
-        query = query.eq('estado_verificacion_k', 'VERIFICADO')
+        // REQUERIMIENTO es: SOLO Externos, Verificados, No Visualizados, Sin N° Documento y NO recuperados
+        query = query.eq('origen', 'Externo')
+                     .eq('estado_verificacion_k', 'VERIFICADO')
                      .eq('estado_visualizacion', 'NO SE VISUALIZA')
-                     .or('numero_documento.is.null,numero_documento.eq.""')
+                     .is('numero_documento', null)
                      .eq('cargado_sisged', false);
       }
       else if (filters.etapa === 'SEGUIMIENTO') {
-        // Etapa 3: K Verificado, No Visualiza, CON N° Documento y no recuperado
-        query = query.eq('estado_verificacion_k', 'VERIFICADO')
+        // SEGUIMIENTO es: SOLO Externos, Verificados, No Visualizados, YA tienen N° Documento (o seguimiento) y NO recuperados
+        query = query.eq('origen', 'Externo')
+                     .eq('estado_verificacion_k', 'VERIFICADO')
                      .eq('estado_visualizacion', 'NO SE VISUALIZA')
                      .not('numero_documento', 'is', null)
-                     .neq('numero_documento', '')
                      .eq('cargado_sisged', false);
-      }
-      else if (filters.etapa === 'CIERRE') {
-        // Etapa 4: Ya está cargado o se visualiza
-        query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
       }
     }
 
