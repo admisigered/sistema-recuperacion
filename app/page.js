@@ -211,7 +211,7 @@ export default function SistemaSIGERED() {
           fetchDocs();
       } else {
           alert("Error al guardar: " + error.message);
-      }
+      };
 
   // --- 5. SINCRONIZACIÓN Y ELIMINACIÓN ---
  const handleSyncChanges = async () => {
