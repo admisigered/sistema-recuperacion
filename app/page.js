@@ -125,24 +125,24 @@ export default function SistemaSIGERED() {
       query = query.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable}`);
     }
 
-    // --- CORRECCIÓN INFALIBLE: FILTRO DE ESTADO ---
+    // --- CORRECCIÓN DEFINITIVA: FILTRO DE ESTADO ---
     if (filters.estado) {
       if (filters.estado === 'RECUPERADO') {
-        // Regla: Es recuperado si Carga es true O Visualiza es SI
+        // Recuperado = Cargado SISGED o Si se visualiza
         query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
       } 
       else {
-        // Para PENDIENTE y EN PROCESO, primero EXCLUIMOS obligatoriamente a los recuperados
-        // Usamos neq.true para que incluya tanto a los 'false' como a los vacíos (null)
+        // Para PENDIENTE y EN PROCESO, EXCLUIMOS obligatoriamente a los recuperados
+        // neq.true atrapa tanto 'false' como 'null' (vacíos)
         query = query.neq('cargado_sisged', true)
                      .neq('estado_visualizacion', 'SI SE VISUALIZA');
 
         if (filters.estado === 'EN PROCESO') {
-          // Si no está recuperado y tiene fecha de seguimiento
+          // No recuperado Y tiene algún registro de seguimiento
           query = query.not('ultimo_seguimiento', 'is', null);
         } 
         else if (filters.estado === 'PENDIENTE') {
-          // Si no está recuperado y NO tiene fecha de seguimiento
+          // No recuperado Y NO tiene registros de seguimiento aún
           query = query.is('ultimo_seguimiento', null);
         }
       }
