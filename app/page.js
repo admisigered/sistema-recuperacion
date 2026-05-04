@@ -124,12 +124,24 @@ export default function SistemaSIGERED() {
     if (filters.search) query = query.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%`);
     if (filters.sede) query = query.eq('sede', filters.sede);
     if (filters.origen) query = query.eq('origen', filters.origen);
-    if (filters.responsable) query = query.eq('responsable_verificacion', filters.responsable);
+    // Reemplaza query.eq('responsable_verificacion', ...) por:
     
-    // Filtro Estado Lógico
-    if (filters.estado === 'RECUPERADO') query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA,estado_final.eq.RECUPERADO');
-    if (filters.estado === 'EN PROCESO') query = query.not('ultimo_seguimiento', 'is', null).eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
-    if (filters.estado === 'PENDIENTE') query = query.eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA').is('ultimo_seguimiento', null);
+    // Para RECUPERADO:
+if (filters.estado === 'RECUPERADO') {
+  query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
+}
+// Para EN PROCESO (Tiene seguimientos pero no está recuperado):
+if (filters.estado === 'EN PROCESO') {
+  query = query.not('ultimo_seguimiento', 'is', null)
+               .eq('cargado_sisged', false)
+               .neq('estado_visualizacion', 'SI SE VISUALIZA');
+}
+// Para PENDIENTE (No tiene seguimientos y no está recuperado):
+if (filters.estado === 'PENDIENTE') {
+  query = query.is('ultimo_seguimiento', null)
+               .eq('cargado_sisged', false)
+               .neq('estado_visualizacion', 'SI SE VISUALIZA');
+}
 
     // Filtro Etapa Lógica
     if (filters.etapa) {
