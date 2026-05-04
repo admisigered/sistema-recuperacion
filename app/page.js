@@ -76,21 +76,25 @@ export default function SistemaSIGERED() {
     }
 
     // REGLA 4: VERIFICADO Y NO SE VISUALIZA
-    if (colK === 'VERIFICADO' && colL === 'NO SE VISUALIZA') {
-        if (origen === 'INTERNO') {
-            return { etapa: 'CIERRE', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
-        } else {
-            // EXTERNO: Requerimiento o Seguimiento Pendiente
-            if (!colP || colP === '' || colP === 'null') {
-                return { etapa: 'REQUERIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
-            }
-            return { etapa: 'SEGUIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
+if (colK === 'VERIFICADO' && colL === 'NO SE VISUALIZA') {
+    if (origen === 'INTERNO') {
+        return { etapa: 'CIERRE', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
+    } else {
+        // EXTERNO: Si no hay documento P, es Requerimiento
+        if (!colP || colP === '' || colP === 'null') {
+            return { etapa: 'REQUERIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
         }
+        // Si hay documento P, es SEGUIMIENTO. 
+        // Verificamos si tiene seguimiento para poner EN PROCESO o PENDIENTE
+        return { 
+            etapa: 'SEGUIMIENTO', 
+            estado: doc.ultimo_seguimiento ? 'EN PROCESO' : 'PENDIENTE', 
+            color: doc.ultimo_seguimiento ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700',
+            border: doc.ultimo_seguimiento ? 'border-orange-500' : 'border-red-500'
+        };
     }
-
-    return { etapa: 'VERIFICACION', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
-  }, []);
-
+}
+    
   // --- 2. FUNCIONES DE APOYO ---
   const formatExcelDate = (val) => {
     if (!val) return null;
@@ -124,20 +128,31 @@ export default function SistemaSIGERED() {
     if (filters.search) query = query.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%`);
     if (filters.sede) query = query.eq('sede', filters.sede);
     if (filters.origen) query = query.eq('origen', filters.origen);
-    if (filters.responsable) query = query.eq('responsable_verificacion', filters.responsable);
-    
-    // Filtro Estado Lógico
-    if (filters.estado === 'RECUPERADO') query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA,estado_final.eq.RECUPERADO');
-    if (filters.estado === 'EN PROCESO') query = query.not('ultimo_seguimiento', 'is', null).eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
-    if (filters.estado === 'PENDIENTE') query = query.eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA').is('ultimo_seguimiento', null);
+    if (filters.responsable) {
+    query = query.ilike('responsable_verificacion', `%${filters.responsable}%`);
+}   
+    if (filters.estado === 'RECUPERADO') {
+    query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
+}
+if (filters.estado === 'EN PROCESO') {
+    query = query.not('ultimo_seguimiento', 'is', null).eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
+}
+if (filters.estado === 'PENDIENTE') {
+    query = query.is('ultimo_seguimiento', null).eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
+}
 
-    // Filtro Etapa Lógica
-    if (filters.etapa) {
-        if (filters.etapa === 'VERIFICACION') query = query.eq('estado_verificacion_k', 'PENDIENTE');
-        if (filters.etapa === 'REQUERIMIENTO') query = query.eq('estado_verificacion_k', 'VERIFICADO').is('numero_documento', null);
-        if (filters.etapa === 'SEGUIMIENTO') query = query.eq('estado_verificacion_k', 'VERIFICADO').not('numero_documento', 'is', null).eq('cargado_sisged', false);
-        if (filters.etapa === 'CIERRE') query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
-    }
+    if (filters.etapa === 'VERIFICACION') {
+    query = query.eq('estado_verificacion_k', 'PENDIENTE').eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
+}
+if (filters.etapa === 'REQUERIMIENTO') {
+    query = query.eq('estado_verificacion_k', 'VERIFICADO').is('numero_documento', null).eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
+}
+if (filters.etapa === 'SEGUIMIENTO') {
+    query = query.eq('estado_verificacion_k', 'VERIFICADO').not('numero_documento', 'is', null).eq('cargado_sisged', false).neq('estado_visualizacion', 'SI SE VISUALIZA');
+}
+if (filters.etapa === 'CIERRE') {
+    query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
+}
 
     const { data, count, error } = await query.order('creado_at', { ascending: false }).range(from, to);
     if (!error) { setDocs(data || []); setTotalDocs(count || 0); }
