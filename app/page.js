@@ -125,23 +125,25 @@ export default function SistemaSIGERED() {
       query = query.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable}`);
     }
 
-    // --- CORRECCIÓN DEFINITIVA: FILTRO DE ESTADO (Sincronizado con getEtapaEstado) ---
+    // --- CORRECCIÓN DEFINITIVA: FILTRO DE ESTADO (Prioridad de Exclusión) ---
     if (filters.estado) {
       if (filters.estado === 'RECUPERADO') {
-        // Un documento es RECUPERADO si se cargó a SISGED o si se visualiza
+        // Caso 1: Los que ya están recuperados
         query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
-      } 
-      else if (filters.estado === 'EN PROCESO') {
-        // Un documento está EN PROCESO si tiene seguimiento registrado y NO está recuperado
-        query = query.not('ultimo_seguimiento', 'is', null)
-                     .eq('cargado_sisged', false)
+      } else {
+        // Para PENDIENTE y EN PROCESO, primero nos aseguramos de EXCLUIR los recuperados
+        // Usamos .neq(true) para atrapar tanto 'false' como 'null'
+        query = query.neq('cargado_sisged', true)
                      .neq('estado_visualizacion', 'SI SE VISUALIZA');
-      } 
-      else if (filters.estado === 'PENDIENTE') {
-        // Un documento está PENDIENTE si NO tiene seguimientos y NO está recuperado
-        query = query.is('ultimo_seguimiento', null)
-                     .eq('cargado_sisged', false)
-                     .neq('estado_visualizacion', 'SI SE VISUALIZA');
+        
+        if (filters.estado === 'EN PROCESO') {
+          // Caso 2: No recuperado Y tiene gestiones de seguimiento
+          query = query.not('ultimo_seguimiento', 'is', null);
+        } 
+        else if (filters.estado === 'PENDIENTE') {
+          // Caso 3: No recuperado Y NO tiene ninguna gestión aún
+          query = query.is('ultimo_seguimiento', null);
+        }
       }
     }
 
