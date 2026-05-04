@@ -60,27 +60,29 @@ export default function SistemaSIGERED() {
     const colP = doc.numero_documento;
     const colAB = doc.cargado_sisged;
 
-    // REGLA PRIORIDAD 1: ¿Se cargó al SISGED? (Col AB) o SI SE VISUALIZA (Col L) -> CIERRE / RECUPERADO
+    // REGLA 1: CIERRE / RECUPERADO (SISGED o Visualizado)
     if (colAB === true || colAB === 'true' || colL === 'SI SE VISUALIZA') {
         return { etapa: 'CIERRE', estado: 'RECUPERADO', color: 'bg-green-100 text-green-700', border: 'border-green-500' };
     }
 
-    // REGLA PRIORIDAD 2: Etapa 1 Verificación PENDIENTE (Col K) -> VERIFICACION / PENDIENTE
+    // REGLA 2: SEGUIMIENTO / EN PROCESO (Si tiene algún seguimiento registrado)
+    if (doc.ultimo_seguimiento) {
+        return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' };
+    }
+
+    // REGLA 3: VERIFICACION / PENDIENTE (Si la Columna K sigue pendiente)
     if (colK === 'PENDIENTE') {
         return { etapa: 'VERIFICACION', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
     }
 
-    // REGLA PRIORIDAD 3: VERIFICADO (Col K) PERO NO VISUALIZA (Col L)
+    // REGLA 4: VERIFICADO Y NO SE VISUALIZA
     if (colK === 'VERIFICADO' && colL === 'NO SE VISUALIZA') {
         if (origen === 'INTERNO') {
             return { etapa: 'CIERRE', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
         } else {
-            // EXTERNO: Requerimiento / Seguimiento
+            // EXTERNO: Requerimiento o Seguimiento Pendiente
             if (!colP || colP === '' || colP === 'null') {
                 return { etapa: 'REQUERIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
-            }
-            if (doc.ultimo_seguimiento) {
-                return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' };
             }
             return { etapa: 'SEGUIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
         }
