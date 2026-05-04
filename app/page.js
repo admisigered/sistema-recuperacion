@@ -529,46 +529,43 @@ export default function SistemaSIGERED() {
                       <textarea id="s_obs" className="w-full p-6 rounded-[30px] border border-slate-100 bg-white text-sm outline-none shadow-inner font-medium" rows="3" placeholder="Detalles del contacto con el remitente..."></textarea>
                       <button 
                        <button 
-                        onClick={async () => {
-                          const o = document.getElementById('s_obs').value; 
-                          const r = document.getElementById('s_res').value; 
-                          const m = document.getElementById('s_med').value; 
-                          const f = document.getElementById('s_fec').value;
-                          
-                          if(!o || !r || !m || !f) return alert("Por favor, complete todos los campos.");
-                          
-                          try {
-                            const now = new Date().toISOString();
-                            
-                            // 1. Guardar en la tabla de seguimientos
-                            const { error: insertError } = await supabase.from('seguimientos').insert([
-                              { documento_id: editingDoc.id, responsable: r, medio: m, observaciones: o, fecha: f }
-                            ]);
-                            if(insertError) throw insertError;
+  onClick={async () => {
+    const o = document.getElementById('s_obs').value; 
+    const r = document.getElementById('s_res').value; 
+    const m = document.getElementById('s_med').value; 
+    const f = document.getElementById('s_fec').value;
+    
+    if(!o || !r || !m || !f) return alert("Por favor, complete todos los campos.");
+    
+    try {
+      const now = new Date().toISOString();
+      const { error: insertError } = await supabase.from('seguimientos').insert([
+        { documento_id: editingDoc.id, responsable: r, medio: m, observaciones: o, fecha: f }
+      ]);
+      
+      if(insertError) throw insertError;
 
-                            // 2. Actualizar campo de control en la tabla documentos
-                            await supabase.from('documentos').update({ ultimo_seguimiento: now }).eq('id', editingDoc.id); 
-                            
-                            // 3. Actualizar la vista del modal al instante
-                            setEditingDoc(prev => ({ ...prev, ultimo_seguimiento: now }));
-                            
-                            document.getElementById('s_obs').value = ''; 
-                            alert("Seguimiento Grabado"); 
+      // Actualizar base de datos
+      await supabase.from('documentos').update({ ultimo_seguimiento: now }).eq('id', editingDoc.id); 
+      
+      // ACTUALIZACIÓN LOCAL: Cambia el estado a EN PROCESO inmediatamente
+      setEditingDoc(prev => ({ ...prev, ultimo_seguimiento: now }));
+      
+      document.getElementById('s_obs').value = ''; 
+      alert("Seguimiento Grabado"); 
 
-                            // 4. Recargar lista de historial
-                            const { data: newData } = await supabase.from('seguimientos').select('*').eq('documento_id', editingDoc.id).order('fecha', { ascending: false });
-                            setSeguimientos(newData || []);
-                            
-                            // 5. Refrescar la tabla del fondo
-                            fetchDocs(); 
-                          } catch (err) {
-                            alert("Error: " + err.message);
-                          }
-                        }} 
-                        className="bg-blue-600 text-white font-black py-5 px-12 rounded-3xl text-xs uppercase shadow-2xl shadow-blue-200 tracking-[0.2em] hover:scale-105 transition-all outline-none"
-                      >
-                        Grabar Seguimiento
-                      </button>
+      // Recargar historial
+      const { data: newData } = await supabase.from('seguimientos').select('*').eq('documento_id', editingDoc.id).order('fecha', { ascending: false });
+      setSeguimientos(newData || []);
+      fetchDocs(); 
+    } catch (err) {
+      alert("Error: " + err.message);
+    }
+  }} 
+  className="bg-blue-600 text-white font-black py-5 px-12 rounded-3xl text-xs uppercase shadow-2xl shadow-blue-200 tracking-[0.2em] hover:scale-105 transition-all outline-none"
+>
+  Grabar Seguimiento
+</button>
                     </div>
                     <div className="space-y-8">
                       <h4 className="font-black text-[10px] uppercase text-slate-400 tracking-widest ml-4">Historial de Seguimientos ({seguimientos.length})</h4>
