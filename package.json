@@ -20,6 +20,8 @@
     "@tailwindcss/postcss": "^4.0.0",
     "postcss": "^8.5.1",
     "autoprefixer": "^10.4.20",
-    "recharts": "latest" 
+    "recharts": "latest",
+    "html2canvas": "latest",
+    "jspdf": "latest"
   }
 }
