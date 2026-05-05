@@ -563,8 +563,12 @@ export default function SistemaSIGERED() {
 
         <div className="p-10 overflow-y-auto flex-1 font-sans">
           {view === 'dashboard' ? (
-            <div className="space-y-12 animate-in fade-in duration-500 font-sans">
-              <div className="space-y-8 animate-in fade-in duration-500">
+  // AGREGAMOS id="dashboard-view" y el fondo bg-[#F8FAFC] para que el PDF salga limpio
+  <div id="dashboard-view" className="space-y-8 animate-in fade-in duration-500 bg-[#F8FAFC] p-4">
+    
+    {/* SECCIÓN 1: CABECERA KPI - FILA 1 */}
+    <div className="grid grid-cols-4 gap-6">
+    ...
     
     {/* SECCIÓN 1: CABECERA KPI - FILA 1 */}
     <div className="grid grid-cols-4 gap-6">
