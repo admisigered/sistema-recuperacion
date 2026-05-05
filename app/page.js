@@ -428,21 +428,40 @@ export default function SistemaSIGERED() {
     if (!dashboard) return;
 
     try {
-      alert("Generando reporte visual, por favor espere...");
+      alert("Generando PDF... Esto puede tardar 5 segundos.");
       
       const canvas = await html2canvas(dashboard, {
         scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: '#F8FAFC',
-    
+        // --- LIMPIEZA PROFUNDA DE COLORES V4 ---
         onclone: (clonedDoc) => {
           const elements = clonedDoc.getElementsByTagName('*');
           for (let i = 0; i < elements.length; i++) {
-            const style = window.getComputedStyle(elements[i]);
-        
-            if (style.color.includes('oklch') || style.backgroundColor.includes('oklch')) {
-               elements[i].style.color = '#1e293b'; // Color oscuro genérico
+            const el = elements[i];
+            const computedStyle = window.getComputedStyle(el);
+            
+            // Forzamos la conversión de colores problemáticos a un formato básico
+            // Si el color contiene "oklch", lo reemplazamos por un color sólido
+            if (computedStyle.color.includes('oklch')) {
+              el.style.color = '#1e293b'; // Slate 800
+            }
+            if (computedStyle.backgroundColor.includes('oklch')) {
+              // Si es un fondo azul de botón, lo forzamos a azul estándar
+              if (el.className.includes('bg-brand-blue') || el.className.includes('bg-blue')) {
+                el.style.backgroundColor = '#2563eb';
+              } else {
+                el.style.backgroundColor = '#ffffff';
+              }
+            }
+            if (computedStyle.borderColor.includes('oklch')) {
+              el.style.borderColor = '#e2e8f0'; // Slate 200
+            }
+            
+            // Eliminar sombras que usen oklch (causan el mismo error)
+            if (computedStyle.boxShadow.includes('oklch')) {
+              el.style.boxShadow = 'none';
             }
           }
         }
@@ -454,10 +473,10 @@ export default function SistemaSIGERED() {
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Dashboard_SIGERED_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`);
+      pdf.save(`Dashboard_SIGERED_${new Date().getTime()}.pdf`);
       
     } catch (error) {
-      console.error("Error PDF:", error);
+      console.error("Error crítico PDF:", error);
       alert("Error al generar PDF: " + error.message);
     }
   };
