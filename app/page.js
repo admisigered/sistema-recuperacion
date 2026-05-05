@@ -685,8 +685,6 @@ export default function SistemaSIGERED() {
             <Bar yAxisId="left" name="Cerrados/SISGED" dataKey="cierre" stackId="a" fill="#22c55e" 
                  label={{ position: 'inside', fill: '#fff', fontSize: 10, fontWeight: 'bold' }} />
 
-            {/* Línea de tendencia (Opcional, la mantengo por diseño) */}
-            <Line yAxisId="right" name="Velocidad (Días)" type="monotone" dataKey="dias" stroke="#1e293b" strokeWidth={3} dot={{r: 4}} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
