@@ -142,14 +142,41 @@ export default function SistemaSIGERED() {
       { name: 'OD', recuperados: docs.filter(d => d.sede === 'OD' && getEtapaEstado(d).estado === 'RECUPERADO').length, pendientes: docs.filter(d => d.sede === 'OD' && getEtapaEstado(d).estado === 'PENDIENTE').length },
     ];
 
-    const respData = LISTA_RESPONSABLES.map(r => ({
-      name: r,
-      verif: docs.filter(d => d.responsable_verificacion === r).length,
-      req: docs.filter(d => d.responsable_requerimiento === r).length,
-      seg: Math.floor(docs.filter(d => d.responsable_verificacion === r).length / 3),
-      cierre: docs.filter(d => d.responsable_devolucion === r).length,
-      dias: (Math.random() * 4 + 2).toFixed(1)
-    }));
+    // 5. Rendimiento Real por Acciones de Responsables
+    const respData = LISTA_RESPONSABLES.map(r => {
+      const nombreUsuario = r.toUpperCase();
+
+      return {
+        name: r,
+        // Acción 1: ¿Cuántos verificó? (Columna I + Columna K)
+        verif: docs.filter(d => 
+          String(d.responsable_verificacion).toUpperCase() === nombreUsuario && 
+          d.estado_verificacion_k === 'VERIFICADO'
+        ).length,
+
+        // Acción 2: ¿Cuántos requerimientos generó? (Columna N + Columna P)
+        req: docs.filter(d => 
+          String(d.responsable_requerimiento).toUpperCase() === nombreUsuario && 
+          (d.numero_documento && d.numero_documento !== 'null' && d.numero_documento !== '')
+        ).length,
+
+        // Acción 3: ¿En cuántos ha registrado seguimientos? (Basado en cantidad_seguimientos)
+        // Nota: Filtramos por responsable de requerimiento que es quien suele seguir el flujo
+        seg: docs.filter(d => 
+          String(d.responsable_requerimiento).toUpperCase() === nombreUsuario && 
+          (d.cantidad_seguimientos > 0)
+        ).length,
+
+        // Acción 4: ¿Cuántos cargó al SISGED / Devolvió? (Columna X + Columna AB)
+        cierre: docs.filter(d => 
+          String(d.responsable_devolucion).toUpperCase() === nombreUsuario && 
+          (d.cargado_sisged === true || d.cargado_sisged === 'true')
+        ).length,
+
+        // Velocidad (Días promedio - puedes mantenerlo simulado o dejarlo en 0)
+        dias: (Math.random() * 3 + 1).toFixed(1) 
+      };
+    });
 
     return { monthlyData, stageData, originData, sedeData, respData };
   }, [docs, getEtapaEstado]);
@@ -637,15 +664,29 @@ export default function SistemaSIGERED() {
           <ComposedChart data={stats.respData}>
             <CartesianGrid stroke="#f8fafc" vertical={false} />
             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 11, fontWeight: 'bold'}} />
-            <YAxis yAxisId="left" axisLine={false} tickLine={false} label={{ value: 'Cantidad', angle: -90, position: 'insideLeft', fontSize: 10, fontWeight: 'bold' }} />
-            <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} label={{ value: 'Días', angle: 90, position: 'insideRight', fontSize: 10, fontWeight: 'bold' }} />
+            <YAxis yAxisId="left" axisLine={false} tickLine={false} />
+            <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} hide />
             <Tooltip />
             <Legend verticalAlign="bottom" height={36}/>
-            <Bar yAxisId="left" name="Verificación" dataKey="verif" stackId="a" fill="#3b82f6" label={{ position: 'inside', fontSize: 9, fill: '#fff', fontWeight: 'bold' }} />
-<Bar yAxisId="left" name="Requerimiento" dataKey="req" stackId="a" fill="#93c5fd" label={{ position: 'inside', fontSize: 9, fill: '#fff', fontWeight: 'bold' }} />
-<Bar yAxisId="left" name="Seguimiento" dataKey="seg" stackId="a" fill="#6ee7b7" label={{ position: 'inside', fontSize: 9, fill: '#fff', fontWeight: 'bold' }} />
-<Bar yAxisId="left" name="Cierre" dataKey="cierre" stackId="a" fill="#ef4444" label={{ position: 'inside', fontSize: 9, fill: '#fff', fontWeight: 'bold' }} />
-            <Line yAxisId="right" name="Velocidad (Días)" type="monotone" dataKey="dias" stroke="#1e293b" strokeWidth={4} dot={{r: 8, fill: '#1e293b', strokeWidth: 2, stroke: '#fff'}} label={{position: 'top', fontSize: 12, fontWeight: 'black', fill: '#1e293b'}} />
+            
+            {/* Barra 1: Verificaciones realizadas (Azul) */}
+            <Bar yAxisId="left" name="Verificados" dataKey="verif" stackId="a" fill="#3b82f6" 
+                 label={{ position: 'inside', fill: '#fff', fontSize: 10, fontWeight: 'bold' }} />
+            
+            {/* Barra 2: Requerimientos creados (Azul Claro) */}
+            <Bar yAxisId="left" name="Requeridos" dataKey="req" stackId="a" fill="#93c5fd" 
+                 label={{ position: 'inside', fill: '#1e3a8a', fontSize: 10, fontWeight: 'bold' }} />
+            
+            {/* Barra 3: Seguimientos en proceso (Naranja) */}
+            <Bar yAxisId="left" name="Con Seguimiento" dataKey="seg" stackId="a" fill="#f97316" 
+                 label={{ position: 'inside', fill: '#fff', fontSize: 10, fontWeight: 'bold' }} />
+            
+            {/* Barra 4: Cierres/Cargas SISGED (Verde) */}
+            <Bar yAxisId="left" name="Cerrados/SISGED" dataKey="cierre" stackId="a" fill="#22c55e" 
+                 label={{ position: 'inside', fill: '#fff', fontSize: 10, fontWeight: 'bold' }} />
+
+            {/* Línea de tendencia (Opcional, la mantengo por diseño) */}
+            <Line yAxisId="right" name="Velocidad (Días)" type="monotone" dataKey="dias" stroke="#1e293b" strokeWidth={3} dot={{r: 4}} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
