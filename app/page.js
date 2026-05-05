@@ -147,18 +147,43 @@ export default function SistemaSIGERED() {
       query = query.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable}`);
     }
 
+    // --- CORRECCIÓN INTEGRAL: FILTRO DE ESTADO COMPLETO ---
     if (filters.estado) {
       if (filters.estado === 'RECUPERADO') {
+        // Regla: SISGED es SI o Visualización es SI
         query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
       } 
       else if (filters.estado === 'RECONSTRUCCION') {
-        query = query.ilike('observaciones_finales', '%RECONSTRUCCION%');
+        // Regla: No recuperado y palabra clave en observaciones finales
+        query = query.neq('cargado_sisged', true)
+                     .neq('estado_visualizacion', 'SI SE VISUALIZA')
+                     .ilike('observaciones_finales', '%RECONSTRUCCION%');
       }
       else if (filters.estado === 'EN PROCESO') {
-        // No recuperado y tiene seguimiento
-        query = query.not('ultimo_seguimiento', 'is', null).eq('cargado_sisged', false);
+        // Regla: No recuperado y ya tiene algún registro de seguimiento (ultimo_seguimiento no es null)
+        query = query.neq('cargado_sisged', true)
+                     .neq('estado_visualizacion', 'SI SE VISUALIZA')
+                     .not('ultimo_seguimiento', 'is', null);
       }
-      // ... resto de estados
+      else if (filters.estado === 'SOLICITADO') {
+        // Regla: No recuperado, ya tiene N° de documento (Etapa 2 terminada) pero aún no tiene seguimientos
+        query = query.neq('cargado_sisged', true)
+                     .neq('estado_visualizacion', 'SI SE VISUALIZA')
+                     .not('numero_documento', 'is', null)
+                     .neq('numero_documento', '')
+                     .is('ultimo_seguimiento', null);
+      }
+      else if (filters.estado === 'PENDIENTE') {
+        // Regla: Documentos que no han iniciado flujo o están en REQUERIMIENTO sin documento generado
+        // Se excluyen recuperados, los que tienen N° de documento y los que tienen seguimiento
+        query = query.neq('cargado_sisged', true)
+                     .neq('estado_visualizacion', 'SI SE VISUALIZA')
+                     .is('numero_documento', null)
+                     .is('ultimo_seguimiento', null);
+      }
+      // Nota: El estado "ATENDIDO" es transicional. 
+      // Al filtrar por "EN PROCESO" verás los que están en seguimiento, 
+      // y la lógica visual (getEtapaEstado) se encargará de poner la etiqueta azul si dice "REMITIÓ DOCUMENTO".
     }
     }
     if (filters.etapa) {
