@@ -185,7 +185,7 @@ export default function SistemaSIGERED() {
       // Al filtrar por "EN PROCESO" verás los que están en seguimiento, 
       // y la lógica visual (getEtapaEstado) se encargará de poner la etiqueta azul si dice "REMITIÓ DOCUMENTO".
     }
-    }
+  
     if (filters.etapa) {
       if (filters.etapa === 'VERIFICACION') {
         query = query.eq('estado_verificacion_k', 'PENDIENTE').eq('cargado_sisged', false);
