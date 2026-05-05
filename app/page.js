@@ -524,10 +524,38 @@ export default function SistemaSIGERED() {
             <YAxis axisLine={false} tickLine={false} domain={[0, 20]} />
             <Tooltip contentStyle={{borderRadius: '15px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'}} />
             <Legend verticalAlign="top" align="right" iconType="circle" height={36}/>
-            <Bar name="Pendientes" dataKey="Pendientes" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={15} />
-            <Bar name="En Proceso" dataKey="EnProceso" fill="#f97316" radius={[4, 4, 0, 0]} barSize={15} />
-            <Bar name="Recuperados" dataKey="Recuperados" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={15} />
-            <Bar name="Para Reconstrucción" dataKey="Reconstruccion" fill="#a855f7" radius={[4, 4, 0, 0]} barSize={15} />
+            <Bar 
+              name="Pendientes" 
+              dataKey="Pendientes" 
+              fill="#ef4444" 
+              radius={[4, 4, 0, 0]} 
+              barSize={15} 
+              label={{ position: 'top', fontSize: 10, fontWeight: 'bold', fill: '#ef4444' }} 
+            />
+            <Bar 
+              name="En Proceso" 
+              dataKey="EnProceso" 
+              fill="#f97316" 
+              radius={[4, 4, 0, 0]} 
+              barSize={15} 
+              label={{ position: 'top', fontSize: 10, fontWeight: 'bold', fill: '#f97316' }} 
+            />
+            <Bar 
+              name="Recuperados" 
+              dataKey="Recuperados" 
+              fill="#22c55e" 
+              radius={[4, 4, 0, 0]} 
+              barSize={15} 
+              label={{ position: 'top', fontSize: 10, fontWeight: 'bold', fill: '#22c55e' }} 
+            />
+            <Bar 
+              name="Para Reconstrucción" 
+              dataKey="Reconstruccion" 
+              fill="#a855f7" 
+              radius={[4, 4, 0, 0]} 
+              barSize={15} 
+              label={{ position: 'top', fontSize: 10, fontWeight: 'bold', fill: '#a855f7' }} 
+            />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -562,10 +590,17 @@ export default function SistemaSIGERED() {
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={stats.originData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                <Cell fill="#1e293b" /> {/* Internos */}
-                <Cell fill="#60a5fa" /> {/* Externos */}
-              </Pie>
+              <Pie 
+  data={stats.originData} 
+  innerRadius={60} 
+  outerRadius={80} 
+  paddingAngle={5} 
+  dataKey="value" 
+  label={({ name, value }) => `${name}: ${value}`} // <--- Cambio a valor numérico
+>
+  <Cell fill="#1e293b" /> 
+  <Cell fill="#60a5fa" />
+</Pie>
               <Tooltip />
             </PieChart>
           </ResponsiveContainer>
@@ -581,8 +616,9 @@ export default function SistemaSIGERED() {
               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontWeight: 'bold'}} />
               <YAxis hide />
               <Legend verticalAlign="top" align="center" iconType="rect" height={30} />
-              <Bar name="Recuperados" dataKey="recuperados" stackId="a" fill="#2563eb" label={{position: 'inside', fontSize: 10, fill: '#fff', fontWeight: 'bold'}} />
-              <Bar name="Pendientes" dataKey="pendientes" stackId="a" fill="#f97316" radius={[4, 4, 0, 0]} label={{position: 'inside', fontSize: 10, fill: '#fff', fontWeight: 'bold'}} />
+              // Busca los componentes <Bar /> dentro del gráfico de Sedes:
+<Bar name="Recuperados" dataKey="recuperados" stackId="a" fill="#2563eb" label={{ position: 'center', fontSize: 11, fill: '#fff', fontWeight: 'black' }} />
+<Bar name="Pendientes" dataKey="pendientes" stackId="a" fill="#f97316" radius={[4, 4, 0, 0]} label={{ position: 'center', fontSize: 11, fill: '#fff', fontWeight: 'black' }} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -605,10 +641,10 @@ export default function SistemaSIGERED() {
             <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} label={{ value: 'Días', angle: 90, position: 'insideRight', fontSize: 10, fontWeight: 'bold' }} />
             <Tooltip />
             <Legend verticalAlign="bottom" height={36}/>
-            <Bar yAxisId="left" name="Verificación" dataKey="verif" stackId="a" fill="#3b82f6" />
-            <Bar yAxisId="left" name="Requerimiento" dataKey="req" stackId="a" fill="#93c5fd" />
-            <Bar yAxisId="left" name="Seguimiento" dataKey="seg" stackId="a" fill="#6ee7b7" />
-            <Bar yAxisId="left" name="Cierre" dataKey="cierre" stackId="a" fill="#ef4444" />
+            <Bar yAxisId="left" name="Verificación" dataKey="verif" stackId="a" fill="#3b82f6" label={{ position: 'inside', fontSize: 9, fill: '#fff', fontWeight: 'bold' }} />
+<Bar yAxisId="left" name="Requerimiento" dataKey="req" stackId="a" fill="#93c5fd" label={{ position: 'inside', fontSize: 9, fill: '#fff', fontWeight: 'bold' }} />
+<Bar yAxisId="left" name="Seguimiento" dataKey="seg" stackId="a" fill="#6ee7b7" label={{ position: 'inside', fontSize: 9, fill: '#fff', fontWeight: 'bold' }} />
+<Bar yAxisId="left" name="Cierre" dataKey="cierre" stackId="a" fill="#ef4444" label={{ position: 'inside', fontSize: 9, fill: '#fff', fontWeight: 'bold' }} />
             <Line yAxisId="right" name="Velocidad (Días)" type="monotone" dataKey="dias" stroke="#1e293b" strokeWidth={4} dot={{r: 8, fill: '#1e293b', strokeWidth: 2, stroke: '#fff'}} label={{position: 'top', fontSize: 12, fontWeight: 'black', fill: '#1e293b'}} />
           </ComposedChart>
         </ResponsiveContainer>
