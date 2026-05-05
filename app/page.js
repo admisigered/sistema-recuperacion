@@ -57,33 +57,55 @@ export default function SistemaSIGERED() {
     const origen = String(doc.origen || '').toUpperCase();
     const colK = String(doc.estado_verificacion_k || 'PENDIENTE').toUpperCase();
     const colL = String(doc.estado_visualizacion || '').toUpperCase();
-    const colAB = doc.cargado_sisged;
+    const numDoc = doc.numero_documento;
+    const sisged = doc.cargado_sisged;
+    const obsFinales = String(doc.observaciones_finales || '').toUpperCase();
+    const hasSeguimientos = doc.ultimo_seguimiento !== null;
+    // Buscamos la palabra clave en el historial de seguimientos (si está cargado)
+    const fueAtendido = seguimientos.some(s => String(s.observaciones).toUpperCase().includes('REMITIÓ DOCUMENTO'));
 
-    // 1. REGLA DE CIERRE: RECUPERADO
-    if (colAB === true || colAB === 'true' || colL === 'SI SE VISUALIZA') {
+    // --- REGLA 4 & 9: RECUPERADO (Prioridad máxima) ---
+    if (sisged === true || sisged === 'true' || colL === 'SI SE VISUALIZA') {
         return { etapa: 'CIERRE', estado: 'RECUPERADO', color: 'bg-green-100 text-green-700', border: 'border-green-500' };
     }
-    // 2. REGLA DE SEGUIMIENTO EN PROCESO
-    if (doc.ultimo_seguimiento) {
-        return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' };
+
+    // --- FLUJO DOCUMENTO INTERNO ---
+    if (origen === 'INTERNO') {
+        if (colK !== 'VERIFICADO') {
+            return { etapa: 'VERIFICACION', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
+        }
+        // Casuística RECONSTRUCCION en Etapa 4
+        if (obsFinales.includes('RECONSTRUCCION')) {
+            return { etapa: 'CIERRE', estado: 'RECONSTRUCCION', color: 'bg-purple-100 text-purple-700', border: 'border-purple-500' };
+        }
+        return { etapa: 'CIERRE', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
     }
-    // 3. REGLA DE VERIFICACION: PENDIENTE
-    if (colK === 'PENDIENTE') {
+
+    // --- FLUJO DOCUMENTO EXTERNO ---
+    // ETAPA 1: VERIFICACION
+    if (colK !== 'VERIFICADO') {
         return { etapa: 'VERIFICACION', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
     }
-    // 4. REGLA DE REQUERIMIENTO / SEGUIMIENTO PENDIENTE
-    if (colK === 'VERIFICADO' && colL === 'NO SE VISUALIZA') {
-        if (origen === 'INTERNO') {
-            return { etapa: 'CIERRE', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
-        } else {
-            if (!doc.numero_documento || doc.numero_documento === '' || doc.numero_documento === 'null') {
-                return { etapa: 'REQUERIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
-            }
-            return { etapa: 'SEGUIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
-        }
+
+    // ETAPA 2: REQUERIMIENTO
+    if (!numDoc || numDoc === '' || numDoc === 'null') {
+        return { etapa: 'REQUERIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
     }
-    return { etapa: 'VERIFICACION', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
-  }, []); // <--- Aquí faltaban estos cierres
+
+    // ETAPA 3: SEGUIMIENTO
+    if (!hasSeguimientos) {
+        return { etapa: 'SEGUIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
+    }
+
+    // REGLA 8: Si dice "REMITIÓ DOCUMENTO", pasa a ETAPA 4 como ATENDIDO/PENDIENTE
+    if (fueAtendido) {
+        return { etapa: 'CIERRE', estado: 'PENDIENTE', color: 'bg-blue-100 text-blue-700', border: 'border-blue-500' };
+    }
+
+    // Si tiene seguimientos pero ninguno es la palabra clave
+    return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' };
+    
+  }, [seguimientos]); // Importante añadir seguimientos a las dependencias
 
   // --- 2. FUNCIONES DE APOYO ---
   const formatExcelDate = (val) => {
