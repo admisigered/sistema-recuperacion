@@ -605,32 +605,15 @@ export default function SistemaSIGERED() {
       <div className="h-[350px] w-full"> {/* ALTURA FIJA REFORZADA */}
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={stats.monthlyData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 'bold'}} />
-    
-    {/* CAMBIO 1: Agregamos "hide" para que no se vean los números del eje Y */}
-    <YAxis hide /> 
-
-    <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '15px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'}} />
-    <Legend verticalAlign="top" align="right" iconType="circle" height={50}/>
-
-    {/* CAMBIO 2: Cambiamos fontSize de 10 a 12 en cada Bar */}
-    <Bar 
-        name="Pendientes" dataKey="Pendientes" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={12} 
-        label={{ position: 'top', fontSize: 12, fontWeight: 'bold', fill: '#ef4444' }} 
-    />
-    <Bar 
-        name="En Proceso" dataKey="EnProceso" fill="#f97316" radius={[4, 4, 0, 0]} barSize={12} 
-        label={{ position: 'top', fontSize: 12, fontWeight: 'bold', fill: '#f97316' }} 
-    />
-    <Bar 
-        name="Recuperados" dataKey="Recuperados" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={12} 
-        label={{ position: 'top', fontSize: 12, fontWeight: 'bold', fill: '#22c55e' }} 
-    />
-    <Bar 
-        name="Reconstrucción" dataKey="Reconstruccion" fill="#a855f7" radius={[4, 4, 0, 0]} barSize={12} 
-        label={{ position: 'top', fontSize: 12, fontWeight: 'bold', fill: '#a855f7' }} 
-    />
+  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 'bold'}} />
+  <YAxis hide /> 
+  <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '15px', border: 'none'}} />
+  <Legend verticalAlign="top" align="right" iconType="circle" height={50}/>
+  <Bar name="Pendientes" dataKey="Pendientes" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 12, fontWeight: 'bold', fill: '#ef4444' }} />
+  <Bar name="En Proceso" dataKey="EnProceso" fill="#f97316" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 12, fontWeight: 'bold', fill: '#f97316' }} />
+  <Bar name="Recuperados" dataKey="Recuperados" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 12, fontWeight: 'bold', fill: '#22c55e' }} />
+  <Bar name="Para Reconstrucción" dataKey="Reconstruccion" fill="#a855f7" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 12, fontWeight: 'bold', fill: '#a855f7' }} />
 </BarChart>
         </ResponsiveContainer>
       </div>
