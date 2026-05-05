@@ -295,6 +295,33 @@ export default function SistemaSIGERED() {
     }
   };
 
+  const handleBulkAssign = async () => {
+    if (selectedIds.length === 0) return;
+    
+    // Determinamos qué campo actualizar según el filtro de etapa actual
+    let campoResponsable = 'responsable_verificacion'; // Por defecto
+    if (filters.etapa === 'REQUERIMIENTO') campoResponsable = 'responsable_requerimiento';
+    if (filters.etapa === 'CIERRE') campoResponsable = 'responsable_devolucion';
+
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('documentos')
+        .update({ [campoResponsable]: session.user.toUpperCase() })
+        .in('id', selectedIds);
+
+      if (error) throw error;
+
+      alert(`${selectedIds.length} documentos asignados a ${session.user}`);
+      setSelectedIds([]);
+      await fetchDocs();
+    } catch (err) {
+      alert("Error al asignar: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   const handleDeleteIndividual = async (id) => {
     if (session.user !== 'ADMINISTRADOR') return alert("Solo administrador.");
     if (confirm("¿Eliminar registro?")) {
