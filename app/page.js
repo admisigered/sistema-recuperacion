@@ -400,7 +400,25 @@ export default function SistemaSIGERED() {
             <button onClick={() => setIsNewModalOpen(true)} className="bg-brand-blue text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-blue-700 shadow-sm transition-all"><Plus size={14}/> Nuevo</button>
             <label className="bg-white border border-slate-200 px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer hover:bg-slate-50 shadow-sm"><Upload size={14}/> Importar <input type="file" className="hidden" onChange={handleImport}/></label>
             <button onClick={handleExport} className="bg-white border border-slate-200 px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-slate-50 shadow-sm"><Download size={14}/> Reporte</button>
-            {selectedIds.length > 0 && <button onClick={handleBulkDelete} className="bg-red-600 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg"><Trash2 size={14}/> Eliminar ({selectedIds.length})</button>}
+            {selectedIds.length > 0 && (
+  <div className="flex gap-2">
+    <button 
+      onClick={handleBulkAssign} 
+      className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black flex items-center gap-2 hover:bg-emerald-700 shadow-lg transition-all uppercase cursor-pointer"
+    >
+      <UserCheck size={14}/> Asignarme ({selectedIds.length})
+    </button>
+    
+    {session.user === 'ADMINISTRADOR' && (
+      <button 
+        onClick={handleBulkDelete} 
+        className="bg-red-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black flex items-center gap-2 shadow-lg hover:bg-red-700 transition-all uppercase cursor-pointer"
+      >
+        <Trash2 size={14}/> Eliminar
+      </button>
+    )}
+  </div>
+)}
           </div>
           <div className="flex flex-wrap items-center gap-2 ml-auto font-bold uppercase">
             <div className="relative"><Search size={14} className="absolute left-3 top-3 text-slate-400"/><input type="text" placeholder="Buscar CUT..." className="bg-slate-50 border-none rounded-xl pl-9 pr-4 py-2.5 text-xs w-32 outline-none focus:ring-2 focus:ring-blue-500 shadow-inner" onChange={e => setFilters({...filters, search: e.target.value})}/></div>
