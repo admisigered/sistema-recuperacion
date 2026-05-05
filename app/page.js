@@ -646,7 +646,16 @@ export default function SistemaSIGERED() {
             <AreaChart data={stats.stageData}>
               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
               <Tooltip />
-              <Area type="monotone" dataKey="cant" stroke="#2563eb" fill="#dbeafe" strokeWidth={3} dot={{r: 5}} label={{position: 'top', fontSize: 11, fontWeight: 'black'}} />
+              <Area 
+  type="monotone" 
+  dataKey="cant" 
+  stroke="#2563eb" 
+  fill="#dbeafe" 
+  strokeWidth={3} 
+  dot={{r: 5}} 
+  // CAMBIO: Aumento de tamaño y negrita
+  label={{ position: 'top', fontSize: 13, fontWeight: 'bold', fill: '#1E293B' }} 
+/>
             </AreaChart>
           </ResponsiveContainer>
         </div>
