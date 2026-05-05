@@ -59,26 +59,48 @@ export default function SistemaSIGERED() {
     const numDoc = doc.numero_documento;
     const sisged = doc.cargado_sisged;
     const obsFinales = String(doc.observaciones_finales || '').toUpperCase();
-    // Nueva lógica basada en la columna física
-    const tieneGestiones = doc.cantidad_seguimientos > 0;
+    const cantSeg = doc.cantidad_seguimientos || 0;
 
-    if (sisged === true || sisged === 'true' || colL === 'SI SE VISUALIZA') return { etapa: 'CIERRE', estado: 'RECUPERADO', color: 'bg-green-100 text-green-700', border: 'border-green-500' };
-    if (obsFinales.includes('RECONSTRUCCION')) return { etapa: 'CIERRE', estado: 'RECONSTRUCCION', color: 'bg-purple-100 text-purple-700', border: 'border-purple-500' };
-    if (colK === 'PENDIENTE') return { etapa: 'VERIFICACION', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
-    
-    if (origen === 'INTERNO') return { etapa: 'CIERRE', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
-
-    if (origen === 'EXTERNO') {
-        if (!numDoc || numDoc === '' || numDoc === 'null') return { etapa: 'REQUERIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
-        
-        // Si ya tiene número de documento (Etapa 3)
-        if (tieneGestiones) {
-            return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' };
-        }
-        return { etapa: 'SEGUIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
+    // 1. REGLA: RECUPERADO (Verde - Cierre final)
+    if (sisged === true || sisged === 'true' || colL === 'SI SE VISUALIZA') {
+        return { etapa: 'CIERRE', estado: 'RECUPERADO', color: 'bg-green-100 text-green-700', border: 'border-green-500' };
     }
 
-    return { etapa: 'VERIFICACION', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
+    // 2. REGLA: RECONSTRUCCION (Púrpura)
+    if (obsFinales.includes('RECONSTRUCCION')) {
+        return { etapa: 'CIERRE', estado: 'RECONSTRUCCION', color: 'bg-purple-100 text-purple-700', border: 'border-purple-500' };
+    }
+
+    // 3. REGLA: EN PROCESO (Naranja - Solo si hay seguimiento activo)
+    // Si tiene seguimiento pero NO dice "REMITIÓ DOCUMENTO" (lógica simplificada por cantidad)
+    if (cantSeg > 0) {
+        return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' };
+    }
+
+    // 4. REGLA: PENDIENTE UNIVERSAL (Rojo)
+    // Cubre: Etapa 1 (Verificación), Etapa 2 (Requerimiento), Etapa 3 (Seguimiento 0) y Etapa 4 (Internos)
+    let etapaDetectada = 'VERIFICACION';
+
+    if (colK === 'VERIFICADO') {
+        if (origen === 'INTERNO') {
+            etapaDetectada = 'CIERRE';
+        } else {
+            // Externo verificado: ¿Tiene número de documento?
+            if (!numDoc || numDoc === '' || numDoc === 'null') {
+                etapaDetectada = 'REQUERIMIENTO';
+            } else {
+                etapaDetectada = 'SEGUIMIENTO';
+            }
+        }
+    }
+
+    return { 
+      etapa: etapaDetectada, 
+      estado: 'PENDIENTE', 
+      color: 'bg-red-100 text-red-700', 
+      border: 'border-red-500' 
+    };
+
   }, []);
 
   // --- 2. FUNCIONES DE APOYO ---
@@ -121,26 +143,30 @@ export default function SistemaSIGERED() {
       query = query.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable}`);
     }
 
-    // --- FILTRO DE ESTADO (Usando la nueva columna cantidad_seguimientos) ---
+    // --- FILTRO DE ESTADO UNIVERSAL ---
     if (filters.estado) {
       if (filters.estado === 'RECUPERADO') {
+        // Prioridad 1: Cerrados por SISGED o Visualización
         query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
       } 
       else if (filters.estado === 'RECONSTRUCCION') {
+        // Prioridad 2: Casuística de reconstrucción
         query = query.ilike('observaciones_finales', '%RECONSTRUCCION%');
       }
       else if (filters.estado === 'EN PROCESO') {
-        // EN PROCESO: No recuperado y tiene 1 o más seguimientos
-        query = query.neq('cargado_sisged', true)
-                     .neq('estado_visualizacion', 'SI SE VISUALIZA')
-                     .gt('cantidad_seguimientos', 0); // Mayor que 0
-      }
-      else if (filters.estado === 'PENDIENTE') {
-        // PENDIENTE: No recuperado y tiene CERO seguimientos
+        // Prioridad 3: SOLO documentos con seguimientos (>0) que aún no se han cerrado
         query = query.neq('cargado_sisged', true)
                      .neq('estado_visualizacion', 'SI SE VISUALIZA')
                      .not('observaciones_finales', 'ilike', '%RECONSTRUCCION%')
-                     .eq('cantidad_seguimientos', 0); // Igual a 0
+                     .gt('cantidad_seguimientos', 0);
+      }
+      else if (filters.estado === 'PENDIENTE') {
+        // PENDIENTE UNIVERSAL: No está recuperado, no es reconstrucción y NO tiene seguimientos aún
+        // Esto captura: Etapa 1 (K Pendiente), Etapa 2 (P Vacío), Etapa 3 (Seguimiento 0) y Etapa 4 (Internos)
+        query = query.neq('cargado_sisged', true)
+                     .neq('estado_visualizacion', 'SI SE VISUALIZA')
+                     .not('observaciones_finales', 'ilike', '%RECONSTRUCCION%')
+                     .eq('cantidad_seguimientos', 0);
       }
     }
   
