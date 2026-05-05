@@ -698,23 +698,14 @@ export default function SistemaSIGERED() {
           <ComposedChart data={stats.respData}>
   <CartesianGrid stroke="#f8fafc" vertical={false} />
   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 11, fontWeight: 'bold'}} />
-  
-  {/* CAMBIO 3: Ocultar ambos ejes Y */}
-  <YAxis yAxisId="left" hide={true} />
-  <YAxis yAxisId="right" hide={true} />
-
+  <YAxis yAxisId="left" hide />
+  <YAxis yAxisId="right" hide />
   <Tooltip />
   <Legend verticalAlign="bottom" height={40}/>
-
-  {/* CAMBIO 4: Etiquetas internas en tamaño 12 y negrita */}
-  <Bar name="Verif." dataKey="verif" stackId="a" fill="#3b82f6" 
-       label={{ position: 'inside', fill: '#fff', fontSize: 12, fontWeight: 'bold' }} />
-  <Bar name="Req." dataKey="req" stackId="a" fill="#93c5fd" 
-       label={{ position: 'inside', fill: '#1e3a8a', fontSize: 12, fontWeight: 'bold' }} />
-  <Bar name="Seg." dataKey="seg" stackId="a" fill="#f97316" 
-       label={{ position: 'inside', fill: '#fff', fontSize: 12, fontWeight: 'bold' }} />
-  <Bar name="Cierre" dataKey="cierre" stackId="a" fill="#22c55e" 
-       label={{ position: 'inside', fill: '#fff', fontSize: 12, fontWeight: 'bold' }} />
+  <Bar name="Verif." dataKey="verif" stackId="a" fill="#3b82f6" label={{position: 'inside', fill: '#fff', fontSize: 12, fontWeight: 'bold'}} />
+  <Bar name="Req." dataKey="req" stackId="a" fill="#93c5fd" label={{position: 'inside', fill: '#1e3a8a', fontSize: 12, fontWeight: 'bold'}} />
+  <Bar name="Seg." dataKey="seg" stackId="a" fill="#f97316" label={{position: 'inside', fill: '#fff', fontSize: 12, fontWeight: 'bold'}} />
+  <Bar name="Cierre" dataKey="cierre" stackId="a" fill="#22c55e" label={{position: 'inside', fill: '#fff', fontSize: 12, fontWeight: 'bold'}} />
 </ComposedChart>
 
         </ResponsiveContainer>
