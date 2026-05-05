@@ -50,7 +50,6 @@ export default function SistemaSIGERED() {
 
   const ITEMS_PER_PAGE = 100;
 
-  // --- 1. LÓGICA DE NEGOCIO ANALÍTICA (K, L, P, AB) ---
   const getEtapaEstado = useCallback((doc) => {
     if (!doc) return { etapa: '-', estado: '-', color: 'bg-slate-100', border: 'border-slate-300' };
     
@@ -61,51 +60,43 @@ export default function SistemaSIGERED() {
     const sisged = doc.cargado_sisged;
     const obsFinales = String(doc.observaciones_finales || '').toUpperCase();
     const hasSeguimientos = doc.ultimo_seguimiento !== null;
-    // Buscamos la palabra clave en el historial de seguimientos (si está cargado)
-    const fueAtendido = seguimientos.some(s => String(s.observaciones).toUpperCase().includes('REMITIÓ DOCUMENTO'));
-
-    // --- REGLA 4 & 9: RECUPERADO (Prioridad máxima) ---
+    
+    // REGLA 1: RECUPERADO (Cierre Total)
     if (sisged === true || sisged === 'true' || colL === 'SI SE VISUALIZA') {
         return { etapa: 'CIERRE', estado: 'RECUPERADO', color: 'bg-green-100 text-green-700', border: 'border-green-500' };
     }
 
-    // --- FLUJO DOCUMENTO INTERNO ---
-    if (origen === 'INTERNO') {
-        if (colK !== 'VERIFICADO') {
-            return { etapa: 'VERIFICACION', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
-        }
-        // Casuística RECONSTRUCCION en Etapa 4
-        if (obsFinales.includes('RECONSTRUCCION')) {
-            return { etapa: 'CIERRE', estado: 'RECONSTRUCCION', color: 'bg-purple-100 text-purple-700', border: 'border-purple-500' };
-        }
-        return { etapa: 'CIERRE', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
+    // REGLA 2: RECONSTRUCCION (Cierre Especial)
+    if (obsFinales.includes('RECONSTRUCCION')) {
+        return { etapa: 'CIERRE', estado: 'RECONSTRUCCION', color: 'bg-purple-100 text-purple-700', border: 'border-purple-500' };
     }
 
-    // --- FLUJO DOCUMENTO EXTERNO ---
-    // ETAPA 1: VERIFICACION
-    if (colK !== 'VERIFICADO') {
+    // FLUJO POR ETAPAS
+    // Etapa 1: Verificación
+    if (colK === 'PENDIENTE') {
         return { etapa: 'VERIFICACION', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
     }
 
-    // ETAPA 2: REQUERIMIENTO
-    if (!numDoc || numDoc === '' || numDoc === 'null') {
+    // Etapa 2: Requerimiento (Solo Externos)
+    if (origen === 'EXTERNO' && (!numDoc || numDoc === '' || numDoc === 'null')) {
         return { etapa: 'REQUERIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
     }
 
-    // ETAPA 3: SEGUIMIENTO
-    if (!hasSeguimientos) {
+    // Etapa 3: Seguimiento (Solo Externos con Doc generado)
+    if (origen === 'EXTERNO' && numDoc) {
+        // ¿Ya se atendió en seguimiento? (Si el último seguimiento dice REMITIÓ DOCUMENTO)
+        // Nota: asumiendo que guardamos esto en una lógica de estado o escaneamos seguimientos
+        if (hasSeguimientos) {
+            return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' };
+        }
         return { etapa: 'SEGUIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
     }
 
-    // REGLA 8: Si dice "REMITIÓ DOCUMENTO", pasa a ETAPA 4 como ATENDIDO/PENDIENTE
-    if (fueAtendido) {
-        return { etapa: 'CIERRE', estado: 'PENDIENTE', color: 'bg-blue-100 text-blue-700', border: 'border-blue-500' };
-    }
-
-    // Si tiene seguimientos pero ninguno es la palabra clave
-    return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' };
+    // ESTADO ATENDIDO (Cuando una etapa termina pero no se ha recuperado)
+    // Ej: Interno verificado que no se visualiza, o Externo que ya pasó seguimiento
+    return { etapa: (origen === 'INTERNO' ? 'CIERRE' : 'SEGUIMIENTO'), estado: 'ATENDIDO', color: 'bg-blue-100 text-blue-700', border: 'border-blue-500' };
     
-  }, [seguimientos]); // Importante añadir seguimientos a las dependencias
+  }, []);
 
   // --- 2. FUNCIONES DE APOYO ---
   const formatExcelDate = (val) => {
@@ -147,35 +138,36 @@ export default function SistemaSIGERED() {
       query = query.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable}`);
     }
 
-    // --- CORRECCIÓN INTEGRAL: FILTRO DE ESTADO COMPLETO ---
-    // --- FILTRO DE ESTADO (Lógica Secuencial Estricta) ---
+    // --- FILTRO DE ESTADO MULTI-ETAPA ---
     if (filters.estado) {
+      const isNotClosed = 'cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA"';
+
       if (filters.estado === 'RECUPERADO') {
-        // REGLA: SISGED o Visualización (Cierre total)
         query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
       } 
       else if (filters.estado === 'RECONSTRUCCION') {
-        // REGLA: Casuística para Internos (Etapa 4)
-        query = query.neq('cargado_sisged', true)
-                     .neq('estado_visualizacion', 'SI SE VISUALIZA')
-                     .ilike('observaciones_finales', '%RECONSTRUCCION%');
+        query = query.ilike('observaciones_finales', '%RECONSTRUCCION%');
       }
       else if (filters.estado === 'EN PROCESO') {
-        // REGLA: SEGUIMIENTO EN PROCESO
-        // 1. No está recuperado
-        // 2. Tiene Número de Documento (pasó Etapa 2)
-        // 3. TIENE 1 o más seguimientos (ultimo_seguimiento NO es nulo)
+        // EN PROCESO es exclusivo de la Etapa 3 (Seguimiento activo)
         query = query.neq('cargado_sisged', true)
                      .neq('estado_visualizacion', 'SI SE VISUALIZA')
-                     .not('numero_documento', 'is', null)
-                     .neq('numero_documento', '')
                      .not('ultimo_seguimiento', 'is', null);
       }
+      else if (filters.estado === 'ATENDIDO') {
+        // ATENDIDO puede ser:
+        // 1. Etapa 1 Terminada (K = VERIFICADO)
+        // 2. Etapa 2 Terminada (P != NULL)
+        // 3. Etapa 3 Terminada (Lógica de seguimiento atendido)
+        query = query.neq('cargado_sisged', true)
+                     .neq('estado_visualizacion', 'SI SE VISUALIZA')
+                     .eq('estado_verificacion_k', 'VERIFICADO');
+      }
       else if (filters.estado === 'PENDIENTE') {
-        // REGLA: Todo lo que no tiene gestión aún. Incluye:
-        // - Etapa 1 (Verificación pendiente)
-        // - Etapa 2 (Requerimiento pendiente de N° Doc)
-        // - Etapa 3 (Seguimiento pendiente: Tiene N° Doc pero 0 seguimientos)
+        // PENDIENTE es:
+        // 1. Etapa 1 (K = PENDIENTE)
+        // 2. Etapa 2 (P = NULL)
+        // 3. Etapa 3 (Ultimo seguimiento = NULL)
         query = query.neq('cargado_sisged', true)
                      .neq('estado_visualizacion', 'SI SE VISUALIZA')
                      .is('ultimo_seguimiento', null);
