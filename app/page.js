@@ -381,7 +381,7 @@ export default function SistemaSIGERED() {
             <select className="border rounded-xl p-2.5 text-[10px] font-black bg-white cursor-pointer shadow-sm outline-none" onChange={e => setFilters({...filters, origen: e.target.value})}><option value="">ORIGEN</option><option value="Interno">Interno</option><option value="Externo">Externo</option></select>
             <select className="border rounded-xl p-2.5 text-[10px] font-black bg-white cursor-pointer shadow-sm outline-none" onChange={e => setFilters({...filters, etapa: e.target.value})}><option value="">ETAPAS</option><option value="VERIFICACION">Verificación</option><option value="REQUERIMIENTO">Requerimiento</option><option value="SEGUIMIENTO">Seguimiento</option><option value="CIERRE">Cierre</option></select>
             <select 
-  className="border border-slate-700 rounded-xl p-2.5 text-xs font-bold bg-white cursor-pointer shadow-sm outline-none" 
+  className="border border-slate-900 rounded-xl p-2.5 text-[10px] font-black bg-white cursor-pointer shadow-sm outline-none uppercase" 
   onChange={e => setFilters({...filters, estado: e.target.value})}
   value={filters.estado}
 >
