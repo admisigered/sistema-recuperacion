@@ -121,13 +121,21 @@ export default function SistemaSIGERED() {
     }
     
     const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May'];
-    const monthlyData = meses.map(mes => ({
-      name: mes,
-      Pendientes: Math.floor(docs.filter(d => getEtapaEstado(d).estado === 'PENDIENTE').length / 5),
-      EnProceso: Math.floor(docs.filter(d => getEtapaEstado(d).estado === 'EN PROCESO').length / 5),
-      Recuperados: Math.floor(docs.filter(d => getEtapaEstado(d).estado === 'RECUPERADO').length / 5),
-      Reconstruccion: Math.floor(docs.filter(d => getEtapaEstado(d).estado === 'RECONSTRUCCION').length / 5)
-    }));
+    const monthlyData = meses.map((mes, index) => {
+      // Obtenemos el número de mes (01, 02, 03...)
+      const monthNum = (index + 1).toString().padStart(2, '0');
+      
+      // Filtramos los documentos que pertenecen a ese mes (ej: 2026-01-...)
+      const docsDelMes = docs.filter(d => d.fecha_registro && d.fecha_registro.includes(`-${monthNum}-`));
+
+      return {
+        name: mes,
+        Pendientes: docsDelMes.filter(d => getEtapaEstado(d).estado === 'PENDIENTE').length,
+        EnProceso: docsDelMes.filter(d => getEtapaEstado(d).estado === 'EN PROCESO').length,
+        Recuperados: docsDelMes.filter(d => getEtapaEstado(d).estado === 'RECUPERADO').length,
+        Reconstruccion: docsDelMes.filter(d => getEtapaEstado(d).estado === 'RECONSTRUCCION').length
+      };
+    });
 
     const stageData = [
       { name: 'Verif.', cant: docs.filter(d => getEtapaEstado(d).etapa === 'VERIFICACION').length },
