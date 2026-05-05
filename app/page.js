@@ -424,34 +424,37 @@ export default function SistemaSIGERED() {
 
 // --- FUNCIÓN PARA EXPORTAR EL DASHBOARD A PDF ---
   const handleExportDashboard = async () => {
-    // Buscamos el contenedor por su ID (que pondremos en el Paso 4)
     const dashboard = document.getElementById('dashboard-view');
-    if (!dashboard) {
-      alert("Error: No se encontró el contenido del dashboard.");
-      return;
-    }
+    if (!dashboard) return;
 
     try {
-      alert("Generando PDF, por favor espere...");
+      alert("Generando reporte visual, por favor espere...");
       
-      // Capturamos el dashboard como una imagen de alta resolución
       const canvas = await html2canvas(dashboard, {
-        scale: 2, // Multiplica la calidad por 2
-        useCORS: true, // Permite cargar recursos externos si los hubiera
+        scale: 2,
+        useCORS: true,
         logging: false,
-        backgroundColor: '#F8FAFC' // Fondo gris muy claro igual al de tu sistema
+        backgroundColor: '#F8FAFC',
+    
+        onclone: (clonedDoc) => {
+          const elements = clonedDoc.getElementsByTagName('*');
+          for (let i = 0; i < elements.length; i++) {
+            const style = window.getComputedStyle(elements[i]);
+        
+            if (style.color.includes('oklch') || style.backgroundColor.includes('oklch')) {
+               elements[i].style.color = '#1e293b'; // Color oscuro genérico
+            }
+          }
+        }
       });
       
       const imgData = canvas.toDataURL('image/png');
-      
-      // Creamos el documento PDF en formato A4
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
-      // Añadimos la imagen al PDF y descargamos
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Dashboard_SIGERED_${new Date().toLocaleDateString()}.pdf`);
+      pdf.save(`Dashboard_SIGERED_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`);
       
     } catch (error) {
       console.error("Error PDF:", error);
