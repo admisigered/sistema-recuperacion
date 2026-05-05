@@ -10,6 +10,12 @@ import {
   Calendar, Phone, MessageSquare, BarChart3, Truck, Briefcase, UserCheck
 } from 'lucide-react';
 
+// --- NUEVA LÍNEA DE GRÁFICOS AGREGADA AQUÍ ---
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
+  AreaChart, Area, PieChart, Pie, Cell, LineChart, Line, ComposedChart 
+} from 'recharts';
+
 // --- CONFIGURACIÓN DE USUARIOS AUTORIZADOS ---
 const USUARIOS = [
   { user: 'ADMINISTRADOR', pass: 'admin123' },
