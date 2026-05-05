@@ -59,45 +59,43 @@ export default function SistemaSIGERED() {
     const numDoc = doc.numero_documento;
     const sisged = doc.cargado_sisged;
     const obsFinales = String(doc.observaciones_finales || '').toUpperCase();
-    const hasSeguimientos = doc.ultimo_seguimiento !== null;
     
-    // --- ESTADO: RECUPERADO (Etapa 4) ---
+    // 1. RECUPERADO (Prioridad Máxima)
     if (sisged === true || sisged === 'true' || colL === 'SI SE VISUALIZA') {
         return { etapa: 'CIERRE', estado: 'RECUPERADO', color: 'bg-green-100 text-green-700', border: 'border-green-500' };
     }
 
-    // --- ESTADO: RECONSTRUCCION (Etapa 4 - Solo si lo dice observaciones) ---
+    // 2. RECONSTRUCCION
     if (obsFinales.includes('RECONSTRUCCION')) {
         return { etapa: 'CIERRE', estado: 'RECONSTRUCCION', color: 'bg-purple-100 text-purple-700', border: 'border-purple-500' };
     }
 
-    // --- FLUJO POR ETAPAS (Todos los demás caen en PENDIENTE o EN PROCESO) ---
-    
-    // Etapa 1: Verificación
+    // 3. PENDIENTE (Etapa 1 - Verificación)
     if (colK === 'PENDIENTE') {
         return { etapa: 'VERIFICACION', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
     }
 
-    // Flujo Interno (Salta de 1 a 4)
+    // 4. FLUJO INTERNO (Salta de 1 a 4)
     if (origen === 'INTERNO') {
         return { etapa: 'CIERRE', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
     }
 
-    // Flujo Externo
+    // 5. FLUJO EXTERNO (Etapa 2 y 3)
     if (origen === 'EXTERNO') {
-        // Etapa 2: Requerimiento (Sin documento)
+        // Etapa 2 - Requerimiento (No hay número de documento)
         if (!numDoc || numDoc === '' || numDoc === 'null') {
             return { etapa: 'REQUERIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
         }
-        // Etapa 3: Seguimiento (Con documento)
-        if (hasSeguimientos) {
+        // Etapa 3 - Seguimiento (Hay número de documento)
+        // Usamos la longitud del array de seguimientos para el estado "EN PROCESO"
+        if (seguimientos && seguimientos.length > 0) {
             return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' };
         }
         return { etapa: 'SEGUIMIENTO', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
     }
 
     return { etapa: 'VERIFICACION', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
-  }, []);
+  }, [seguimientos]); // Ahora depende del array de seguimientos
 
   // --- 2. FUNCIONES DE APOYO ---
   const formatExcelDate = (val) => {
@@ -139,26 +137,30 @@ export default function SistemaSIGERED() {
       query = query.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable}`);
     }
 
-    // --- FILTRO DE ESTADO (Simplificado a 4 opciones) ---
+    // --- FILTRO DE ESTADO (Usando columnas existentes P, AB, L, AD) ---
     if (filters.estado) {
       if (filters.estado === 'RECUPERADO') {
+        // RECUPERADO: Col AB es true O Col L es "SI SE VISUALIZA"
         query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
       } 
       else if (filters.estado === 'RECONSTRUCCION') {
+        // RECONSTRUCCION: Palabra clave en Col AD
         query = query.ilike('observaciones_finales', '%RECONSTRUCCION%');
       }
       else if (filters.estado === 'EN PROCESO') {
-        // Solo en seguimiento con gestiones registradas y no recuperado
+        // EN PROCESO: Tiene N° de documento (Col P) y no está cerrado
         query = query.neq('cargado_sisged', true)
                      .neq('estado_visualizacion', 'SI SE VISUALIZA')
-                     .not('ultimo_seguimiento', 'is', null);
+                     .not('numero_documento', 'is', null)
+                     .neq('numero_documento', '')
+                     .neq('numero_documento', 'null');
       }
       else if (filters.estado === 'PENDIENTE') {
-        // Es pendiente si no es ninguna de las anteriores
+        // PENDIENTE: No tiene N° de documento (Col P) y no está cerrado
         query = query.neq('cargado_sisged', true)
                      .neq('estado_visualizacion', 'SI SE VISUALIZA')
                      .not('observaciones_finales', 'ilike', '%RECONSTRUCCION%')
-                     .is('ultimo_seguimiento', null);
+                     .or('numero_documento.is.null,numero_documento.eq.""');
       }
     }
   
