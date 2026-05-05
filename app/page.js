@@ -381,13 +381,23 @@ export default function SistemaSIGERED() {
             <button onClick={handleExport} className="bg-white border border-slate-200 px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-slate-50 shadow-sm"><Download size={14}/> Reporte</button>
             {selectedIds.length > 0 && <button onClick={handleBulkDelete} className="bg-red-600 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg"><Trash2 size={14}/> Eliminar ({selectedIds.length})</button>}
           </div>
-          
           <div className="flex flex-wrap items-center gap-2 ml-auto font-bold uppercase">
             <div className="relative"><Search size={14} className="absolute left-3 top-3 text-slate-400"/><input type="text" placeholder="Buscar CUT..." className="bg-slate-50 border-none rounded-xl pl-9 pr-4 py-2.5 text-xs w-32 outline-none focus:ring-2 focus:ring-blue-500 shadow-inner" onChange={e => setFilters({...filters, search: e.target.value})}/></div>
             <select className="border rounded-xl p-2.5 text-[10px] font-black bg-white cursor-pointer shadow-sm outline-none" onChange={e => setFilters({...filters, sede: e.target.value})}><option value="">SEDES</option><option value="SC">SC</option><option value="OD">OD</option></select>
             <select className="border rounded-xl p-2.5 text-[10px] font-black bg-white cursor-pointer shadow-sm outline-none" onChange={e => setFilters({...filters, origen: e.target.value})}><option value="">ORIGEN</option><option value="Interno">Interno</option><option value="Externo">Externo</option></select>
             <select className="border rounded-xl p-2.5 text-[10px] font-black bg-white cursor-pointer shadow-sm outline-none" onChange={e => setFilters({...filters, etapa: e.target.value})}><option value="">ETAPAS</option><option value="VERIFICACION">Verificación</option><option value="REQUERIMIENTO">Requerimiento</option><option value="SEGUIMIENTO">Seguimiento</option><option value="CIERRE">Cierre</option></select>
-            <select className="border rounded-xl p-2.5 text-xs font-bold bg-white cursor-pointer shadow-sm outline-none border-slate-700" onChange={e => setFilters({...filters, estado: e.target.value})}><option value="">ESTADO</option><option value="PENDIENTE">PENDIENTE</option><option value="EN PROCESO">EN PROCESO</option><option value="RECUPERADO">RECUPERADO</option></select>
+            <select 
+  className="border border-slate-700 rounded-xl p-2.5 text-xs font-bold bg-white cursor-pointer shadow-sm outline-none" 
+  onChange={e => setFilters({...filters, estado: e.target.value})}
+  value={filters.estado}
+>
+  <option value="">ESTADO (TODOS)</option>
+  <option value="PENDIENTE">PENDIENTE</option>
+  <option value="ATENDIDO">ATENDIDO</option>
+  <option value="EN PROCESO">EN PROCESO</option>
+  <option value="RECUPERADO">RECUPERADO</option>
+  <option value="RECONSTRUCCION">RECONSTRUCCION</option>
+</select>
             <select className="border rounded-xl p-2.5 text-[10px] font-black bg-white cursor-pointer shadow-sm outline-none" onChange={e => setFilters({...filters, responsable: e.target.value})}><option value="">RESPONSABLE</option>{LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r}</option>)}</select>
             <div className="flex items-center gap-1 border border-slate-200 rounded-xl px-3 py-1.5 bg-slate-50 shadow-inner"><Calendar size={12} className="text-slate-400"/><input type="date" className="bg-transparent text-[9px] font-bold outline-none cursor-pointer" onChange={e => setFilters({...filters, fechaInicio: e.target.value})} /><span className="text-slate-300">-</span><input type="date" className="bg-transparent text-[9px] font-bold outline-none cursor-pointer" onChange={e => setFilters({...filters, fechaFin: e.target.value})} /></div>
           </div>
