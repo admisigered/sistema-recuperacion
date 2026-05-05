@@ -657,11 +657,18 @@ export default function SistemaSIGERED() {
         <h4 className="text-xs font-black text-slate-500 uppercase mb-6 text-center">Origen de Documentos</h4>
         <div className="h-[250px]">
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie data={stats.originData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" label={({name, value}) => `${name}: ${value}`}>
-                <Cell fill="#1e293b" />
-                <Cell fill="#60a5fa" />
-              </Pie>
+            <Pie 
+  data={stats.originData} 
+  innerRadius={60} 
+  outerRadius={80} 
+  paddingAngle={5} 
+  dataKey="value" 
+  // CAMBIO: Configuración de tamaño, negrita y color
+  label={{ fontSize: 13, fontWeight: 'bold', fill: '#1E293B' }} 
+>
+  <Cell fill="#1e293b" /> 
+  <Cell fill="#60a5fa" />
+</Pie>
               <Tooltip />
               <Legend verticalAlign="bottom" />
             </PieChart>
@@ -677,8 +684,11 @@ export default function SistemaSIGERED() {
             <BarChart data={stats.sedeData} margin={{ top: 20 }}>
               <XAxis dataKey="name" axisLine={false} tickLine={false} />
               <Legend verticalAlign="top" height={40}/>
-              <Bar name="Recuperados" dataKey="recuperados" stackId="a" fill="#2563eb" label={{position: 'center', fill: '#fff', fontWeight: 'bold'}} />
-              <Bar name="Pendientes" dataKey="pendientes" stackId="a" fill="#f97316" radius={[4, 4, 0, 0]} label={{position: 'center', fill: '#fff', fontWeight: 'bold'}} />
+              <Bar name="Recuperados" dataKey="recuperados" stackId="a" fill="#2563eb" 
+     label={{ position: 'center', fill: '#fff', fontSize: 13, fontWeight: 'bold' }} />
+
+<Bar name="Pendientes" dataKey="pendientes" stackId="a" fill="#f97316" radius={[4, 4, 0, 0]} 
+     label={{ position: 'center', fill: '#fff', fontSize: 13, fontWeight: 'bold' }} />
             </BarChart>
           </ResponsiveContainer>
         </div>
