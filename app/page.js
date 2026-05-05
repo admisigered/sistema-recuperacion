@@ -579,134 +579,89 @@ export default function SistemaSIGERED() {
 
         <div className="p-10 overflow-y-auto flex-1 font-sans">
           {view === 'dashboard' ? (
-  // AGREGAMOS id="dashboard-view" y el fondo bg-[#F8FAFC] para que el PDF salga limpio
-  <div id="dashboard-view" className="space-y-8 animate-in fade-in duration-500 bg-[#F8FAFC] p-4">
+  /* Agregamos p-6 y bg para que el PDF salga bien */
+  <div id="dashboard-view" className="space-y-8 animate-in fade-in duration-500 bg-[#F8FAFC] p-6">
     
-    {/* SECCIÓN 1: CABECERA KPI - FILA 1 */}
-    <div className="grid grid-cols-4 gap-6">
-    ...
-    
-    {/* SECCIÓN 1: CABECERA KPI - FILA 1 */}
-    <div className="grid grid-cols-4 gap-6">
+    {/* SECCIÓN 1: KPIs - FILA 1 */}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {[
         { label: 'TOTAL REGISTROS', val: totalDocs, color: 'border-b-blue-600', text: 'text-slate-800' },
         { label: 'PENDIENTES', val: docs.filter(d => getEtapaEstado(d).estado === 'PENDIENTE').length, color: 'border-b-red-500', text: 'text-red-600' },
         { label: 'EN SEGUIMIENTO', val: docs.filter(d => getEtapaEstado(d).estado === 'EN PROCESO').length, color: 'border-b-orange-500', text: 'text-orange-500' },
         { label: 'RECUPERADOS', val: docs.filter(d => getEtapaEstado(d).estado === 'RECUPERADO').length, color: 'border-b-green-500', text: 'text-green-600' }
       ].map((kpi, i) => (
-        <div key={i} className={`bg-white p-8 rounded-3xl shadow-sm border-b-4 ${kpi.color} flex flex-col gap-2 hover:scale-[1.02] transition-all shadow-slate-200`}>
+        <div key={i} className={`bg-white p-6 rounded-3xl shadow-sm border-b-4 ${kpi.color} flex flex-col justify-center min-h-[140px] shadow-slate-200`}>
           <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase">{kpi.label}</p>
           <h3 className={`text-5xl font-black ${kpi.text}`}>{kpi.val}</h3>
         </div>
       ))}
     </div>
 
-    {/* SECCIÓN 2: AVANCE COMPARATIVO MENSUAL - FILA 2 */}
+    {/* SECCIÓN 2: GRÁFICO MENSUAL - FILA 2 */}
     <div className="bg-white p-8 rounded-4xl border border-slate-100 shadow-sm shadow-slate-200">
-      <h4 className="text-sm font-black text-slate-700 uppercase mb-8 flex items-center gap-2"><BarChart3 size={18} className="text-blue-600"/> Avance Comparativo Mensual (Histórico)</h4>
-      <div className="h-80 w-full">
+      <h4 className="text-sm font-black text-slate-700 uppercase mb-8 flex items-center gap-2">
+        <BarChart3 size={18} className="text-blue-600"/> Avance Comparativo Mensual (Histórico)
+      </h4>
+      <div className="h-[350px] w-full"> {/* ALTURA FIJA REFORZADA */}
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={stats.monthlyData}>
+          <BarChart data={stats.monthlyData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 'bold'}} />
-            <YAxis axisLine={false} tickLine={false} domain={[0, 20]} />
-            <Tooltip contentStyle={{borderRadius: '15px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'}} />
-            <Legend verticalAlign="top" align="right" iconType="circle" height={36}/>
-            <Bar 
-              name="Pendientes" 
-              dataKey="Pendientes" 
-              fill="#ef4444" 
-              radius={[4, 4, 0, 0]} 
-              barSize={15} 
-              label={{ position: 'top', fontSize: 10, fontWeight: 'bold', fill: '#ef4444' }} 
-            />
-            <Bar 
-              name="En Proceso" 
-              dataKey="EnProceso" 
-              fill="#f97316" 
-              radius={[4, 4, 0, 0]} 
-              barSize={15} 
-              label={{ position: 'top', fontSize: 10, fontWeight: 'bold', fill: '#f97316' }} 
-            />
-            <Bar 
-              name="Recuperados" 
-              dataKey="Recuperados" 
-              fill="#22c55e" 
-              radius={[4, 4, 0, 0]} 
-              barSize={15} 
-              label={{ position: 'top', fontSize: 10, fontWeight: 'bold', fill: '#22c55e' }} 
-            />
-            <Bar 
-              name="Para Reconstrucción" 
-              dataKey="Reconstruccion" 
-              fill="#a855f7" 
-              radius={[4, 4, 0, 0]} 
-              barSize={15} 
-              label={{ position: 'top', fontSize: 10, fontWeight: 'bold', fill: '#a855f7' }} 
-            />
+            <YAxis axisLine={false} tickLine={false} />
+            <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '15px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'}} />
+            <Legend verticalAlign="top" align="right" iconType="circle" height={50}/>
+            <Bar name="Pendientes" dataKey="Pendientes" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 10, fontWeight: 'bold', fill: '#ef4444' }} />
+            <Bar name="En Proceso" dataKey="EnProceso" fill="#f97316" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 10, fontWeight: 'bold', fill: '#f97316' }} />
+            <Bar name="Recuperados" dataKey="Recuperados" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 10, fontWeight: 'bold', fill: '#22c55e' }} />
+            <Bar name="Reconstrucción" dataKey="Reconstruccion" fill="#a855f7" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 10, fontWeight: 'bold', fill: '#a855f7' }} />
           </BarChart>
         </ResponsiveContainer>
       </div>
     </div>
 
     {/* SECCIÓN 3: SEGMENTACIÓN - FILA 3 */}
-    <div className="grid grid-cols-3 gap-8">
-      {/* Gráfico 2: Etapas (Area) */}
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Etapas (Area) */}
       <div className="bg-white p-8 rounded-4xl border border-slate-100 shadow-sm shadow-slate-200">
         <h4 className="text-xs font-black text-slate-500 uppercase mb-6">Documentos por Etapa</h4>
-        <div className="h-64">
+        <div className="h-[250px]">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={stats.stageData}>
-              <defs>
-                <linearGradient id="colorCant" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 9, fontWeight: 'bold'}} />
-              <YAxis hide domain={[0, 10]} />
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
               <Tooltip />
-              <Area type="monotone" dataKey="cant" stroke="#2563eb" fillOpacity={1} fill="url(#colorCant)" strokeWidth={3} dot={{r: 6, fill: '#2563eb'}} label={{position: 'top', fontSize: 11, fontWeight: 'black', fill: '#1e3a8a'}} />
+              <Area type="monotone" dataKey="cant" stroke="#2563eb" fill="#dbeafe" strokeWidth={3} dot={{r: 5}} label={{position: 'top', fontSize: 11, fontWeight: 'black'}} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
       </div>
       
-      {/* Gráfico 3: Origen (Pie) */}
+      {/* Origen (Pie) */}
       <div className="bg-white p-8 rounded-4xl border border-slate-100 shadow-sm shadow-slate-200">
         <h4 className="text-xs font-black text-slate-500 uppercase mb-6 text-center">Origen de Documentos</h4>
-        <div className="h-64">
+        <div className="h-[250px]">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie 
-  data={stats.originData} 
-  innerRadius={60} 
-  outerRadius={80} 
-  paddingAngle={5} 
-  dataKey="value" 
-  label={({ name, value }) => `${name}: ${value}`} // <--- Cambio a valor numérico
->
-  <Cell fill="#1e293b" /> 
-  <Cell fill="#60a5fa" />
-</Pie>
+              <Pie data={stats.originData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" label={({name, value}) => `${name}: ${value}`}>
+                <Cell fill="#1e293b" />
+                <Cell fill="#60a5fa" />
+              </Pie>
               <Tooltip />
+              <Legend verticalAlign="bottom" />
             </PieChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Gráfico 4: Sedes (Stacked Bar) */}
+      {/* Sedes (Stacked) */}
       <div className="bg-white p-8 rounded-4xl border border-slate-100 shadow-sm shadow-slate-200">
         <h4 className="text-xs font-black text-slate-500 uppercase mb-6">Documentos por Sede</h4>
-        <div className="h-64">
+        <div className="h-[250px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={stats.sedeData}>
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontWeight: 'bold'}} />
-              <YAxis hide />
-              <Legend verticalAlign="top" align="center" iconType="rect" height={30} />
-              // Busca los componentes <Bar /> dentro del gráfico de Sedes:
-<Bar name="Recuperados" dataKey="recuperados" stackId="a" fill="#2563eb" label={{ position: 'center', fontSize: 11, fill: '#fff', fontWeight: 'black' }} />
-<Bar name="Pendientes" dataKey="pendientes" stackId="a" fill="#f97316" radius={[4, 4, 0, 0]} label={{ position: 'center', fontSize: 11, fill: '#fff', fontWeight: 'black' }} />
+            <BarChart data={stats.sedeData} margin={{ top: 20 }}>
+              <XAxis dataKey="name" axisLine={false} tickLine={false} />
+              <Legend verticalAlign="top" height={40}/>
+              <Bar name="Recuperados" dataKey="recuperados" stackId="a" fill="#2563eb" label={{position: 'center', fill: '#fff', fontWeight: 'bold'}} />
+              <Bar name="Pendientes" dataKey="pendientes" stackId="a" fill="#f97316" radius={[4, 4, 0, 0]} label={{position: 'center', fill: '#fff', fontWeight: 'bold'}} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -715,44 +670,29 @@ export default function SistemaSIGERED() {
 
     {/* SECCIÓN 4: RENDIMIENTO - FILA 4 */}
     <div className="bg-white p-10 rounded-5xl border border-slate-100 shadow-sm shadow-slate-200 relative">
-      <div className="absolute top-10 right-10 bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center gap-3">
+      <div className="absolute top-10 right-10 bg-amber-50 border border-amber-200 p-4 rounded-2xl hidden md:flex items-center gap-3">
         <AlertCircle size={16} className="text-amber-600"/>
         <p className="text-[10px] font-black text-amber-700 uppercase tracking-tighter">Etapa más demorada: Cesar → Seguimiento: 5.2 días avg.</p>
       </div>
-      <h4 className="text-sm font-black text-slate-700 uppercase mb-12">Rendimiento de Responsables (Comparativa Semanal)</h4>
-      <div className="h-96 w-full">
+      <h4 className="text-sm font-black text-slate-700 uppercase mb-12">Rendimiento de Responsables</h4>
+      <div className="h-[400px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={stats.respData}>
             <CartesianGrid stroke="#f8fafc" vertical={false} />
             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 11, fontWeight: 'bold'}} />
-            <YAxis yAxisId="left" axisLine={false} tickLine={false} />
-            <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} hide />
+            <YAxis axisLine={false} tickLine={false} />
             <Tooltip />
-            <Legend verticalAlign="bottom" height={36}/>
-            
-            {/* Barra 1: Verificaciones realizadas (Azul) */}
-            <Bar yAxisId="left" name="Verificados" dataKey="verif" stackId="a" fill="#3b82f6" 
-                 label={{ position: 'inside', fill: '#fff', fontSize: 10, fontWeight: 'bold' }} />
-            
-            {/* Barra 2: Requerimientos creados (Azul Claro) */}
-            <Bar yAxisId="left" name="Requeridos" dataKey="req" stackId="a" fill="#93c5fd" 
-                 label={{ position: 'inside', fill: '#1e3a8a', fontSize: 10, fontWeight: 'bold' }} />
-            
-            {/* Barra 3: Seguimientos en proceso (Naranja) */}
-            <Bar yAxisId="left" name="Con Seguimiento" dataKey="seg" stackId="a" fill="#f97316" 
-                 label={{ position: 'inside', fill: '#fff', fontSize: 10, fontWeight: 'bold' }} />
-            
-            {/* Barra 4: Cierres/Cargas SISGED (Verde) */}
-            <Bar yAxisId="left" name="Cerrados/SISGED" dataKey="cierre" stackId="a" fill="#22c55e" 
-                 label={{ position: 'inside', fill: '#fff', fontSize: 10, fontWeight: 'bold' }} />
-
+            <Legend verticalAlign="bottom" height={40}/>
+            <Bar name="Verif." dataKey="verif" stackId="a" fill="#3b82f6" label={{position: 'inside', fill: '#fff', fontSize: 10}} />
+            <Bar name="Req." dataKey="req" stackId="a" fill="#93c5fd" label={{position: 'inside', fill: '#1e3a8a', fontSize: 10}} />
+            <Bar name="Seg." dataKey="seg" stackId="a" fill="#f97316" label={{position: 'inside', fill: '#fff', fontSize: 10}} />
+            <Bar name="Cierre" dataKey="cierre" stackId="a" fill="#22c55e" label={{position: 'inside', fill: '#fff', fontSize: 10}} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
     </div>
-</div>
-            </div>
-          ) : (
+  </div>
+) : (
             <div className="bg-white rounded-4xl shadow-sm border border-slate-100 overflow-hidden animate-in fade-in shadow-slate-100">
                <table className="w-full text-left font-sans font-bold font-sans">
                 <thead className="bg-slate-50 border-b text-[10px] font-black text-slate-400 uppercase tracking-widest font-sans font-bold">
