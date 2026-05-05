@@ -605,16 +605,33 @@ export default function SistemaSIGERED() {
       <div className="h-[350px] w-full"> {/* ALTURA FIJA REFORZADA */}
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={stats.monthlyData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 'bold'}} />
-            <YAxis axisLine={false} tickLine={false} />
-            <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '15px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'}} />
-            <Legend verticalAlign="top" align="right" iconType="circle" height={50}/>
-            <Bar name="Pendientes" dataKey="Pendientes" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 10, fontWeight: 'bold', fill: '#ef4444' }} />
-            <Bar name="En Proceso" dataKey="EnProceso" fill="#f97316" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 10, fontWeight: 'bold', fill: '#f97316' }} />
-            <Bar name="Recuperados" dataKey="Recuperados" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 10, fontWeight: 'bold', fill: '#22c55e' }} />
-            <Bar name="Reconstrucción" dataKey="Reconstruccion" fill="#a855f7" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 10, fontWeight: 'bold', fill: '#a855f7' }} />
-          </BarChart>
+    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 'bold'}} />
+    
+    {/* CAMBIO 1: Agregamos "hide" para que no se vean los números del eje Y */}
+    <YAxis hide /> 
+
+    <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '15px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'}} />
+    <Legend verticalAlign="top" align="right" iconType="circle" height={50}/>
+
+    {/* CAMBIO 2: Cambiamos fontSize de 10 a 12 en cada Bar */}
+    <Bar 
+        name="Pendientes" dataKey="Pendientes" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={12} 
+        label={{ position: 'top', fontSize: 12, fontWeight: 'bold', fill: '#ef4444' }} 
+    />
+    <Bar 
+        name="En Proceso" dataKey="EnProceso" fill="#f97316" radius={[4, 4, 0, 0]} barSize={12} 
+        label={{ position: 'top', fontSize: 12, fontWeight: 'bold', fill: '#f97316' }} 
+    />
+    <Bar 
+        name="Recuperados" dataKey="Recuperados" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={12} 
+        label={{ position: 'top', fontSize: 12, fontWeight: 'bold', fill: '#22c55e' }} 
+    />
+    <Bar 
+        name="Reconstrucción" dataKey="Reconstruccion" fill="#a855f7" radius={[4, 4, 0, 0]} barSize={12} 
+        label={{ position: 'top', fontSize: 12, fontWeight: 'bold', fill: '#a855f7' }} 
+    />
+</BarChart>
         </ResponsiveContainer>
       </div>
     </div>
@@ -678,16 +695,27 @@ export default function SistemaSIGERED() {
       <div className="h-[400px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={stats.respData}>
-            <CartesianGrid stroke="#f8fafc" vertical={false} />
-            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 11, fontWeight: 'bold'}} />
-            <YAxis axisLine={false} tickLine={false} />
-            <Tooltip />
-            <Legend verticalAlign="bottom" height={40}/>
-            <Bar name="Verif." dataKey="verif" stackId="a" fill="#3b82f6" label={{position: 'inside', fill: '#fff', fontSize: 10}} />
-            <Bar name="Req." dataKey="req" stackId="a" fill="#93c5fd" label={{position: 'inside', fill: '#1e3a8a', fontSize: 10}} />
-            <Bar name="Seg." dataKey="seg" stackId="a" fill="#f97316" label={{position: 'inside', fill: '#fff', fontSize: 10}} />
-            <Bar name="Cierre" dataKey="cierre" stackId="a" fill="#22c55e" label={{position: 'inside', fill: '#fff', fontSize: 10}} />
-          </ComposedChart>
+  <CartesianGrid stroke="#f8fafc" vertical={false} />
+  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 11, fontWeight: 'bold'}} />
+  
+  {/* CAMBIO 3: Ocultar ambos ejes Y */}
+  <YAxis yAxisId="left" hide={true} />
+  <YAxis yAxisId="right" hide={true} />
+
+  <Tooltip />
+  <Legend verticalAlign="bottom" height={40}/>
+
+  {/* CAMBIO 4: Etiquetas internas en tamaño 12 y negrita */}
+  <Bar name="Verif." dataKey="verif" stackId="a" fill="#3b82f6" 
+       label={{ position: 'inside', fill: '#fff', fontSize: 12, fontWeight: 'bold' }} />
+  <Bar name="Req." dataKey="req" stackId="a" fill="#93c5fd" 
+       label={{ position: 'inside', fill: '#1e3a8a', fontSize: 12, fontWeight: 'bold' }} />
+  <Bar name="Seg." dataKey="seg" stackId="a" fill="#f97316" 
+       label={{ position: 'inside', fill: '#fff', fontSize: 12, fontWeight: 'bold' }} />
+  <Bar name="Cierre" dataKey="cierre" stackId="a" fill="#22c55e" 
+       label={{ position: 'inside', fill: '#fff', fontSize: 12, fontWeight: 'bold' }} />
+</ComposedChart>
+
         </ResponsiveContainer>
       </div>
     </div>
