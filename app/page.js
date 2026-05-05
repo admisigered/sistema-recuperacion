@@ -143,30 +143,28 @@ export default function SistemaSIGERED() {
       query = query.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable}`);
     }
 
-    // --- FILTRO DE ESTADO UNIVERSAL ---
+    // --- FILTRO DE ESTADO ROBUSTO ---
     if (filters.estado) {
       if (filters.estado === 'RECUPERADO') {
-        // Prioridad 1: Cerrados por SISGED o Visualización
         query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
       } 
       else if (filters.estado === 'RECONSTRUCCION') {
-        // Prioridad 2: Casuística de reconstrucción
         query = query.ilike('observaciones_finales', '%RECONSTRUCCION%');
       }
-      else if (filters.estado === 'EN PROCESO') {
-        // Prioridad 3: SOLO documentos con seguimientos (>0) que aún no se han cerrado
+      else {
+        // Para PENDIENTE y EN PROCESO, primero quitamos los ya recuperados o en reconstrucción
         query = query.neq('cargado_sisged', true)
                      .neq('estado_visualizacion', 'SI SE VISUALIZA')
-                     .not('observaciones_finales', 'ilike', '%RECONSTRUCCION%')
-                     .gt('cantidad_seguimientos', 0);
-      }
-      else if (filters.estado === 'PENDIENTE') {
-        // PENDIENTE UNIVERSAL: No está recuperado, no es reconstrucción y NO tiene seguimientos aún
-        // Esto captura: Etapa 1 (K Pendiente), Etapa 2 (P Vacío), Etapa 3 (Seguimiento 0) y Etapa 4 (Internos)
-        query = query.neq('cargado_sisged', true)
-                     .neq('estado_visualizacion', 'SI SE VISUALIZA')
-                     .not('observaciones_finales', 'ilike', '%RECONSTRUCCION%')
-                     .eq('cantidad_seguimientos', 0);
+                     .or('observaciones_finales.is.null,observaciones_finales.not.ilike.*RECONSTRUCCION*');
+
+        if (filters.estado === 'EN PROCESO') {
+          // Registros que tienen 1 o más seguimientos
+          query = query.gt('cantidad_seguimientos', 0);
+        } 
+        else if (filters.estado === 'PENDIENTE') {
+          // Registros que tienen 0 o son nulos (vulnerabilidad de datos nuevos)
+          query = query.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
+        }
       }
     }
   
