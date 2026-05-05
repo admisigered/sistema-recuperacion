@@ -16,6 +16,10 @@ import {
   AreaChart, Area, PieChart, Pie, Cell, LineChart, Line, ComposedChart 
 } from 'recharts';
 
+// --- NUEVAS LÍNEAS PARA EXPORTAR PDF (PASO 2) ---
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+
 // --- CONFIGURACIÓN DE USUARIOS AUTORIZADOS ---
 const USUARIOS = [
   { user: 'ADMINISTRADOR', pass: 'admin123' },
