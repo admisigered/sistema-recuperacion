@@ -422,6 +422,43 @@ export default function SistemaSIGERED() {
     XLSX.writeFile(wb, "Reporte_Sistemas.xlsx");
   };
 
+// --- FUNCIÓN PARA EXPORTAR EL DASHBOARD A PDF ---
+  const handleExportDashboard = async () => {
+    // Buscamos el contenedor por su ID (que pondremos en el Paso 4)
+    const dashboard = document.getElementById('dashboard-view');
+    if (!dashboard) {
+      alert("Error: No se encontró el contenido del dashboard.");
+      return;
+    }
+
+    try {
+      alert("Generando PDF, por favor espere...");
+      
+      // Capturamos el dashboard como una imagen de alta resolución
+      const canvas = await html2canvas(dashboard, {
+        scale: 2, // Multiplica la calidad por 2
+        useCORS: true, // Permite cargar recursos externos si los hubiera
+        logging: false,
+        backgroundColor: '#F8FAFC' // Fondo gris muy claro igual al de tu sistema
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      
+      // Creamos el documento PDF en formato A4
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      // Añadimos la imagen al PDF y descargamos
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Dashboard_SIGERED_${new Date().toLocaleDateString()}.pdf`);
+      
+    } catch (error) {
+      console.error("Error PDF:", error);
+      alert("Error al generar PDF: " + error.message);
+    }
+  };
+  
   // --- 6. DASHBOARD BARRAS ---
   const chartData = useMemo(() => {
     const counts = {
