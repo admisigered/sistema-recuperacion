@@ -519,7 +519,23 @@ export default function SistemaSIGERED() {
           <div className="flex gap-2 mr-auto">
             <button onClick={() => setIsNewModalOpen(true)} className="bg-brand-blue text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-blue-700 shadow-sm transition-all"><Plus size={14}/> Nuevo</button>
             <label className="bg-white border border-slate-200 px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer hover:bg-slate-50 shadow-sm"><Upload size={14}/> Importar <input type="file" className="hidden" onChange={handleImport}/></label>
-            <button onClick={handleExport} className="bg-white border border-slate-200 px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-slate-50 shadow-sm"><Download size={14}/> Reporte</button>
+            {/* Botón de Excel (visible siempre) */}
+<button 
+  onClick={handleExport} 
+  className="bg-white border border-slate-200 px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-slate-50 shadow-sm cursor-pointer uppercase"
+>
+  <Download size={14}/> Reporte Excel
+</button>
+
+{/* Botón de Dashboard PDF (Solo se ve cuando estás en la vista dashboard) */}
+{view === 'dashboard' && (
+  <button 
+    onClick={handleExportDashboard} 
+    className="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-black shadow-lg transition-all cursor-pointer uppercase"
+  >
+    <FileText size={14}/> Exportar Dashboard (PDF)
+  </button>
+)}
             {selectedIds.length > 0 && (
   <div className="flex gap-2">
     <button 
