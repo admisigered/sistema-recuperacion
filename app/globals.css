@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
 @theme {
-  /* Definimos los colores explícitamente en HEX para que el generador de PDF los entienda */
+  /* Forzamos formato HEX para las variables principales */
   --color-brand-blue: #2563EB;
   --color-brand-dark: #1E293B;
   --color-brand-bg: #F8FAFC;
   
-  /* Sobrescribimos la paleta Slate de Tailwind 4 para que NO use oklch */
+  /* Sobrescribimos la paleta Slate para evitar oklch en los bordes y textos */
   --color-slate-50: #f8fafc;
   --color-slate-100: #f1f5f9;
   --color-slate-200: #e2e8f0;
@@ -17,14 +17,12 @@
   --color-slate-700: #334155;
   --color-slate-800: #1e293b;
   --color-slate-900: #0f172a;
-
-  --radius-4xl: 2.5rem;
-  --radius-5xl: 3rem;
 }
 
-@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes zoom-in { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-
-.animate-in { animation-duration: 300ms; animation-fill-mode: both; }
-.fade-in { animation-name: fade-in; }
-.zoom-in { animation-name: zoom-in; }
+@media print {
+  .animate-in {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
