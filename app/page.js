@@ -504,39 +504,38 @@ const stats = useMemo(() => {
     if (!dashboard) return;
 
     try {
-      alert("Generando PDF... Esto puede tardar 5 segundos.");
+      alert("Preparando reporte visual... por favor espere.");
       
       const canvas = await html2canvas(dashboard, {
         scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: '#F8FAFC',
-        // --- LIMPIEZA PROFUNDA DE COLORES V4 ---
+        // --- LIMPIEZA PROFUNDA DE COLORES V4 (oklch y oklab) ---
         onclone: (clonedDoc) => {
           const elements = clonedDoc.getElementsByTagName('*');
           for (let i = 0; i < elements.length; i++) {
             const el = elements[i];
-            const computedStyle = window.getComputedStyle(el);
+            const style = window.getComputedStyle(el);
             
-            // Forzamos la conversión de colores problemáticos a un formato básico
-            // Si el color contiene "oklch", lo reemplazamos por un color sólido
-            if (computedStyle.color.includes('oklch')) {
-              el.style.color = '#1e293b'; // Slate 800
-            }
-            if (computedStyle.backgroundColor.includes('oklch')) {
-              // Si es un fondo azul de botón, lo forzamos a azul estándar
-              if (el.className.includes('bg-brand-blue') || el.className.includes('bg-blue')) {
+            // 1. Limpiar colores de texto y fondo (oklch/oklab)
+            if (style.color.includes('okl') || style.backgroundColor.includes('okl')) {
+              // Forzamos colores seguros si detectamos formato v4
+              if (el.tagName === 'H1' || el.tagName === 'H3' || el.tagName === 'P') {
+                el.style.color = '#1e293b'; 
+              }
+              if (el.className.includes('bg-brand-blue')) {
                 el.style.backgroundColor = '#2563eb';
-              } else {
-                el.style.backgroundColor = '#ffffff';
               }
             }
-            if (computedStyle.borderColor.includes('oklch')) {
-              el.style.borderColor = '#e2e8f0'; // Slate 200
+
+            // 2. Limpiar bordes (Muy común en v4)
+            if (style.borderColor.includes('okl')) {
+              el.style.borderColor = '#e2e8f0';
             }
-            
-            // Eliminar sombras que usen oklch (causan el mismo error)
-            if (computedStyle.boxShadow.includes('oklch')) {
+
+            // 3. ELIMINAR SOMBRAS (Causan el error oklab/oklch frecuentemente)
+            if (style.boxShadow.includes('okl') || style.boxShadow !== 'none') {
               el.style.boxShadow = 'none';
             }
           }
@@ -549,11 +548,11 @@ const stats = useMemo(() => {
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Dashboard_SIGERED_${new Date().getTime()}.pdf`);
+      pdf.save(`Dashboard_SIGERED_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`);
       
     } catch (error) {
-      console.error("Error crítico PDF:", error);
-      alert("Error al generar PDF: " + error.message);
+      console.error("Error PDF:", error);
+      alert("Error técnico al generar el reporte. Intente nuevamente.");
     }
   };
   
