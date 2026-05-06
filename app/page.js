@@ -129,12 +129,12 @@ const stats = useMemo(() => {
 
     // 1. AVANCE DE ETAPAS POR MES (Histórico de actividad)
     const configuracionMeses = [
-      { etiqueta: 'Dic 25', filtro: '2025-12' },
-      { etiqueta: 'Ene 26', filtro: '2026-01' },
-      { etiqueta: 'Feb 26', filtro: '2026-02' },
-      { etiqueta: 'Mar 26', filtro: '2026-03' },
-      { etiqueta: 'Abr 26', filtro: '2026-04' },
-      { etiqueta: 'May 26', filtro: '2026-05' }
+      { etiqueta: 'DICIEMBRE', filtro: '2025-12' },
+      { etiqueta: 'ENERO', filtro: '2026-01' },
+      { etiqueta: 'FEBRERO', filtro: '2026-02' },
+      { etiqueta: 'MARZO', filtro: '2026-03' },
+      { etiqueta: 'ABRIL', filtro: '2026-04' },
+      { etiqueta: 'MAYO', filtro: '2026-05' }
     ];
 
     const monthlyData = configuracionMeses.map((mes) => {
