@@ -769,21 +769,26 @@ const stats = useMemo(() => {
 
       {/* Sedes (Stacked) */}
       <div className="bg-white p-8 rounded-4xl border border-slate-100 shadow-sm shadow-slate-200">
-        <h4 className="text-xs font-black text-slate-500 uppercase mb-6">Documentos por Sede</h4>
-        <div className="h-[250px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={stats.sedeData} margin={{ top: 20 }}>
-              <XAxis dataKey="name" axisLine={false} tickLine={false} />
-              <Legend verticalAlign="top" height={40}/>
-              <Bar name="Recuperados" dataKey="recuperados" stackId="a" fill="#2563eb" 
-     label={{ position: 'center', fill: '#fff', fontSize: 13, fontWeight: 'bold' }} />
-
-<Bar name="Pendientes" dataKey="pendientes" stackId="a" fill="#f97316" radius={[4, 4, 0, 0]} 
-     label={{ position: 'center', fill: '#fff', fontSize: 13, fontWeight: 'bold' }} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+  <h4 className="text-xs font-black text-slate-500 uppercase mb-6">Documentos por Sede</h4>
+  <div className="h-[250px]">
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={stats.sedeData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontWeight: 'bold', fontSize: 12}} />
+        <YAxis hide />
+        <Tooltip cursor={{fill: '#f8fafc'}} />
+        {/* Mostramos una sola barra con el total acumulado */}
+        <Bar 
+          name="Total Documentos" 
+          dataKey="total" 
+          fill="#2563eb" 
+          radius={[6, 6, 0, 0]} 
+          barSize={60}
+          label={{ position: 'top', fill: '#1e293b', fontSize: 14, fontWeight: 'bold' }} 
+        />
+      </BarChart>
+    </ResponsiveContainer>
+  </div>
+</div>
     </div>
 
     {/* SECCIÓN 4: RENDIMIENTO - FILA 4 */}
