@@ -231,16 +231,31 @@ const stats = useMemo(() => {
 
   const calcularDiasHabiles = (fechaRef) => {
     if (!fechaRef) return 0;
-    let start = new Date(fechaRef);
-    let end = new Date();
+
+    // Convertimos la fecha de notificación a objeto Date (sin desfase de hora)
+    let fechaInicio = new Date(fechaRef + 'T00:00:00');
+    
+    // El conteo DEBE empezar el día SIGUIENTE de la notificación
+    fechaInicio.setDate(fechaInicio.getDate() + 1);
+
+    // Fecha actual (hoy) a medianoche para comparación limpia
+    let hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
     let count = 0;
-    while (start <= end) {
-      if (start.getDay() !== 0 && start.getDay() !== 6) count++;
-      start.setDate(start.getDate() + 1);
+
+    // Si después de sumar 1 día la fecha es mayor que hoy, todavía no han pasado días
+    while (fechaInicio <= hoy) {
+      const diaSemana = fechaInicio.getDay();
+      if (diaSemana !== 0 && diaSemana !== 6) { // 0 = Domingo, 6 = Sábado
+        count++;
+      }
+      fechaInicio.setDate(fechaInicio.getDate() + 1);
     }
+    
     return count;
   };
-
+  
   // --- 3. GESTIÓN DE DATOS (SUPABASE) ---
   const fetchDocs = useCallback(async () => {
     setLoading(true);
