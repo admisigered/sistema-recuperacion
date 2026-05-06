@@ -774,29 +774,54 @@ export default function SistemaSIGERED() {
 
     {/* SECCIÓN 4: RENDIMIENTO - FILA 4 */}
     <div className="bg-white p-10 rounded-5xl border border-slate-100 shadow-sm shadow-slate-200 relative">
-      <div className="absolute top-10 right-10 bg-amber-50 border border-amber-200 p-4 rounded-2xl hidden md:flex items-center gap-3">
-        <AlertCircle size={16} className="text-amber-600"/>
-        <p className="text-[10px] font-black text-amber-700 uppercase tracking-tighter">Etapa más demorada: Cesar → Seguimiento: 5.2 días avg.</p>
-      </div>
-      <h4 className="text-sm font-black text-slate-700 uppercase mb-12">Rendimiento de Responsables</h4>
-      <div className="h-[400px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={stats.respData}>
-  <CartesianGrid stroke="#f8fafc" vertical={false} />
-  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 11, fontWeight: 'bold'}} />
-  <YAxis yAxisId="left" hide />
-  <YAxis yAxisId="right" hide />
-  <Tooltip />
-  <Legend verticalAlign="bottom" height={40}/>
-  <Bar name="Verif." dataKey="verif" stackId="a" fill="#3b82f6" label={{position: 'inside', fill: '#fff', fontSize: 12, fontWeight: 'bold'}} />
-  <Bar name="Req." dataKey="req" stackId="a" fill="#93c5fd" label={{position: 'inside', fill: '#1e3a8a', fontSize: 12, fontWeight: 'bold'}} />
-  <Bar name="Seg." dataKey="seg" stackId="a" fill="#f97316" label={{position: 'inside', fill: '#fff', fontSize: 12, fontWeight: 'bold'}} />
-  <Bar name="Cierre" dataKey="cierre" stackId="a" fill="#22c55e" label={{position: 'inside', fill: '#fff', fontSize: 12, fontWeight: 'bold'}} />
-</ComposedChart>
-
-        </ResponsiveContainer>
-      </div>
-    </div>
+  <div className="absolute top-10 right-10 bg-blue-50 border border-blue-100 p-4 rounded-2xl hidden md:flex items-center gap-3">
+    <AlertCircle size={16} className="text-blue-600"/>
+    <p className="text-[10px] font-black text-blue-700 uppercase tracking-tighter">Desglose de productividad por responsable (Vista 100%)</p>
+  </div>
+  <h4 className="text-sm font-black text-slate-700 uppercase mb-12">Rendimiento de Responsables (Acciones Realizadas)</h4>
+  <div className="h-[450px] w-full">
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart 
+        data={stats.respData} 
+        layout="vertical" // Hace que el gráfico sea horizontal
+        margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
+      >
+        <XAxis type="number" hide domain={[0, 100]} />
+        <YAxis 
+          dataKey="name" 
+          type="category" 
+          axisLine={false} 
+          tickLine={false} 
+          tick={{fontSize: 12, fontWeight: 'bold', fill: '#1e293b'}}
+          width={120}
+        />
+        <Tooltip cursor={{fill: 'transparent'}} formatter={(value, name, props) => {
+          // Muestra el valor real en el cuadro flotante
+          const key = props.dataKey.replace('Pct', 'Val');
+          return [props.payload[key], name];
+        }} />
+        <Legend verticalAlign="bottom" height={40}/>
+        
+        {/* Usamos un "content" personalizado en label para forzar el número real permanentemente */}
+        <Bar name="Verificados" dataKey="vPct" stackId="a" fill="#3b82f6">
+          <LabelList dataKey="vVal" position="center" fill="#fff" fontSize={14} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
+        </Bar>
+        
+        <Bar name="Requeridos" dataKey="rePct" stackId="a" fill="#93c5fd">
+          <LabelList dataKey="reVal" position="center" fill="#1e3a8a" fontSize={14} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
+        </Bar>
+        
+        <Bar name="Seguimientos" dataKey="sPct" stackId="a" fill="#f97316">
+          <LabelList dataKey="sVal" position="center" fill="#fff" fontSize={14} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
+        </Bar>
+        
+        <Bar name="Cerrados/SISGED" dataKey="cPct" stackId="a" fill="#22c55e">
+          <LabelList dataKey="cVal" position="center" fill="#fff" fontSize={14} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  </div>
+</div>
   </div>
 ) : (
             <div className="bg-white rounded-4xl shadow-sm border border-slate-100 overflow-hidden animate-in fade-in shadow-slate-100">
