@@ -127,7 +127,7 @@ export default function SistemaSIGERED() {
       return { monthlyData: [], stageData: [], originData: [], sedeData: [], respData: [] };
     }
     
-    // 1. Avance Mensual (Incluyendo Diciembre 2025 y meses de 2026)
+    // 1. AVANCE DE ETAPAS POR MES (Basado en la fecha de ejecución de cada etapa)
     const configuracionMeses = [
       { etiqueta: 'Dic 25', filtro: '2025-12' },
       { etiqueta: 'Ene 26', filtro: '2026-01' },
@@ -138,26 +138,24 @@ export default function SistemaSIGERED() {
     ];
 
     const monthlyData = configuracionMeses.map((mes) => {
-      const docsDelMes = docs.filter(d => {
-        if (!d.fecha_registro) return false;
-        
-        // Convertimos la fecha a formato ISO por si viene en otro formato (DD/MM/YYYY)
-        let fechaISO = d.fecha_registro;
-        if (fechaISO.includes('/')) {
-          const parts = fechaISO.split('/');
-          fechaISO = `${parts[2]}-${parts[1]}-${parts[0]}`;
+      // Función para saber si una fecha pertenece al mes del filtro
+      const esDelMes = (fechaStr) => {
+        if (!fechaStr) return false;
+        let f = fechaStr;
+        if (f.includes('/')) { // Convertir DD/MM/YYYY a YYYY-MM
+          const p = f.split('/');
+          f = `${p[2]}-${p[1]}`;
         }
-        
-        // Filtramos si la fecha comienza con el año y mes del filtro (ej: 2025-12)
-        return fechaISO.startsWith(mes.filtro);
-      });
+        return f.startsWith(mes.filtro);
+      };
 
       return {
         name: mes.etiqueta,
-        Pendientes: docsDelMes.filter(d => getEtapaEstado(d).estado === 'PENDIENTE').length,
-        EnProceso: docsDelMes.filter(d => getEtapaEstado(d).estado === 'EN PROCESO').length,
-        Recuperados: docsDelMes.filter(d => getEtapaEstado(d).estado === 'RECUPERADO').length,
-        Reconstruccion: docsDelMes.filter(d => getEtapaEstado(d).estado === 'RECONSTRUCCION').length
+        // Cada barra cuenta eventos independientes por su fecha específica
+        Verificaciones: docs.filter(d => esDelMes(d.fecha_verificacion)).length,
+        Requerimientos: docs.filter(d => esDelMes(d.fecha_elaboracion)).length,
+        Seguimientos: docs.filter(d => esDelMes(d.ultimo_seguimiento)).length,
+        Cierres: docs.filter(d => esDelMes(d.fecha_devolucion)).length
       };
     });
 
