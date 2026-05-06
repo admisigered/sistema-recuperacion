@@ -702,14 +702,16 @@ export default function SistemaSIGERED() {
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={stats.monthlyData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 'bold'}} />
+  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
   <YAxis hide /> 
-  <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '15px', border: 'none'}} />
+  <Tooltip cursor={{fill: '#f8fafc'}} />
   <Legend verticalAlign="top" align="right" iconType="circle" height={50}/>
-  <Bar name="Pendientes" dataKey="Pendientes" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 12, fontWeight: 'bold', fill: '#ef4444' }} />
-  <Bar name="En Proceso" dataKey="EnProceso" fill="#f97316" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 12, fontWeight: 'bold', fill: '#f97316' }} />
-  <Bar name="Recuperados" dataKey="Recuperados" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 12, fontWeight: 'bold', fill: '#22c55e' }} />
-  <Bar name="Para Reconstrucción" dataKey="Reconstruccion" fill="#a855f7" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 12, fontWeight: 'bold', fill: '#a855f7' }} />
+
+  {/* Barras actualizadas por Etapa de Avance */}
+  <Bar name="Verificaciones" dataKey="Verificaciones" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#3b82f6' }} />
+  <Bar name="Requerimientos" dataKey="Requerimientos" fill="#93c5fd" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#60a5fa' }} />
+  <Bar name="Seguimientos" dataKey="Seguimientos" fill="#f97316" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#f97316' }} />
+  <Bar name="Cierres/Recuperados" dataKey="Cierres" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#22c55e' }} />
 </BarChart>
         </ResponsiveContainer>
       </div>
