@@ -176,39 +176,27 @@ export default function SistemaSIGERED() {
       { name: 'OD', recuperados: docs.filter(d => d.sede === 'OD' && getEtapaEstado(d).estado === 'RECUPERADO').length, pendientes: docs.filter(d => d.sede === 'OD' && getEtapaEstado(d).estado === 'PENDIENTE').length },
     ];
 
-    // 5. Rendimiento Real por Acciones de Responsables
+    // 5. Rendimiento de Responsables (Lógica para 100% Stacked Horizontal)
     const respData = LISTA_RESPONSABLES.map(r => {
       const nombreUsuario = r.toUpperCase();
+      
+      // Cantidades Reales
+      const vVal = docs.filter(d => String(d.responsable_verificacion).toUpperCase() === nombreUsuario && d.estado_verificacion_k === 'VERIFICADO').length;
+      const reVal = docs.filter(d => String(d.responsable_requerimiento).toUpperCase() === nombreUsuario && (d.numero_documento && d.numero_documento !== 'null' && d.numero_documento !== '')).length;
+      const sVal = docs.filter(d => String(d.responsable_requerimiento).toUpperCase() === nombreUsuario && (d.cantidad_seguimientos > 0)).length;
+      const cVal = docs.filter(d => String(d.responsable_devolucion).toUpperCase() === nombreUsuario && (d.cargado_sisged === true || d.cargado_sisged === 'true')).length;
+
+      const total = vVal + reVal + sVal + cVal || 1; // Total de acciones para calcular el 100%
 
       return {
         name: r,
-        // Acción 1: ¿Cuántos verificó? (Columna I + Columna K)
-        verif: docs.filter(d => 
-          String(d.responsable_verificacion).toUpperCase() === nombreUsuario && 
-          d.estado_verificacion_k === 'VERIFICADO'
-        ).length,
-
-        // Acción 2: ¿Cuántos requerimientos generó? (Columna N + Columna P)
-        req: docs.filter(d => 
-          String(d.responsable_requerimiento).toUpperCase() === nombreUsuario && 
-          (d.numero_documento && d.numero_documento !== 'null' && d.numero_documento !== '')
-        ).length,
-
-        // Acción 3: ¿En cuántos ha registrado seguimientos? (Basado en cantidad_seguimientos)
-        // Nota: Filtramos por responsable de requerimiento que es quien suele seguir el flujo
-        seg: docs.filter(d => 
-          String(d.responsable_requerimiento).toUpperCase() === nombreUsuario && 
-          (d.cantidad_seguimientos > 0)
-        ).length,
-
-        // Acción 4: ¿Cuántos cargó al SISGED / Devolvió? (Columna X + Columna AB)
-        cierre: docs.filter(d => 
-          String(d.responsable_devolucion).toUpperCase() === nombreUsuario && 
-          (d.cargado_sisged === true || d.cargado_sisged === 'true')
-        ).length,
-
-        // Velocidad (Días promedio - puedes mantenerlo simulado o dejarlo en 0)
-        dias: (Math.random() * 3 + 1).toFixed(1) 
+        // Guardamos los valores reales para las etiquetas permanentes
+        vVal, reVal, sVal, cVal,
+        // Calculamos porcentajes para el ancho de la barra (Stack 100%)
+        vPct: (vVal / total) * 100,
+        rePct: (reVal / total) * 100,
+        sPct: (sVal / total) * 100,
+        cPct: (cVal / total) * 100
       };
     });
 
