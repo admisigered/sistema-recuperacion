@@ -17,7 +17,7 @@ import {
 } from 'recharts';
 
 // --- NUEVAS LÍNEAS PARA EXPORTAR PDF (PASO 2) ---
-import html2canvas from 'html2canvas';
+import * as htmlToImage from 'html-to-image';
 import jsPDF from 'jspdf';
 
 // --- CONFIGURACIÓN DE USUARIOS AUTORIZADOS ---
