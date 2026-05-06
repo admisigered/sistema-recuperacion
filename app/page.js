@@ -232,28 +232,57 @@ const stats = useMemo(() => {
   const calcularDiasHabiles = (fechaRef) => {
     if (!fechaRef) return 0;
 
-    // Convertimos la fecha de notificación a objeto Date (sin desfase de hora)
-    let fechaInicio = new Date(fechaRef + 'T00:00:00');
-    
-    // El conteo DEBE empezar el día SIGUIENTE de la notificación
-    fechaInicio.setDate(fechaInicio.getDate() + 1);
+    // Lista de feriados nacionales en Perú (Formato MM-DD)
+    // Se incluyen los fijos y los movibles específicos para el año 2026
+    const feriadosPeru2026 = [
+      '01-01', // Año Nuevo
+      '04-02', // Jueves Santo (2026)
+      '04-03', // Viernes Santo (2026)
+      '05-01', // Día del Trabajo
+      '06-07', // Batalla de Arica / Día de la Bandera
+      '06-29', // San Pedro y San Pablo
+      '07-23', // Día de la Fuerza Aérea (Abelardo Quiñones)
+      '07-28', // Fiestas Patrias
+      '07-29', // Fiestas Patrias
+      '08-06', // Batalla de Junín
+      '08-30', // Santa Rosa de Lima
+      '10-08', // Combate de Angamos
+      '11-01', // Todos los Santos
+      '12-08', // Inmaculada Concepción
+      '12-09', // Batalla de Ayacucho
+      '12-25', // Navidad
+    ];
 
-    // Fecha actual (hoy) a medianoche para comparación limpia
+    // 1. Configuramos la fecha de inicio (día de notificación)
+    let fechaActual = new Date(fechaRef + 'T00:00:00');
+    
+    // 2. El conteo empieza SIEMPRE desde el día SIGUIENTE a la notificación
+    fechaActual.setDate(fechaActual.getDate() + 1);
+
+    // 3. Obtenemos la fecha de hoy a medianoche
     let hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
 
-    let count = 0;
+    let contador = 0;
 
-    // Si después de sumar 1 día la fecha es mayor que hoy, todavía no han pasado días
-    while (fechaInicio <= hoy) {
-      const diaSemana = fechaInicio.getDay();
-      if (diaSemana !== 0 && diaSemana !== 6) { // 0 = Domingo, 6 = Sábado
-        count++;
+    // 4. Recorremos los días desde el día siguiente hasta hoy
+    while (fechaActual <= hoy) {
+      const diaSemana = fechaActual.getDay(); // 0: Domingo, 6: Sábado
+      const mesDia = `${(fechaActual.getMonth() + 1).toString().padStart(2, '0')}-${fechaActual.getDate().toString().padStart(2, '0')}`;
+
+      // Regla: No es sábado (6), no es domingo (0) y no está en la lista de feriados
+      const esFinDeSemana = (diaSemana === 0 || diaSemana === 6);
+      const esFeriado = feriadosPeru2026.includes(mesDia);
+
+      if (!esFinDeSemana && !esFeriado) {
+        contador++;
       }
-      fechaInicio.setDate(fechaInicio.getDate() + 1);
+
+      // Avanzamos al siguiente día
+      fechaActual.setDate(fechaActual.getDate() + 1);
     }
     
-    return count;
+    return contador;
   };
   
   // --- 3. GESTIÓN DE DATOS (SUPABASE) ---
