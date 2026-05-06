@@ -31,6 +31,13 @@ const USUARIOS = [
 
 const LISTA_RESPONSABLES = ["ADMINISTRADOR", "YANINA", "CESAR", "XINA", "FERNANDO"];
 
+const formatDMA = (fecha) => {
+  if (!fecha) return '-';
+  if (fecha.includes('/')) return fecha;
+  const parts = fecha.split('-');
+  return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : fecha;
+};
+
 export default function SistemaSIGERED() {
   // --- ESTADOS DEL SISTEMA ---
   const [session, setSession] = useState(null);
