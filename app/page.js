@@ -504,55 +504,28 @@ const stats = useMemo(() => {
     if (!dashboard) return;
 
     try {
-      alert("Preparando reporte visual... por favor espere.");
+      alert("Generando reporte de Dashboard...espere un momento");
       
-      const canvas = await html2canvas(dashboard, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
+      // Convertimos el div a una imagen PNG de alta resolución (es compatible con Tailwind 4)
+      const dataUrl = await htmlToImage.toPng(dashboard, {
         backgroundColor: '#F8FAFC',
-        // --- LIMPIEZA PROFUNDA DE COLORES V4 (oklch y oklab) ---
-        onclone: (clonedDoc) => {
-          const elements = clonedDoc.getElementsByTagName('*');
-          for (let i = 0; i < elements.length; i++) {
-            const el = elements[i];
-            const style = window.getComputedStyle(el);
-            
-            // 1. Limpiar colores de texto y fondo (oklch/oklab)
-            if (style.color.includes('okl') || style.backgroundColor.includes('okl')) {
-              // Forzamos colores seguros si detectamos formato v4
-              if (el.tagName === 'H1' || el.tagName === 'H3' || el.tagName === 'P') {
-                el.style.color = '#1e293b'; 
-              }
-              if (el.className.includes('bg-brand-blue')) {
-                el.style.backgroundColor = '#2563eb';
-              }
-            }
-
-            // 2. Limpiar bordes (Muy común en v4)
-            if (style.borderColor.includes('okl')) {
-              el.style.borderColor = '#e2e8f0';
-            }
-
-            // 3. ELIMINAR SOMBRAS (Causan el error oklab/oklch frecuentemente)
-            if (style.boxShadow.includes('okl') || style.boxShadow !== 'none') {
-              el.style.boxShadow = 'none';
-            }
-          }
+        pixelRatio: 2, // Calidad doble para que no salga borroso
+        style: {
+          borderRadius: '0' // Limpiamos bordes para la captura
         }
       });
-      
-      const imgData = canvas.toDataURL('image/png');
+
       const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgProps = pdf.getImageProperties(dataUrl);
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Dashboard_SIGERED_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`);
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Dashboard_SIGERED_${new Date().getTime()}.pdf`);
       
     } catch (error) {
-      console.error("Error PDF:", error);
-      alert("Error técnico al generar el reporte. Intente nuevamente.");
+      console.error("Error al exportar:", error);
+      alert("Hubo un problema al generar el PDF. El sistema de colores v4 es muy nuevo. Intente nuevamente.");
     }
   };
   
