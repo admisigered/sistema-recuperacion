@@ -732,20 +732,25 @@ const stats = useMemo(() => {
   <div className="h-[250px]">
     <ResponsiveContainer width="100%" height="100%">
       <PieChart>
-        <Pie 
-          data={stats.originData} 
-          innerRadius={60} 
-          outerRadius={80} 
-          paddingAngle={5} 
-          dataKey="value" 
-          label={{ fontSize: 13, fontWeight: 'bold', fill: '#1e293b' }}
-        >
-          <Cell fill="#1e293b" />
-          <Cell fill="#60a5fa" />
-        </Pie>
-        <Tooltip />
-        <Legend verticalAlign="bottom" />
-      </PieChart>
+  <Pie 
+    data={stats.originData} 
+    innerRadius={60} 
+    outerRadius={80} 
+    paddingAngle={5} 
+    dataKey="value" 
+    // 1. DESACTIVAR ANIMACIÓN: Vital para que salga en el PDF
+    isAnimationActive={false} 
+    // 2. ETIQUETA EXPLÍCITA:
+    label={({ name, value }) => `${name}: ${value}`}
+    labelLine={true}
+  >
+    {stats.originData.map((entry, index) => (
+      <Cell key={`cell-${index}`} fill={index === 0 ? "#1e293b" : "#60a5fa"} />
+    ))}
+  </Pie>
+  <Tooltip />
+  <Legend verticalAlign="bottom" />
+</PieChart>
     </ResponsiveContainer>
   </div>
 </div>
