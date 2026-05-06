@@ -424,10 +424,54 @@ export default function SistemaSIGERED() {
   const toggleSelectDoc = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
 
   const handleExport = () => {
-    const ws = XLSX.utils.json_to_sheet(docs);
+    // Transformamos los documentos para el formato de reporte solicitado con el orden exacto
+    const datosReporte = docs.map(doc => {
+      // Obtenemos Etapa y Estado actuales calculados por la lógica del sistema
+      const infoActual = getEtapaEstado(doc);
+      
+      // Calculamos los días hábiles si existe fecha de notificación
+      const dias = doc.fecha_notificacion ? calcularDiasHabiles(doc.fecha_notificacion) : 0;
+
+      return {
+        'SEDE': doc.sede || '',
+        'CUT': doc.cut || '',
+        'DOCUMENTO': doc.documento || '',
+        'REMITENTE': doc.remitente || '',
+        'FECHA DE REGISTRO': formatDMA(doc.fecha_registro),
+        'ORIGEN': doc.origen || '',
+        'PROCEDIMIENTO': doc.procedimiento || '',
+        'CELULAR': doc.celular || '',
+        'RESP. VERIFICACIÓN': doc.responsable_verificacion || '',
+        'FECHA VERIFICACIÓN': formatDMA(doc.fecha_verificacion),
+        'ESTADO DEL DOCUMENTO': doc.estado_visualizacion || '',
+        'OBSERVACIONES': doc.observaciones || '',
+        'RESP. REQUERIMIENTO': doc.responsable_requerimiento || '',
+        'FECHA REQUERIMIENTO': formatDMA(doc.fecha_elaboracion),
+        'N° DOCUMENTO': doc.numero_documento || '',
+        'FECHA NOTIFICACION': formatDMA(doc.fecha_notificacion),
+        'MEDIO NOTIFICACION': doc.medio_notificacion || '',
+        'DIAS HABILES': dias,
+        'RESP. SEGUIMIENTO (ULTIMO)': doc.ultimo_responsable || 'SIN REGISTRO',
+        'CANT. SEGUIMIENTOS': doc.cantidad_seguimientos || 0,
+        '¿CARGADO AL SISGED?': doc.cargado_sisged ? 'SI' : 'NO',
+        'FECHA DE REMISION': formatDMA(doc.fecha_remision),
+        'RESP. DEVOLUCION': doc.responsable_devolucion || '',
+        'FECHA DEVOLUCION': formatDMA(doc.fecha_devolucion),
+        'DOCUMENTO DEVOLUCION': doc.documento_cierre || '',
+        'OFICINA DESTINO': doc.oficina_destino || '',
+        'OBSERVACIONES FINALES': doc.observaciones_finales || '',
+        'ETAPA ACTUAL': infoActual.etapa,
+        'ESTADO ACTUAL': infoActual.estado
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(datosReporte);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "SIGERED");
-    XLSX.writeFile(wb, "Reporte_Sistemas.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "REPORTE_GENERAL");
+    
+    // Nombre del archivo con marca de tiempo para evitar duplicados
+    const nombreArchivo = `Reporte_SIGERED_${new Date().getTime()}.xlsx`;
+    XLSX.writeFile(wb, nombreArchivo);
   };
 
 // --- FUNCIÓN PARA EXPORTAR EL DASHBOARD A PDF ---
