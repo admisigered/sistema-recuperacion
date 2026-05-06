@@ -6,7 +6,7 @@
   --color-brand-dark: #1E293B;
   --color-brand-bg: #F8FAFC;
   
-  /* Sobrescribimos la paleta Slate para evitar oklch en los bordes y textos */
+  /* Sobrescribimos la paleta Slate completa a HEX para que html2canvas no se rompa */
   --color-slate-50: #f8fafc;
   --color-slate-100: #f1f5f9;
   --color-slate-200: #e2e8f0;
@@ -19,10 +19,10 @@
   --color-slate-900: #0f172a;
 }
 
+/* Regla para evitar que las animaciones salgan movidas en el PDF */
 @media print {
   .animate-in {
     animation: none !important;
     opacity: 1 !important;
-    transform: none !important;
   }
 }
