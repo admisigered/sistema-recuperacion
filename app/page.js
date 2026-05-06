@@ -13,7 +13,7 @@ import {
 // --- NUEVA LÍNEA DE GRÁFICOS AGREGADA AQUÍ ---
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
-  AreaChart, Area, PieChart, Pie, Cell, LineChart, Line, ComposedChart 
+  AreaChart, Area, PieChart, Pie, Cell, LineChart, Line, ComposedChart, LabelList 
 } from 'recharts';
 
 // --- NUEVAS LÍNEAS PARA EXPORTAR PDF (PASO 2) ---
