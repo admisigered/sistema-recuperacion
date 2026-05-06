@@ -170,9 +170,16 @@ const stats = useMemo(() => {
       { name: 'Externos', value: docs.filter(d => d.origen?.toUpperCase() === 'EXTERNO').length },
     ];
 
+    // 4. Sedes (Conteo total simple)
     const sedeData = [
-      { name: 'SC', recuperados: docs.filter(d => d.sede === 'SC' && getEtapaEstado(d).estado === 'RECUPERADO').length, pendientes: docs.filter(d => d.sede === 'SC' && getEtapaEstado(d).estado === 'PENDIENTE').length },
-      { name: 'OD', recuperados: docs.filter(d => d.sede === 'OD' && getEtapaEstado(d).estado === 'RECUPERADO').length, pendientes: docs.filter(d => d.sede === 'OD' && getEtapaEstado(d).estado === 'PENDIENTE').length },
+      { 
+        name: 'SC', 
+        total: docs.filter(d => d.sede === 'SC').length 
+      },
+      { 
+        name: 'OD', 
+        total: docs.filter(d => d.sede === 'OD').length 
+      },
     ];
 
     // 3. RENDIMIENTO DE RESPONSABLES (Barras horizontales 100% apiladas) + ALERTA
