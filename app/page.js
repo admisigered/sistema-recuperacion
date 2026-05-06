@@ -985,11 +985,12 @@ export default function SistemaSIGERED() {
       // --- NUEVA LÓGICA DE CONTADOR ---
       // 2. Actualizar la tabla 'documentos' subiendo el contador y marcando el último movimiento
       await supabase.from('documentos')
-        .update({ 
-          cantidad_seguimientos: (editingDoc.cantidad_seguimientos || 0) + 1,
-          ultimo_seguimiento: now 
-        })
-        .eq('id', editingDoc.id);
+  .update({ 
+    cantidad_seguimientos: (editingDoc.cantidad_seguimientos || 0) + 1,
+    ultimo_seguimiento: now,      // <--- Se guarda en la nueva columna
+    ultimo_responsable: r        // <--- Se guarda el nombre en la nueva columna
+  })
+  .eq('id', editingDoc.id);
 
       // 3. ACTUALIZACIÓN LOCAL: Esto hace que el estado cambie a "EN PROCESO" al instante en la tabla
       setEditingDoc(prev => ({ 
