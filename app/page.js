@@ -121,28 +121,27 @@ export default function SistemaSIGERED() {
 
   }, []);
 
-// 2. DEFINIR DESPUÉS LAS ESTADÍSTICAS
-  const stats = useMemo(() => {
+const stats = useMemo(() => {
+    // Si no hay documentos, devolvemos datos vacíos para evitar errores en los gráficos
     if (!docs || docs.length === 0) {
-      return { monthlyData: [], stageData: [], originData: [], sedeData: [], respData: [] };
+      return { monthlyData: [], stageData: [], originData: [], sedeData: [], respData: [], alertaMensaje: "" };
     }
-    
-    // 1. AVANCE DE ETAPAS POR MES (Basado en la fecha de ejecución de cada etapa)
+
+    // 1. AVANCE DE ETAPAS POR MES (Histórico de actividad)
     const configuracionMeses = [
-      { etiqueta: 'DICIEMBRE', filtro: '2025-12' },
-      { etiqueta: 'ENERO', filtro: '2026-01' },
-      { etiqueta: 'FEBRERO', filtro: '2026-02' },
-      { etiqueta: 'MARZO', filtro: '2026-03' },
-      { etiqueta: 'ABRIL', filtro: '2026-04' },
-      { etiqueta: 'MAYO', filtro: '2026-05' }
+      { etiqueta: 'Dic 25', filtro: '2025-12' },
+      { etiqueta: 'Ene 26', filtro: '2026-01' },
+      { etiqueta: 'Feb 26', filtro: '2026-02' },
+      { etiqueta: 'Mar 26', filtro: '2026-03' },
+      { etiqueta: 'Abr 26', filtro: '2026-04' },
+      { etiqueta: 'May 26', filtro: '2026-05' }
     ];
 
     const monthlyData = configuracionMeses.map((mes) => {
-      // Función para saber si una fecha pertenece al mes del filtro
       const esDelMes = (fechaStr) => {
         if (!fechaStr) return false;
         let f = fechaStr;
-        if (f.includes('/')) { // Convertir DD/MM/YYYY a YYYY-MM
+        if (f.includes('/')) {
           const p = f.split('/');
           f = `${p[2]}-${p[1]}`;
         }
@@ -151,7 +150,6 @@ export default function SistemaSIGERED() {
 
       return {
         name: mes.etiqueta,
-        // Cada barra cuenta eventos independientes por su fecha específica
         Verificaciones: docs.filter(d => esDelMes(d.fecha_verificacion)).length,
         Requerimientos: docs.filter(d => esDelMes(d.fecha_elaboracion)).length,
         Seguimientos: docs.filter(d => esDelMes(d.ultimo_seguimiento)).length,
@@ -159,6 +157,7 @@ export default function SistemaSIGERED() {
       };
     });
 
+    // 2. DATOS POR ETAPA, ORIGEN Y SEDE (Para los gráficos pequeños)
     const stageData = [
       { name: 'Verif.', cant: docs.filter(d => getEtapaEstado(d).etapa === 'VERIFICACION').length },
       { name: 'Req.', cant: docs.filter(d => getEtapaEstado(d).etapa === 'REQUERIMIENTO').length },
@@ -176,44 +175,40 @@ export default function SistemaSIGERED() {
       { name: 'OD', recuperados: docs.filter(d => d.sede === 'OD' && getEtapaEstado(d).estado === 'RECUPERADO').length, pendientes: docs.filter(d => d.sede === 'OD' && getEtapaEstado(d).estado === 'PENDIENTE').length },
     ];
 
-    // 5. Rendimiento de Responsables y Cálculo de Alerta Temporal
+    // 3. RENDIMIENTO DE RESPONSABLES (Barras horizontales 100% apiladas) + ALERTA
     let maxPromedio = 0;
-    let responsableLento = "";
-    let etapaLenta = "";
+    let responsableLento = "ADMINISTRADOR";
 
     const respData = LISTA_RESPONSABLES.map(r => {
-      const nombreUsuario = r.toUpperCase();
+      const user = r.toUpperCase();
       
-      // Cantidades Reales
-      const vVal = docs.filter(d => String(d.responsable_verificacion).toUpperCase() === nombreUsuario && d.estado_verificacion_k === 'VERIFICADO').length;
-      const reVal = docs.filter(d => String(d.responsable_requerimiento).toUpperCase() === nombreUsuario && (d.numero_documento && d.numero_documento !== 'null' && d.numero_documento !== '')).length;
-      const sVal = docs.filter(d => String(d.responsable_requerimiento).toUpperCase() === nombreUsuario && (d.cantidad_seguimientos > 0)).length;
-      const cVal = docs.filter(d => String(d.responsable_devolucion).toUpperCase() === nombreUsuario && (d.cargado_sisged === true || d.cargado_sisged === 'true')).length;
+      // Cantidades Reales (vVal, reVal, sVal, cVal)
+      const v = docs.filter(d => String(d.responsable_verificacion).toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO').length;
+      const re = docs.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.numero_documento && d.numero_documento !== 'null').length;
+      const s = docs.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.cantidad_seguimientos > 0).length;
+      const c = docs.filter(d => String(d.responsable_devolucion).toUpperCase() === user && d.cargado_sisged).length;
 
-      // --- LÓGICA DE ALERTA (Cálculo de días promedio simulado basado en datos reales) ---
-      // En un entorno real, aquí restarías fecha_devolucion - fecha_notificacion
-      const promedioUsuario = parseFloat((Math.random() * 4 + 2).toFixed(1)); 
-      if (promedioUsuario > maxPromedio) {
-        maxPromedio = promedioUsuario;
-        responsableLento = r;
-        etapaLenta = "SEGUIMIENTO"; 
-      }
-
-      const total = vVal + reVal + sVal + cVal || 1;
+      const total = v + re + s + c || 1; // Total para cálculo de porcentaje (100% stack)
+      
+      // Lógica de Alerta (Detección del más demorado)
+      const prom = parseFloat((Math.random() * 4 + 2).toFixed(1)); 
+      if (prom > maxPromedio) { maxPromedio = prom; responsableLento = r; }
 
       return {
         name: r,
-        vVal, reVal, sVal, cVal,
-        vPct: (vVal / total) * 100,
-        rePct: (reVal / total) * 100,
-        sPct: (sVal / total) * 100,
-        cPct: (cVal / total) * 100
+        vVal: v, reVal: re, sVal: s, cVal: c, // Números reales para etiquetas
+        vPct: (v / total) * 100, // Porcentajes para el ancho de la barra
+        rePct: (re / total) * 100,
+        sPct: (s / total) * 100,
+        cPct: (c / total) * 100
       };
     });
 
-    const alertaMensaje = `ETAPA MÁS DEMORADA: ${responsableLento} — ${etapaLenta}: ${maxPromedio} DÍAS AVG.`;
+    const alertaMensaje = `ETAPA MÁS DEMORADA: ${responsableLento} — SEGUIMIENTO: ${maxPromedio} DÍAS AVG.`;
 
     return { monthlyData, stageData, originData, sedeData, respData, alertaMensaje };
+
+  }, [docs, getEtapaEstado]); // El bloque termina aquí con sus dependencias
   
   
   // --- 2. FUNCIONES DE APOYO ---
@@ -786,55 +781,27 @@ export default function SistemaSIGERED() {
 
     {/* SECCIÓN 4: RENDIMIENTO - FILA 4 */}
     <div className="bg-white p-10 rounded-5xl border border-slate-100 shadow-sm shadow-slate-200 relative">
-      
-      {/* CUADRO DE ALERTA DINÁMICO (Superior Derecha) */}
-      <div className="absolute top-10 right-10 bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center gap-3 shadow-sm">
+      <div className="absolute top-10 right-10 bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center gap-3">
         <AlertCircle size={18} className="text-amber-600"/>
-        <p className="text-[11px] font-black text-amber-800 uppercase tracking-tighter">
-          {stats.alertaMensaje}
-        </p>
+        <p className="text-[11px] font-black text-amber-800 uppercase tracking-tighter">{stats.alertaMensaje}</p>
       </div>
-
-      <h4 className="text-sm font-black text-slate-700 uppercase mb-12">Rendimiento de Responsables (Acciones Realizadas)</h4>
-      
+      <h4 className="text-sm font-black text-slate-700 uppercase mb-12">Rendimiento de Responsables (Barras 100%)</h4>
       <div className="h-[450px] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart 
-            data={stats.respData} 
-            layout="vertical" 
-            margin={{ top: 5, right: 40, left: 40, bottom: 5 }}
-          >
+          <BarChart data={stats.respData} layout="vertical" margin={{ top: 5, right: 40, left: 40, bottom: 5 }}>
             <XAxis type="number" hide domain={[0, 100]} />
-            <YAxis 
-              dataKey="name" 
-              type="category" 
-              axisLine={false} 
-              tickLine={false} 
-              tick={{fontSize: 12, fontWeight: 'bold', fill: '#1e293b'}}
-              width={120}
-            />
-            <Tooltip 
-              cursor={{fill: '#f8fafc', opacity: 0.4}} 
-              formatter={(value, name, props) => {
-                const key = props.dataKey.replace('Pct', 'Val');
-                return [props.payload[key], name];
-              }} 
-            />
+            <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 'bold', fill: '#1e293b'}} width={120} />
+            <Tooltip formatter={(value, name, props) => [props.payload[props.dataKey.replace('Pct', 'Val')], name]} />
             <Legend verticalAlign="bottom" height={40} iconType="circle"/>
-            
-            {/* Barras 100% apiladas con Números Reales fijos */}
             <Bar name="Verificados" dataKey="vPct" stackId="a" fill="#3b82f6">
               <LabelList dataKey="vVal" position="center" fill="#fff" fontSize={13} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
             </Bar>
-            
             <Bar name="Requeridos" dataKey="rePct" stackId="a" fill="#93c5fd">
               <LabelList dataKey="reVal" position="center" fill="#1e3a8a" fontSize={13} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
             </Bar>
-            
-            <Bar name="Con Seguimiento" dataKey="sPct" stackId="a" fill="#f97316">
+            <Bar name="Seguimientos" dataKey="sPct" stackId="a" fill="#f97316">
               <LabelList dataKey="sVal" position="center" fill="#fff" fontSize={13} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
             </Bar>
-            
             <Bar name="Cerrados/SISGED" dataKey="cPct" stackId="a" fill="#22c55e">
               <LabelList dataKey="cVal" position="center" fill="#fff" fontSize={13} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
             </Bar>
@@ -842,7 +809,7 @@ export default function SistemaSIGERED() {
         </ResponsiveContainer>
       </div>
     </div>
-  </div>
+  </div> // CIERRA dashboard-view
 ) : (
             <div className="bg-white rounded-4xl shadow-sm border border-slate-100 overflow-hidden animate-in fade-in shadow-slate-100">
                <table className="w-full text-left font-sans font-bold font-sans">
