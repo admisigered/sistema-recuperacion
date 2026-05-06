@@ -723,26 +723,37 @@ const stats = useMemo(() => {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       {/* Etapas (Area) */}
       <div className="bg-white p-8 rounded-4xl border border-slate-100 shadow-sm shadow-slate-200">
-        <h4 className="text-xs font-black text-slate-500 uppercase mb-6">Documentos por Etapa</h4>
-        <div className="h-[250px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={stats.stageData}>
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
-              <Tooltip />
-              <Area 
-  type="monotone" 
-  dataKey="cant" 
-  stroke="#2563eb" 
-  fill="#dbeafe" 
-  strokeWidth={3} 
-  dot={{r: 5}} 
-  // CAMBIO: Aumento de tamaño y negrita
-  label={{ position: 'top', fontSize: 13, fontWeight: 'bold', fill: '#1E293B' }} 
-/>
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+  <h4 className="text-xs font-black text-slate-500 uppercase mb-6">Documentos por Etapa</h4>
+  <div className="h-[250px]">
+    <ResponsiveContainer width="100%" height="100%">
+      {/* Añadimos un margen superior de 30 para que el número de arriba no se corte */}
+      <AreaChart data={stats.stageData} margin={{ top: 30, right: 25, left: 25, bottom: 0 }}>
+        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
+        
+        {/* El dominio [0, 'dataMax + 5'] crea espacio extra arriba del punto más alto */}
+        <YAxis hide domain={[0, 'dataMax + 5']} />
+        
+        <Tooltip />
+        <Area 
+          type="monotone" 
+          dataKey="cant" 
+          stroke="#2563eb" 
+          fill="#dbeafe" 
+          strokeWidth={3} 
+          dot={{r: 6, fill: '#2563eb', strokeWidth: 2, stroke: '#fff'}} 
+          // dy: -15 aleja el número del punto para que no estén pegados
+          label={{ 
+            position: 'top', 
+            dy: -15, 
+            fontSize: 14, 
+            fontWeight: 'bold', 
+            fill: '#1e293b' 
+          }} 
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  </div>
+</div>
       
       <div className="bg-white p-8 rounded-4xl border border-slate-100 shadow-sm shadow-slate-200">
   <h4 className="text-xs font-black text-slate-500 uppercase mb-6 text-center">Origen de Documentos</h4>
