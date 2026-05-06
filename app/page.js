@@ -127,16 +127,33 @@ export default function SistemaSIGERED() {
       return { monthlyData: [], stageData: [], originData: [], sedeData: [], respData: [] };
     }
     
-    const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May'];
-    const monthlyData = meses.map((mes, index) => {
-      // Obtenemos el número de mes (01, 02, 03...)
-      const monthNum = (index + 1).toString().padStart(2, '0');
-      
-      // Filtramos los documentos que pertenecen a ese mes (ej: 2026-01-...)
-      const docsDelMes = docs.filter(d => d.fecha_registro && d.fecha_registro.includes(`-${monthNum}-`));
+    // 1. Avance Mensual (Incluyendo Diciembre 2025 y meses de 2026)
+    const configuracionMeses = [
+      { etiqueta: 'Dic 25', filtro: '2025-12' },
+      { etiqueta: 'Ene 26', filtro: '2026-01' },
+      { etiqueta: 'Feb 26', filtro: '2026-02' },
+      { etiqueta: 'Mar 26', filtro: '2026-03' },
+      { etiqueta: 'Abr 26', filtro: '2026-04' },
+      { etiqueta: 'May 26', filtro: '2026-05' }
+    ];
+
+    const monthlyData = configuracionMeses.map((mes) => {
+      const docsDelMes = docs.filter(d => {
+        if (!d.fecha_registro) return false;
+        
+        // Convertimos la fecha a formato ISO por si viene en otro formato (DD/MM/YYYY)
+        let fechaISO = d.fecha_registro;
+        if (fechaISO.includes('/')) {
+          const parts = fechaISO.split('/');
+          fechaISO = `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
+        
+        // Filtramos si la fecha comienza con el año y mes del filtro (ej: 2025-12)
+        return fechaISO.startsWith(mes.filtro);
+      });
 
       return {
-        name: mes,
+        name: mes.etiqueta,
         Pendientes: docsDelMes.filter(d => getEtapaEstado(d).estado === 'PENDIENTE').length,
         EnProceso: docsDelMes.filter(d => getEtapaEstado(d).estado === 'EN PROCESO').length,
         Recuperados: docsDelMes.filter(d => getEtapaEstado(d).estado === 'RECUPERADO').length,
