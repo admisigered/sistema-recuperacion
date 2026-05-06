@@ -129,12 +129,12 @@ export default function SistemaSIGERED() {
     
     // 1. AVANCE DE ETAPAS POR MES (Basado en la fecha de ejecución de cada etapa)
     const configuracionMeses = [
-      { etiqueta: 'Diciembre', filtro: '2025-12' },
-      { etiqueta: 'Enero', filtro: '2026-01' },
-      { etiqueta: 'Febrero', filtro: '2026-02' },
-      { etiqueta: 'Marzo', filtro: '2026-03' },
-      { etiqueta: 'Abril', filtro: '2026-04' },
-      { etiqueta: 'Mayo', filtro: '2026-05' }
+      { etiqueta: 'DICIEMBRE', filtro: '2025-12' },
+      { etiqueta: 'ENERO', filtro: '2026-01' },
+      { etiqueta: 'FEBRERO', filtro: '2026-02' },
+      { etiqueta: 'MARZO', filtro: '2026-03' },
+      { etiqueta: 'ABRIL', filtro: '2026-04' },
+      { etiqueta: 'MAYO', filtro: '2026-05' }
     ];
 
     const monthlyData = configuracionMeses.map((mes) => {
