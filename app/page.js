@@ -310,7 +310,9 @@ const stats = useMemo(() => {
     let queryTable = supabase.from('documentos').select('*', { count: 'exact' });
     
     // Consulta para el dashboard: Trae las 13,000 filas pero SOLO las columnas de cálculo (más rápido)
-    let queryStats = supabase.from('documentos').select('sede, origen, estado_verificacion_k, estado_visualizacion, numero_documento, cargado_sisged, cantidad_seguimientos, fecha_registro, responsable_verificacion, responsable_requerimiento, responsable_devolucion, observaciones_finales, fecha_verificacion, fecha_elaboracion, ultimo_seguimiento, fecha_devolucion');
+    let queryStats = supabase.from('documentos')
+    .select('sede, origen, estado_verificacion_k, estado_visualizacion, numero_documento, cargado_sisged, cantidad_seguimientos, fecha_registro, responsable_verificacion, responsable_requerimiento, responsable_devolucion, observaciones_finales, fecha_verificacion, fecha_elaboracion, ultimo_seguimiento, fecha_devolucion')
+    .limit(15000); // <--- Aumentamos el límite para que lea tus 13k registros
 
     // 2. Función para aplicar tus filtros exactos a ambas consultas
     const aplicarFiltrosInternos = (q) => {
