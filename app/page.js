@@ -300,28 +300,22 @@ const stats = useMemo(() => {
   };
   
   // --- 3. GESTIÓN DE DATOS (TABLA PAGINADA + DASHBOARD GLOBAL) ---
+  // --- 3. GESTIÓN DE DATOS (TABLA + DASHBOARD GLOBAL) ---
   const fetchDocs = useCallback(async () => {
     setLoading(true);
     let from = (page - 1) * ITEMS_PER_PAGE;
     let to = from + ITEMS_PER_PAGE - 1;
 
-    // 1. Definimos las dos consultas por separado
-    // Consulta para la tabla: Trae todo (*) pero solo 100 filas
+    // 1. Definimos las dos consultas base
     let queryTable = supabase.from('documentos').select('*', { count: 'exact' });
-    
-    // Consulta para el dashboard: Trae las 13,000 filas pero SOLO las columnas de cálculo (más rápido)
-    let queryStats = supabase.from('documentos')
-    .select('sede, origen, estado_verificacion_k, estado_visualizacion, numero_documento, cargado_sisged, cantidad_seguimientos, fecha_registro, responsable_verificacion, responsable_requerimiento, responsable_devolucion, observaciones_finales, fecha_verificacion, fecha_elaboracion, ultimo_seguimiento, fecha_devolucion')
-    .limit(15000); // <--- Aumentamos el límite para que lea tus 13k registros
 
-    // 2. Función para aplicar tus filtros exactos a ambas consultas
+    // 2. Función para aplicar tus filtros exactos
     const aplicarFiltrosInternos = (q) => {
         if (filters.search) q.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%`);
         if (filters.sede) q.eq('sede', filters.sede);
         if (filters.origen) q.eq('origen', filters.origen);
         if (filters.responsable) q.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable}`);
         
-        // Filtro de Estado (Tu lógica exacta)
         if (filters.estado) {
             if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
             else if (filters.estado === 'RECONSTRUCCION') q.ilike('observaciones_finales', '%RECONSTRUCCION%');
@@ -332,7 +326,6 @@ const stats = useMemo(() => {
             }
         }
 
-        // Filtro de Etapa (Tu lógica exacta)
         if (filters.etapa) {
             if (filters.etapa === 'VERIFICACION') q.eq('estado_verificacion_k', 'PENDIENTE').eq('cargado_sisged', false);
             else if (filters.etapa === 'REQUERIMIENTO') q.eq('origen', 'Externo').eq('estado_verificacion_k', 'VERIFICADO').eq('estado_visualizacion', 'NO SE VISUALIZA').eq('cargado_sisged', false).or('numero_documento.is.null,numero_documento.eq.""');
@@ -341,58 +334,46 @@ const stats = useMemo(() => {
         }
     };
 
-    // Aplicamos los filtros a ambas
+    // A. Consultamos la tabla (100 registros)
     aplicarFiltrosInternos(queryTable);
-    aplicarFiltrosInternos(queryStats);
-
-    // 3. EJECUCIÓN DE CONSULTAS
-    
-    // --- A. EJECUTAMOS LA CONSULTA DE LA TABLA (100 REGISTROS) ---
-    const { data: tableData, count, error: tableError } = await queryTable
-        .order('creado_at', { ascending: false })
-        .range(from, to);
+    const { data: tableData, count, error: tableError } = await queryTable.order('creado_at', { ascending: false }).range(from, to);
 
     if (!tableError) { 
         setDocs(tableData || []); 
-        setTotalDocs(tableError.count || count || 0); 
+        setTotalDocs(count || 0); 
     }
 
-    // --- B. EJECUTAMOS LA CONSULTA DEL DASHBOARD (TODOS LOS REGISTROS EN LOTES) ---
+    // B. Consultamos el Dashboard (Todos los registros en lotes de 1000)
     let allData = [];
     let hayMas = true;
     let desde = 0;
-    const tamanoPaso = 1000;
+    const paso = 1000;
 
-    // Bucle para saltar el límite de 1,000 de la API
     while (hayMas) {
         let qStats = supabase.from('documentos').select('sede, origen, estado_verificacion_k, estado_visualizacion, numero_documento, cargado_sisged, cantidad_seguimientos, fecha_registro, responsable_verificacion, responsable_requerimiento, responsable_devolucion, observaciones_finales, fecha_verificacion, fecha_elaboracion, ultimo_seguimiento, fecha_devolucion');
-        
-        // Aplicamos tus mismos filtros a este lote
         aplicarFiltrosInternos(qStats);
         
-        // Pedimos el siguiente bloque de 1,000
-        const { data: chunk, error: errChunk } = await qStats.range(desde, desde + tamanoPaso - 1);
+        const { data: chunk, error: errChunk } = await qStats.range(desde, desde + paso - 1);
 
         if (errChunk || !chunk || chunk.length === 0) {
             hayMas = false;
         } else {
             allData = [...allData, ...chunk];
-            if (chunk.length < tamanoPaso) {
-                hayMas = false; // Ya no hay más registros
-            } else {
-                desde += tamanoPaso;
-            }
+            if (chunk.length < paso) hayMas = false;
+            else desde += paso;
         }
-        // Seguridad para evitar bucles infinitos (máximo 20,000 registros)
-        if (desde > 20000) hayMas = false;
+        if (desde > 20000) hayMas = false; // Seguridad
     }
 
-    setAllDocsForStats(allData); // Aquí ya están los 14,000 registros filtrados
+    setAllDocsForStats(allData);
     setLoading(false);
-    }, [page, filters]);
+  }, [page, filters]); // Cierre correcto de useCallback
 
-  useEffect(() => { if (session) fetchDocs(); }, [session, fetchDocs]);
+  useEffect(() => {
+    if (session) fetchDocs();
+  }, [session, fetchDocs]); // Cierre correcto de useEffect
 
+  
   // --- 4. IMPORTACIÓN MASIVA CON LIMPIEZA DE DUPLICADOS ---
   const handleImport = (e) => {
     const file = e.target.files[0];
