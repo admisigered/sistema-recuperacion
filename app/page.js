@@ -345,24 +345,50 @@ const stats = useMemo(() => {
     aplicarFiltrosInternos(queryTable);
     aplicarFiltrosInternos(queryStats);
 
-    // 3. Ejecutamos ambas peticiones al mismo tiempo
-    const [resTable, resStats] = await Promise.all([
-        queryTable.order('creado_at', { ascending: false }).range(from, to),
-        queryStats
-    ]);
-
-    // 4. Guardamos los resultados
-    if (!resTable.error) { 
-        setDocs(resTable.data || []); 
-        setTotalDocs(resTable.count || 0); 
-    }
+    // 3. EJECUCIÓN DE CONSULTAS
     
-    if (!resStats.error) {
-        setAllDocsForStats(resStats.data || []); // Aquí se guardan los 13,000 para el Dashboard
+    // --- A. EJECUTAMOS LA CONSULTA DE LA TABLA (100 REGISTROS) ---
+    const { data: tableData, count, error: tableError } = await queryTable
+        .order('creado_at', { ascending: false })
+        .range(from, to);
+
+    if (!tableError) { 
+        setDocs(tableData || []); 
+        setTotalDocs(tableError.count || count || 0); 
     }
 
+    // --- B. EJECUTAMOS LA CONSULTA DEL DASHBOARD (TODOS LOS REGISTROS EN LOTES) ---
+    let allData = [];
+    let hayMas = true;
+    let desde = 0;
+    const tamanoPaso = 1000;
+
+    // Bucle para saltar el límite de 1,000 de la API
+    while (hayMas) {
+        let qStats = supabase.from('documentos').select('sede, origen, estado_verificacion_k, estado_visualizacion, numero_documento, cargado_sisged, cantidad_seguimientos, fecha_registro, responsable_verificacion, responsable_requerimiento, responsable_devolucion, observaciones_finales, fecha_verificacion, fecha_elaboracion, ultimo_seguimiento, fecha_devolucion');
+        
+        // Aplicamos tus mismos filtros a este lote
+        aplicarFiltrosInternos(qStats);
+        
+        // Pedimos el siguiente bloque de 1,000
+        const { data: chunk, error: errChunk } = await qStats.range(desde, desde + tamanoPaso - 1);
+
+        if (errChunk || !chunk || chunk.length === 0) {
+            hayMas = false;
+        } else {
+            allData = [...allData, ...chunk];
+            if (chunk.length < tamanoPaso) {
+                hayMas = false; // Ya no hay más registros
+            } else {
+                desde += tamanoPaso;
+            }
+        }
+        // Seguridad para evitar bucles infinitos (máximo 20,000 registros)
+        if (desde > 20000) hayMas = false;
+    }
+
+    setAllDocsForStats(allData); // Aquí ya están los 14,000 registros filtrados
     setLoading(false);
-  }, [page, filters]);
 
   useEffect(() => { if (session) fetchDocs(); }, [session, fetchDocs]);
 
