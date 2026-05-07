@@ -52,6 +52,7 @@ export default function SistemaSIGERED() {
   const [activeTab, setActiveTab] = useState(1);
   const [seguimientos, setSeguimientos] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [allDocsForStats, setAllDocsForStats] = useState([]); // Nuevo: para el Dashboard total
   
   // --- FILTROS GLOBALES (CONECTADOS) ---
   const [filters, setFilters] = useState({ 
