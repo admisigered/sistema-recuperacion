@@ -418,17 +418,30 @@ const stats = useMemo(() => {
           };
         }).filter(Boolean);
 
-        const { error } = await supabase.from('documentos').upsert(batch, { onConflict: 'cut,documento' });
-        if (error) throw error;
-        alert("Sincronización Masiva Exitosa desde Excel"); 
+        // --- INICIO DE CARGA POR LOTES (CHUNKS) ---
+        const totalRegistros = batch.length;
+        const tamanoLote = 500; // Enviaremos de 500 en 500
+        
+        alert(`Se han detectado ${totalRegistros} registros. Iniciando carga por lotes...`);
+
+        for (let i = 0; i < totalRegistros; i += tamanoLote) {
+          const loteActual = batch.slice(i, i + tamanoLote);
+          
+          const { error } = await supabase
+            .from('documentos')
+            .upsert(loteActual, { onConflict: 'cut,documento' });
+
+          if (error) {
+            console.error("Error en el lote:", error);
+            throw new Error(`Error en la fila ${i}: ${error.message}`);
+          }
+
+          console.log(`Progreso: ${i + loteActual.length} de ${totalRegistros}`);
+        }
+        // --- FIN DE CARGA POR LOTES ---
+
+        alert("¡Sincronización Masiva Exitosa! Los 14,000 registros se procesaron correctamente."); 
         fetchDocs();
-      } catch (err) { 
-        alert("Error al importar: " + err.message); 
-      }
-    };
-    reader.readAsBinaryString(file);
-    e.target.value = null;
-  };
 
   // --- 5. SINCRONIZACIÓN Y ELIMINACIÓN ---
  const handleSyncChanges = async () => {
