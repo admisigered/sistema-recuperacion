@@ -124,7 +124,7 @@ export default function SistemaSIGERED() {
 
 const stats = useMemo(() => {
     // Si no hay documentos, devolvemos datos vacíos para evitar errores en los gráficos
-    if (!docs || docs.length === 0) {
+    if (!allDocsForStats || allDocsForStats.length === 0) {
       return { monthlyData: [], stageData: [], originData: [], sedeData: [], respData: [], alertaMensaje: "" };
     }
 
@@ -151,35 +151,35 @@ const stats = useMemo(() => {
 
       return {
         name: mes.etiqueta,
-        Verificaciones: docs.filter(d => esDelMes(d.fecha_verificacion)).length,
-        Requerimientos: docs.filter(d => esDelMes(d.fecha_elaboracion)).length,
-        Seguimientos: docs.filter(d => esDelMes(d.ultimo_seguimiento)).length,
-        Cierres: docs.filter(d => esDelMes(d.fecha_devolucion)).length
+        Verificaciones: allDocsForStats.filter(d => esDelMes(d.fecha_verificacion)).length,
+        Requerimientos: allDocsForStats.filter(d => esDelMes(d.fecha_elaboracion)).length,
+        Seguimientos: allDocsForStats.filter(d => esDelMes(d.ultimo_seguimiento)).length,
+        Cierres: allDocsForStats.filter(d => esDelMes(d.fecha_devolucion)).length
       };
     });
 
     // 2. DATOS POR ETAPA, ORIGEN Y SEDE (Para los gráficos pequeños)
     const stageData = [
-      { name: 'Verif.', cant: docs.filter(d => getEtapaEstado(d).etapa === 'VERIFICACION').length },
-      { name: 'Req.', cant: docs.filter(d => getEtapaEstado(d).etapa === 'REQUERIMIENTO').length },
-      { name: 'Seg.', cant: docs.filter(d => getEtapaEstado(d).etapa === 'SEGUIMIENTO').length },
-      { name: 'Cierre', cant: docs.filter(d => getEtapaEstado(d).etapa === 'CIERRE').length },
+      { name: 'Verif.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'VERIFICACION').length },
+      { name: 'Req.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'REQUERIMIENTO').length },
+      { name: 'Seg.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'SEGUIMIENTO').length },
+      { name: 'Cierre', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'CIERRE').length },
     ];
 
     const originData = [
-      { name: 'Internos', value: docs.filter(d => d.origen?.toUpperCase() === 'INTERNO').length },
-      { name: 'Externos', value: docs.filter(d => d.origen?.toUpperCase() === 'EXTERNO').length },
+      { name: 'Internos', value: allDocsForStats.filter(d => d.origen?.toUpperCase() === 'INTERNO').length },
+      { name: 'Externos', value: allDocsForStats.filter(d => d.origen?.toUpperCase() === 'EXTERNO').length },
     ];
 
     // 4. Sedes (Conteo total simple)
     const sedeData = [
       { 
         name: 'SC', 
-        total: docs.filter(d => d.sede === 'SC').length 
+        total: allDocsForStats.filter(d => d.sede === 'SC').length 
       },
       { 
         name: 'OD', 
-        total: docs.filter(d => d.sede === 'OD').length 
+        total: allDocsForStats.filter(d => d.sede === 'OD').length 
       },
     ];
 
@@ -191,10 +191,10 @@ const stats = useMemo(() => {
       const user = r.toUpperCase();
       
       // Cantidades Reales (vVal, reVal, sVal, cVal)
-      const v = docs.filter(d => String(d.responsable_verificacion).toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO').length;
-      const re = docs.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.numero_documento && d.numero_documento !== 'null').length;
-      const s = docs.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.cantidad_seguimientos > 0).length;
-      const c = docs.filter(d => String(d.responsable_devolucion).toUpperCase() === user && d.cargado_sisged).length;
+      const v = allDocsForStats.filter(d => String(d.responsable_verificacion).toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO').length;
+      const re = allDocsForStats.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.numero_documento && d.numero_documento !== 'null').length;
+      const s = allDocsForStats.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.cantidad_seguimientos > 0).length;
+      const c = allDocsForStats.filter(d => String(d.responsable_devolucion).toUpperCase() === user && d.cargado_sisged).length;
 
       const total = v + re + s + c || 1; // Total para cálculo de porcentaje (100% stack)
       
@@ -216,7 +216,7 @@ const stats = useMemo(() => {
 
     return { monthlyData, stageData, originData, sedeData, respData, alertaMensaje };
 
-  }, [docs, getEtapaEstado]); // El bloque termina aquí con sus dependencias
+  }, [allDocsForStats, getEtapaEstado]); // El bloque termina aquí con sus dependencias
   
   
   // --- 2. FUNCIONES DE APOYO ---
