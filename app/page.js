@@ -359,7 +359,7 @@ const stats = useMemo(() => {
 
   useEffect(() => { if (session) fetchDocs(); }, [session, fetchDocs]);
 
-  // --- 4. IMPORTACIÓN MASIVA POR LOTES (CHUNKS 500) ---
+  // --- 4. IMPORTACIÓN MASIVA CON LIMPIEZA DE DUPLICADOS ---
   const handleImport = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -377,31 +377,37 @@ const stats = useMemo(() => {
             return LISTA_RESPONSABLES.includes(name) ? name : "ADMINISTRADOR";
         };
 
-        // 1. Mapeo de datos (Aseguramos cantidad_seguimientos en 0)
-        const batch = data.slice(1).map(row => {
+        // 1. Mapeo inicial
+        const rawBatch = data.slice(1).map(row => {
           if (!row[1]) return null;
           return {
-            sede: row[0], cut: String(row[1]), documento: String(row[2]), remitente: row[3], fecha_registro: formatExcelDate(row[4]),
+            sede: row[0], cut: String(row[1]).trim(), documento: String(row[2]).trim(), remitente: row[3], fecha_registro: formatExcelDate(row[4]),
             origen: row[5], procedimiento: row[6], celular: String(row[7] || ''), 
             responsable_verificacion: validarRes(row[8]), fecha_verificacion: formatExcelDate(row[9]), 
-            estado_verificacion_k: row[10] || 'PENDIENTE', 
-            estado_visualizacion: String(row[11] || '').toUpperCase(),
+            estado_verificacion_k: row[10] || 'PENDIENTE', estado_visualizacion: String(row[11] || '').toUpperCase(),
             observaciones: row[12], responsable_requerimiento: validarRes(row[13]), fecha_elaboracion: formatExcelDate(row[14]),
             numero_documento: String(row[15] || ''), fecha_notificacion: formatExcelDate(row[16]), medio_notificacion: row[17],
             fecha_remision: formatExcelDate(row[22]), responsable_devolucion: validarRes(row[23]), fecha_devolucion: formatExcelDate(row[24]), 
             documento_cierre: String(row[25] || ''), oficina_destino: row[26], 
             cargado_sisged: String(row[27] || '').toUpperCase() === 'SI', estado_final: row[28] || 'PENDIENTE',
-            observaciones_finales: row[29], 
-            cantidad_seguimientos: 0, // Importante para el nuevo dashboard
-            creado_at: new Date().toISOString()
+            observaciones_finales: row[29], cantidad_seguimientos: 0, creado_at: new Date().toISOString()
           };
         }).filter(Boolean);
 
-        // 2. Proceso de carga por lotes de 500
+        // --- NUEVO: LIMPIEZA DE DUPLICADOS ANTES DE SUBIR ---
+        // Usamos un Map para asegurar que cada combinación CUT+DOC sea única
+        const uniqueMap = new Map();
+        rawBatch.forEach(item => {
+          const key = `${item.cut}-${item.documento}`;
+          uniqueMap.set(key, item); // Si la llave existe, se sobrescribe con el último encontrado
+        });
+        const batch = Array.from(uniqueMap.values());
+        // --------------------------------------------------
+
         const totalRegistros = batch.length;
         const tamanoLote = 500;
         
-        alert(`Detectados ${totalRegistros} registros. Iniciando subida...`);
+        alert(`Se procesarán ${totalRegistros} registros únicos (se eliminaron los duplicados del Excel). Iniciando subida...`);
 
         for (let i = 0; i < totalRegistros; i += tamanoLote) {
           const loteActual = batch.slice(i, i + tamanoLote);
@@ -411,7 +417,6 @@ const stats = useMemo(() => {
             .upsert(loteActual, { onConflict: 'cut,documento' });
 
           if (error) throw new Error(`Error en bloque ${i}: ${error.message}`);
-          
           console.log(`Cargados: ${i + loteActual.length} de ${totalRegistros}`);
         }
 
@@ -420,11 +425,10 @@ const stats = useMemo(() => {
       } catch (err) { 
         alert("Error al importar: " + err.message); 
       }
-    }; // Cierre de reader.onload
-    
+    };
     reader.readAsBinaryString(file);
     e.target.value = null;
-  }; // Cierre de handleImport
+  };
   
 
   // --- 5. SINCRONIZACIÓN Y ELIMINACIÓN ---
