@@ -220,11 +220,24 @@ const stats = useMemo(() => {
   
   // --- 2. FUNCIONES DE APOYO ---
   const formatExcelDate = (val) => {
-    if (!val) return null;
-    if (typeof val === 'number') return new Date((val - 25569) * 86400 * 1000).toISOString().split('T')[0];
-    if (typeof val === 'string' && val.includes('/')) {
-        const parts = val.split('/');
-        return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    // Si el valor no existe, es nulo o es solo un espacio en blanco, devolvemos null
+    if (!val || String(val).trim() === "" || String(val).trim() === "null") return null;
+
+    if (typeof val === 'number') {
+      return new Date((val - 25569) * 86400 * 1000).toISOString().split('T')[0];
+    }
+    
+    if (typeof val === 'string') {
+      const limpia = val.trim();
+      if (limpia.includes('/')) {
+        const parts = limpia.split('/');
+        // Soporta D/M/YYYY o DD/MM/YYYY
+        const d = parts[0].padStart(2, '0');
+        const m = parts[1].padStart(2, '0');
+        const y = parts[2];
+        return `${y}-${m}-${d}`;
+      }
+      return limpia;
     }
     return val;
   };
