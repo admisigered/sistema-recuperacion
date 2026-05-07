@@ -715,9 +715,9 @@ const stats = useMemo(() => {
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {[
         { label: 'TOTAL REGISTROS', val: totalDocs, color: 'border-b-blue-600', text: 'text-slate-800' },
-        { label: 'PENDIENTES', val: docs.filter(d => getEtapaEstado(d).estado === 'PENDIENTE').length, color: 'border-b-red-500', text: 'text-red-600' },
-        { label: 'EN SEGUIMIENTO', val: docs.filter(d => getEtapaEstado(d).estado === 'EN PROCESO').length, color: 'border-b-orange-500', text: 'text-orange-500' },
-        { label: 'RECUPERADOS', val: docs.filter(d => getEtapaEstado(d).estado === 'RECUPERADO').length, color: 'border-b-green-500', text: 'text-green-600' }
+        { label: 'PENDIENTES', val: allDocsForStats.filter(d => getEtapaEstado(d).estado === 'PENDIENTE').length, color: 'border-b-red-500', text: 'text-red-600' },
+        { label: 'EN SEGUIMIENTO', val: allDocsForStats.filter(d => getEtapaEstado(d).estado === 'EN PROCESO').length, color: 'border-b-orange-500', text: 'text-orange-500' },
+        { label: 'RECUPERADOS', val: allDocsForStats.filter(d => getEtapaEstado(d).estado === 'RECUPERADO').length, color: 'border-b-green-500', text: 'text-green-600' }
       ].map((kpi, i) => (
         <div key={i} className={`bg-white p-6 rounded-3xl shadow-sm border-b-4 ${kpi.color} flex flex-col justify-center min-h-[140px] shadow-slate-200`}>
           <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase">{kpi.label}</p>
