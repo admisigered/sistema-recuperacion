@@ -389,6 +389,7 @@ const stats = useMemo(() => {
 
     setAllDocsForStats(allData); // Aquí ya están los 14,000 registros filtrados
     setLoading(false);
+    }, [page, filters]);
 
   useEffect(() => { if (session) fetchDocs(); }, [session, fetchDocs]);
 
