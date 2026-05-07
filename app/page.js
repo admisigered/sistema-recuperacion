@@ -359,11 +359,12 @@ const stats = useMemo(() => {
 
   useEffect(() => { if (session) fetchDocs(); }, [session, fetchDocs]);
 
-  // --- 4. IMPORTACIÓN DE EXCEL (MAPEO COLUMNAS A - AD) ---
+  // --- 4. IMPORTACIÓN MASIVA POR LOTES (CHUNKS 500) ---
   const handleImport = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
+    
     reader.onload = async (evt) => {
       try {
         const bstr = evt.target.result;
@@ -376,53 +377,31 @@ const stats = useMemo(() => {
             return LISTA_RESPONSABLES.includes(name) ? name : "ADMINISTRADOR";
         };
 
+        // 1. Mapeo de datos (Aseguramos cantidad_seguimientos en 0)
         const batch = data.slice(1).map(row => {
-          if (!row[1]) return null; // Si no hay CUT (Col B), salta la fila
-          
+          if (!row[1]) return null;
           return {
-            // DATOS BÁSICOS (A-H)
-            sede: row[0],                              // Col A
-            cut: String(row[1]),                       // Col B
-            documento: String(row[2]),                 // Col C
-            remitente: row[3],                         // Col D
-            fecha_registro: formatExcelDate(row[4]),   // Col E
-            origen: row[5],                            // Col F
-            procedimiento: row[6],                     // Col G
-            celular: String(row[7] || ''),             // Col H
-
-            // ETAPA DE VERIFICACIÓN (I-M)
-            responsable_verificacion: validarRes(row[8]), // Col I
-            fecha_verificacion: formatExcelDate(row[9]),  // Col J
-            // Nota: Col K se omite según tu lógica actual
-            estado_visualizacion: String(row[11] || '').toUpperCase(), // Col L
-            observaciones: row[12],                       // Col M
-
-            // ETAPA DE REQUERIMIENTO (N-R)
-            responsable_requerimiento: validarRes(row[13]), // Col N
-            fecha_elaboracion: formatExcelDate(row[14]),    // Col O
-            numero_documento: String(row[15] || ''),        // Col P
-            fecha_notificacion: formatExcelDate(row[16]),   // Col Q
-            medio_notificacion: row[17],                    // Col R
-
-            // ETAPA DE CIERRE/RECUPERACIÓN (W-AD)
-            fecha_remision: formatExcelDate(row[22]),       // Col W
-            responsable_devolucion: validarRes(row[23]),    // Col X
-            fecha_devolucion: formatExcelDate(row[24]),     // Col Y
-            documento_cierre: String(row[25] || ''),        // Col Z
-            oficina_destino: row[26],                       // Col AA
-            cargado_sisged: String(row[27] || '').toUpperCase() === 'SI', // Col AB (Casilla SI)
-            estado_final: row[28] || 'PENDIENTE',           // Col AC
-            observaciones_finales: row[29],                 // Col AD
-            
+            sede: row[0], cut: String(row[1]), documento: String(row[2]), remitente: row[3], fecha_registro: formatExcelDate(row[4]),
+            origen: row[5], procedimiento: row[6], celular: String(row[7] || ''), 
+            responsable_verificacion: validarRes(row[8]), fecha_verificacion: formatExcelDate(row[9]), 
+            estado_verificacion_k: row[10] || 'PENDIENTE', 
+            estado_visualizacion: String(row[11] || '').toUpperCase(),
+            observaciones: row[12], responsable_requerimiento: validarRes(row[13]), fecha_elaboracion: formatExcelDate(row[14]),
+            numero_documento: String(row[15] || ''), fecha_notificacion: formatExcelDate(row[16]), medio_notificacion: row[17],
+            fecha_remision: formatExcelDate(row[22]), responsable_devolucion: validarRes(row[23]), fecha_devolucion: formatExcelDate(row[24]), 
+            documento_cierre: String(row[25] || ''), oficina_destino: row[26], 
+            cargado_sisged: String(row[27] || '').toUpperCase() === 'SI', estado_final: row[28] || 'PENDIENTE',
+            observaciones_finales: row[29], 
+            cantidad_seguimientos: 0, // Importante para el nuevo dashboard
             creado_at: new Date().toISOString()
           };
         }).filter(Boolean);
 
-        // --- INICIO DE CARGA POR LOTES (CHUNKS) ---
+        // 2. Proceso de carga por lotes de 500
         const totalRegistros = batch.length;
-        const tamanoLote = 500; // Enviaremos de 500 en 500
+        const tamanoLote = 500;
         
-        alert(`Se han detectado ${totalRegistros} registros. Iniciando carga por lotes...`);
+        alert(`Detectados ${totalRegistros} registros. Iniciando subida...`);
 
         for (let i = 0; i < totalRegistros; i += tamanoLote) {
           const loteActual = batch.slice(i, i + tamanoLote);
@@ -431,17 +410,22 @@ const stats = useMemo(() => {
             .from('documentos')
             .upsert(loteActual, { onConflict: 'cut,documento' });
 
-          if (error) {
-            console.error("Error en el lote:", error);
-            throw new Error(`Error en la fila ${i}: ${error.message}`);
-          }
-
-          console.log(`Progreso: ${i + loteActual.length} de ${totalRegistros}`);
+          if (error) throw new Error(`Error en bloque ${i}: ${error.message}`);
+          
+          console.log(`Cargados: ${i + loteActual.length} de ${totalRegistros}`);
         }
-        // --- FIN DE CARGA POR LOTES ---
 
-        alert("¡Sincronización Masiva Exitosa! Los 14,000 registros se procesaron correctamente."); 
+        alert("¡Sincronización Masiva Exitosa!"); 
         fetchDocs();
+      } catch (err) { 
+        alert("Error al importar: " + err.message); 
+      }
+    }; // Cierre de reader.onload
+    
+    reader.readAsBinaryString(file);
+    e.target.value = null;
+  }; // Cierre de handleImport
+  
 
   // --- 5. SINCRONIZACIÓN Y ELIMINACIÓN ---
  const handleSyncChanges = async () => {
