@@ -299,75 +299,66 @@ const stats = useMemo(() => {
     return contador;
   };
   
-  // --- 3. GESTIÓN DE DATOS (SUPABASE) ---
+  // --- 3. GESTIÓN DE DATOS (TABLA PAGINADA + DASHBOARD GLOBAL) ---
   const fetchDocs = useCallback(async () => {
     setLoading(true);
     let from = (page - 1) * ITEMS_PER_PAGE;
     let to = from + ITEMS_PER_PAGE - 1;
-    let query = supabase.from('documentos').select('*', { count: 'exact' });
 
-   // --- FILTROS ---
-    if (filters.search) {
-      query = query.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%`);
-    }
-    if (filters.sede) query = query.eq('sede', filters.sede);
-    if (filters.origen) query = query.eq('origen', filters.origen);
-    if (filters.responsable) {
-      query = query.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable}`);
-    }
+    // 1. Definimos las dos consultas por separado
+    // Consulta para la tabla: Trae todo (*) pero solo 100 filas
+    let queryTable = supabase.from('documentos').select('*', { count: 'exact' });
+    
+    // Consulta para el dashboard: Trae las 13,000 filas pero SOLO las columnas de cálculo (más rápido)
+    let queryStats = supabase.from('documentos').select('sede, origen, estado_verificacion_k, estado_visualizacion, numero_documento, cargado_sisged, cantidad_seguimientos, fecha_registro, responsable_verificacion, responsable_requerimiento, responsable_devolucion, observaciones_finales, fecha_verificacion, fecha_elaboracion, ultimo_seguimiento, fecha_devolucion');
 
-    // --- FILTRO DE ESTADO ROBUSTO ---
-    if (filters.estado) {
-      if (filters.estado === 'RECUPERADO') {
-        query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
-      } 
-      else if (filters.estado === 'RECONSTRUCCION') {
-        query = query.ilike('observaciones_finales', '%RECONSTRUCCION%');
-      }
-      else {
-        // Para PENDIENTE y EN PROCESO, primero quitamos los ya recuperados o en reconstrucción
-        query = query.neq('cargado_sisged', true)
-                     .neq('estado_visualizacion', 'SI SE VISUALIZA')
-                     .or('observaciones_finales.is.null,observaciones_finales.not.ilike.*RECONSTRUCCION*');
-
-        if (filters.estado === 'EN PROCESO') {
-          // Registros que tienen 1 o más seguimientos
-          query = query.gt('cantidad_seguimientos', 0);
-        } 
-        else if (filters.estado === 'PENDIENTE') {
-          // Registros que tienen 0 o son nulos (vulnerabilidad de datos nuevos)
-          query = query.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
+    // 2. Función para aplicar tus filtros exactos a ambas consultas
+    const aplicarFiltrosInternos = (q) => {
+        if (filters.search) q.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%`);
+        if (filters.sede) q.eq('sede', filters.sede);
+        if (filters.origen) q.eq('origen', filters.origen);
+        if (filters.responsable) q.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable}`);
+        
+        // Filtro de Estado (Tu lógica exacta)
+        if (filters.estado) {
+            if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
+            else if (filters.estado === 'RECONSTRUCCION') q.ilike('observaciones_finales', '%RECONSTRUCCION%');
+            else {
+                q.neq('cargado_sisged', true).neq('estado_visualizacion', 'SI SE VISUALIZA').or('observaciones_finales.is.null,observaciones_finales.not.ilike.*RECONSTRUCCION*');
+                if (filters.estado === 'EN PROCESO') q.gt('cantidad_seguimientos', 0);
+                else if (filters.estado === 'PENDIENTE') q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
+            }
         }
-      }
-    }
-  
-    if (filters.etapa) {
-      if (filters.etapa === 'VERIFICACION') {
-        query = query.eq('estado_verificacion_k', 'PENDIENTE').eq('cargado_sisged', false);
-      }
-      else if (filters.etapa === 'REQUERIMIENTO') {
-        // CORRECCIÓN: Detecta nulos y vacíos para mostrar REQUERIMIENTO
-        query = query.eq('origen', 'Externo')
-                     .eq('estado_verificacion_k', 'VERIFICADO')
-                     .eq('estado_visualizacion', 'NO SE VISUALIZA')
-                     .eq('cargado_sisged', false)
-                     .or('numero_documento.is.null,numero_documento.eq.""');
-      }
-      else if (filters.etapa === 'SEGUIMIENTO') {
-        query = query.eq('origen', 'Externo')
-                     .eq('estado_verificacion_k', 'VERIFICADO')
-                     .eq('estado_visualizacion', 'NO SE VISUALIZA')
-                     .eq('cargado_sisged', false)
-                     .not('numero_documento', 'is', null)
-                     .neq('numero_documento', '');
-      }
-      else if (filters.etapa === 'CIERRE') {
-        query = query.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA,and(origen.eq.Interno,estado_verificacion_k.eq.VERIFICADO)');
-      }
+
+        // Filtro de Etapa (Tu lógica exacta)
+        if (filters.etapa) {
+            if (filters.etapa === 'VERIFICACION') q.eq('estado_verificacion_k', 'PENDIENTE').eq('cargado_sisged', false);
+            else if (filters.etapa === 'REQUERIMIENTO') q.eq('origen', 'Externo').eq('estado_verificacion_k', 'VERIFICADO').eq('estado_visualizacion', 'NO SE VISUALIZA').eq('cargado_sisged', false).or('numero_documento.is.null,numero_documento.eq.""');
+            else if (filters.etapa === 'SEGUIMIENTO') q.eq('origen', 'Externo').eq('estado_verificacion_k', 'VERIFICADO').eq('estado_visualizacion', 'NO SE VISUALIZA').eq('cargado_sisged', false).not('numero_documento', 'is', null).neq('numero_documento', '');
+            else if (filters.etapa === 'CIERRE') q.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA,and(origen.eq.Interno,estado_verificacion_k.eq.VERIFICADO)');
+        }
+    };
+
+    // Aplicamos los filtros a ambas
+    aplicarFiltrosInternos(queryTable);
+    aplicarFiltrosInternos(queryStats);
+
+    // 3. Ejecutamos ambas peticiones al mismo tiempo
+    const [resTable, resStats] = await Promise.all([
+        queryTable.order('creado_at', { ascending: false }).range(from, to),
+        queryStats
+    ]);
+
+    // 4. Guardamos los resultados
+    if (!resTable.error) { 
+        setDocs(resTable.data || []); 
+        setTotalDocs(resTable.count || 0); 
     }
     
-    const { data, count, error } = await query.order('creado_at', { ascending: false }).range(from, to);
-    if (!error) { setDocs(data || []); setTotalDocs(count || 0); }
+    if (!resStats.error) {
+        setAllDocsForStats(resStats.data || []); // Aquí se guardan los 13,000 para el Dashboard
+    }
+
     setLoading(false);
   }, [page, filters]);
 
