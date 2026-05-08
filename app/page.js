@@ -353,7 +353,7 @@ const stats = useMemo(() => {
     const paso = 1000;
 
     while (hayMas) {
-        let qStats = supabase.from('documentos').select('sede, origen, estado_verificacion_k, estado_visualizacion, numero_documento, cargado_sisged, cantidad_seguimientos, fecha_registro, responsable_verificacion, responsable_requerimiento, responsable_devolucion, observaciones_finales, fecha_verificacion, fecha_elaboracion, ultimo_seguimiento, fecha_devolucion');
+        let queryStats = supabase.from('documentos').select('sede, cut, documento, remitente, fecha_registro, origen, procedimiento, celular, responsable_verificacion, fecha_verificacion, estado_visualizacion, observaciones, responsable_requerimiento, fecha_elaboracion, numero_documento, fecha_notificacion, medio_notificacion, ultimo_responsable, cantidad_seguimientos, cargado_sisged, fecha_remision, responsable_devolucion, fecha_devolucion, documento_cierre, oficina_destino, observaciones_finales, estado_verificacion_k, ultimo_seguimiento');
         aplicarFiltrosInternos(qStats);
         
         const { data: chunk, error: errChunk } = await qStats.range(desde, desde + paso - 1);
