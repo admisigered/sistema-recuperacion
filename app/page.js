@@ -352,20 +352,32 @@ const stats = useMemo(() => {
     let desde = 0;
     const paso = 1000;
 
+    // --- B. CONSULTA DEL DASHBOARD EN LOTES ---
+    let allData = [];
+    let hayMas = true;
+    let desde = 0;
+    const paso = 1000;
+
     while (hayMas) {
-        let queryStats = supabase.from('documentos').select('sede, cut, documento, remitente, fecha_registro, origen, procedimiento, celular, responsable_verificacion, fecha_verificacion, estado_visualizacion, observaciones, responsable_requerimiento, fecha_elaboracion, numero_documento, fecha_notificacion, medio_notificacion, ultimo_responsable, cantidad_seguimientos, cargado_sisged, fecha_remision, responsable_devolucion, fecha_devolucion, documento_cierre, oficina_destino, observaciones_finales, estado_verificacion_k, ultimo_seguimiento');
+        // Simplificamos el select para asegurar que no falte ninguna columna
+        let qStats = supabase.from('documentos').select('*');
+        
+        // Aplicamos los filtros
         aplicarFiltrosInternos(qStats);
         
         const { data: chunk, error: errChunk } = await qStats.range(desde, desde + paso - 1);
 
-        if (errChunk || !chunk || chunk.length === 0) {
+        if (errChunk) {
+            console.error("Error en lote:", errChunk);
+            hayMas = false;
+        } else if (!chunk || chunk.length === 0) {
             hayMas = false;
         } else {
             allData = [...allData, ...chunk];
             if (chunk.length < paso) hayMas = false;
             else desde += paso;
         }
-        if (desde > 20000) hayMas = false; // Seguridad
+        if (desde > 20000) hayMas = false; 
     }
 
     setAllDocsForStats(allData);
