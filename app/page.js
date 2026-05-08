@@ -511,12 +511,14 @@ const stats = useMemo(() => {
   const toggleSelectDoc = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
 
   const handleExport = () => {
-    // Transformamos los documentos para el formato de reporte solicitado con el orden exacto
-    const datosReporte = docs.map(doc => {
-      // Obtenemos Etapa y Estado actuales calculados por la lógica del sistema
+    // CAMBIO CRUCIAL: Usamos allDocsForStats para tener los 14,000 registros
+    if (!allDocsForStats || allDocsForStats.length === 0) {
+      alert("Aún se están cargando los datos. Espere un momento...");
+      return;
+    }
+
+    const datosReporte = allDocsForStats.map(doc => {
       const infoActual = getEtapaEstado(doc);
-      
-      // Calculamos los días hábiles si existe fecha de notificación
       const dias = doc.fecha_notificacion ? calcularDiasHabiles(doc.fecha_notificacion) : 0;
 
       return {
@@ -554,11 +556,10 @@ const stats = useMemo(() => {
 
     const ws = XLSX.utils.json_to_sheet(datosReporte);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "REPORTE_GENERAL");
+    XLSX.utils.book_append_sheet(wb, ws, "REPORTE_TOTAL");
     
-    // Nombre del archivo con marca de tiempo para evitar duplicados
-    const nombreArchivo = `Reporte_SIGERED_${new Date().getTime()}.xlsx`;
-    XLSX.writeFile(wb, nombreArchivo);
+    // Genera el archivo con el total de registros (13k+)
+    XLSX.writeFile(wb, `Reporte_SIGERED_Total_${new Date().getTime()}.xlsx`);
   };
 
 // --- FUNCIÓN PARA EXPORTAR EL DASHBOARD A PDF ---
