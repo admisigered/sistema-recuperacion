@@ -819,26 +819,25 @@ const stats = useMemo(() => {
   <h4 className="text-xs font-black text-slate-500 uppercase mb-6 text-center">Origen de Documentos</h4>
   <div className="h-[250px]">
     <ResponsiveContainer width="100%" height="100%">
-      <PieChart>
-  <Pie 
-    data={stats.originData} 
-    innerRadius={60} 
-    outerRadius={80} 
-    paddingAngle={5} 
-    dataKey="value" 
-    // 1. DESACTIVAR ANIMACIÓN: Vital para que salga en el PDF
-    isAnimationActive={false} 
-    // 2. ETIQUETA EXPLÍCITA:
-    label={({ name, value }) => `${name}: ${value}`}
-    labelLine={true}
-  >
-    {stats.originData.map((entry, index) => (
-      <Cell key={`cell-${index}`} fill={index === 0 ? "#1e293b" : "#60a5fa"} />
-    ))}
-  </Pie>
-  <Tooltip />
-  <Legend verticalAlign="bottom" />
-</PieChart>
+      <PieChart margin={{ left: 45, right: 45 }}>
+        <Pie 
+          data={stats.originData} 
+          innerRadius={60} 
+          outerRadius={80} 
+          paddingAngle={5} 
+          dataKey="value" 
+          isAnimationActive={false} 
+          // 2. Usamos la función de dos líneas
+          label={renderMultiLineLabel}
+          labelLine={{ stroke: '#cbd5e1', strokeWidth: 1 }}
+        >
+          {stats.originData.map((entry, index) => (
+            <Cell key={`cell-${index}`} fill={index === 0 ? "#1e293b" : "#60a5fa"} />
+          ))}
+        </Pie>
+        <Tooltip />
+        <Legend verticalAlign="bottom" />
+      </PieChart>
     </ResponsiveContainer>
   </div>
 </div>
