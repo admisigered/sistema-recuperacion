@@ -759,9 +759,8 @@ const stats = useMemo(() => {
       <div className="h-[350px] w-full"> {/* ALTURA FIJA REFORZADA */}
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={stats.monthlyData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-    // --- MEJORAS DE ESPACIADO ---
-  barGap={10}             // Aumenta el espacio entre las barras de un mismo mes
-  barCategoryGap="20%"    // Mantiene una separación clara entre los bloques de meses
+  barGap={10}
+  barCategoryGap="20%"
 >
   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
