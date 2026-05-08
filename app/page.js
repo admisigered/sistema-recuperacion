@@ -752,31 +752,40 @@ const stats = useMemo(() => {
     </div>
 
     {/* SECCIÓN 2: GRÁFICO MENSUAL - FILA 2 */}
-    <div className="bg-white p-8 rounded-4xl border border-slate-100 shadow-sm shadow-slate-200">
-      <h4 className="text-sm font-black text-slate-700 uppercase mb-8 flex items-center gap-2">
-        <BarChart3 size={18} className="text-blue-600"/> Avance Comparativo Mensual (Histórico)
-      </h4>
-      <div className="h-[350px] w-full"> {/* ALTURA FIJA REFORZADA */}
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={stats.monthlyData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-  barGap={10}
-  barCategoryGap="20%"
->
-  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
-  <YAxis hide /> 
-  <Tooltip cursor={{fill: '#f8fafc'}} />
-  <Legend verticalAlign="top" align="right" iconType="circle" height={50}/>
+    {/* SECCIÓN 2: GRÁFICO MENSUAL - FILA 2 */}
+<div className="bg-white p-8 rounded-4xl border border-slate-100 shadow-sm shadow-slate-200">
+  <h4 className="text-sm font-black text-slate-700 uppercase mb-8 flex items-center gap-2">
+    <BarChart3 size={18} className="text-blue-600"/> Avance Comparativo Mensual (Histórico)
+  </h4>
+  <div className="h-[350px] w-full">
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart 
+        data={stats.monthlyData} 
+        margin={{ top: 30, right: 30, left: 0, bottom: 0 }}
+        barGap={10}
+        barCategoryGap="20%"
+      >
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 'bold'}} />
+        <YAxis hide /> 
+        <Tooltip cursor={{fill: '#f8fafc'}} />
+        <Legend verticalAlign="top" align="right" iconType="circle" height={50}/>
 
-  {/* Barras actualizadas por Etapa de Avance */}
-  <Bar name="Verificaciones" dataKey="Verificaciones" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#3b82f6' }} />
-  <Bar name="Requerimientos" dataKey="Requerimientos" fill="#93c5fd" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#60a5fa' }} />
-  <Bar name="Seguimientos" dataKey="Seguimientos" fill="#f97316" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#f97316' }} />
-  <Bar name="Cierres/Recuperados" dataKey="Cierres" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={12} label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#22c55e' }} />
-</BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
+        <Bar name="Verificaciones" dataKey="Verificaciones" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={15} 
+             label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#3b82f6', dy: -5 }} />
+        
+        <Bar name="Requerimientos" dataKey="Requerimientos" fill="#93c5fd" radius={[4, 4, 0, 0]} barSize={15} 
+             label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#60a5fa', dy: -5 }} />
+        
+        <Bar name="Seguimientos" dataKey="Seguimientos" fill="#f97316" radius={[4, 4, 0, 0]} barSize={15} 
+             label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#f97316', dy: -5 }} />
+        
+        <Bar name="Cierres/Recuperados" dataKey="Cierres" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={15} 
+             label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#22c55e', dy: -5 }} />
+      </BarChart>
+    </ResponsiveContainer>
+  </div>
+</div>
 
     {/* SECCIÓN 3: SEGMENTACIÓN - FILA 3 */}
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
