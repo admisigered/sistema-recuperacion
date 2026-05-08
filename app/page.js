@@ -346,12 +346,6 @@ const stats = useMemo(() => {
         setTotalDocs(count || 0); 
     }
 
-    // B. Consultamos el Dashboard (Todos los registros en lotes de 1000)
-    let allData = [];
-    let hayMas = true;
-    let desde = 0;
-    const paso = 1000;
-
     // --- B. CONSULTA DEL DASHBOARD EN LOTES ---
     let allData = [];
     let hayMas = true;
