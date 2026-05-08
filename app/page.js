@@ -25,11 +25,13 @@ const USUARIOS = [
   { user: 'ADMINISTRADOR', pass: 'admin123' },
   { user: 'YANINA', pass: '123456' },
   { user: 'CESAR', pass: '123456' },
-  { user: 'XINA', pass: '123456' },
+  { user: 'KRYSTEL', pass: '123456' },
+  { user: 'MILAGRITOS', pass: '123456' },
+  { user: 'LISBETH', pass: '123456' },
   { user: 'FERNANDO', pass: '123456' }
 ];
 
-const LISTA_RESPONSABLES = ["ADMINISTRADOR", "YANINA", "CESAR", "XINA", "FERNANDO"];
+const LISTA_RESPONSABLES = ["ADMINISTRADOR", "YANINA", "CESAR", "KRYSTEL", "MILAGRITOS", "LISBETH", "FERNANDO"];
 
 const formatDMA = (fecha) => {
   if (!fecha) return '-';
