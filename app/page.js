@@ -32,7 +32,7 @@ const USUARIOS = [
   { user: 'FERNANDO', pass: '123456' }
 ];
 
-const LISTA_RESPONSABLES = ["ADMINISTRADOR", "YANINA", "CESAR", "KRYSTEL", "MILAGRITOS", "LISBETH", "FERNANDO"];
+const LISTA_RESPONSABLES = ["ADMINISTRADOR", "YANINA", "CESAR", "KRYSTEL", "MILI", "LISBETH", "FERNANDO"];
 
 const formatDMA = (fecha) => {
   if (!fecha) return '-';
