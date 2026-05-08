@@ -28,6 +28,7 @@ const USUARIOS = [
   { user: 'KRYSTEL', pass: '123456' },
   { user: 'MILAGRITOS', pass: '123456' },
   { user: 'LISBETH', pass: '123456' },
+  { user: 'ALYSON', pass: '123456' },
   { user: 'FERNANDO', pass: '123456' }
 ];
 
