@@ -41,6 +41,20 @@ const formatDMA = (fecha) => {
   return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : fecha;
 };
 
+const renderMultiLineLabel = ({ cx, x, y, name, value }) => {
+  const anchor = x > cx ? 'start' : 'end';
+  return (
+    <g>
+      <text x={x} y={y - 7} fill="#64748b" textAnchor={anchor} fontSize="10" fontWeight="bold">
+        {name.toUpperCase()}
+      </text>
+      <text x={x} y={y + 10} fill="#1e293b" textAnchor={anchor} fontSize="14" fontWeight="black">
+        {value}
+      </text>
+    </g>
+  );
+};
+
 export default function SistemaSIGERED() {
   // --- ESTADOS DEL SISTEMA ---
   const [session, setSession] = useState(null);
