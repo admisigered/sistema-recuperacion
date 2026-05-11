@@ -235,7 +235,6 @@ const stats = useMemo(() => {
 
   }, [allDocsForStats, getEtapaEstado]); // El bloque termina aquí con sus dependencias
   
-  
   // --- 2. FUNCIONES DE APOYO ---
   const formatExcelDate = (val) => {
     // Si el valor no existe, es nulo o es solo un espacio en blanco, devolvemos null
