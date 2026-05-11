@@ -737,7 +737,31 @@ const stats = useMemo(() => {
   <option value="RECONSTRUCCION">RECONSTRUCCION</option>
 </select>
             <select className="border rounded-xl p-2.5 text-[10px] font-black bg-white cursor-pointer shadow-sm outline-none" onChange={e => setFilters({...filters, responsable: e.target.value})}><option value="">RESPONSABLE</option>{LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r}</option>)}</select>
-            <div className="flex items-center gap-1 border border-slate-200 rounded-xl px-3 py-1.5 bg-slate-50 shadow-inner"><Calendar size={12} className="text-slate-400"/><input type="date" className="bg-transparent text-[9px] font-bold outline-none cursor-pointer" onChange={e => setFilters({...filters, fechaInicio: e.target.value})} /><span className="text-slate-300">-</span><input type="date" className="bg-transparent text-[9px] font-bold outline-none cursor-pointer" onChange={e => setFilters({...filters, fechaFin: e.target.value})} /></div>
+<div className="flex items-center gap-1 border border-slate-900 rounded-xl px-3 py-1.5 bg-white shadow-sm">
+  <Calendar size={12} className="text-slate-500"/>
+  <input 
+    type="date" 
+    className="bg-transparent text-[10px] font-black outline-none cursor-pointer uppercase" 
+    value={filters.fechaInicio || ''} 
+    onChange={e => setFilters({...filters, fechaInicio: e.target.value})} 
+  />
+  <span className="text-slate-400 font-bold">-</span>
+  <input 
+    type="date" 
+    className="bg-transparent text-[10px] font-black outline-none cursor-pointer uppercase" 
+    value={filters.fechaFin || ''} 
+    onChange={e => setFilters({...filters, fechaFin: e.target.value})} 
+  />
+  {/* Botón para limpiar el filtro de fechas rápidamente */}
+  {(filters.fechaInicio || filters.fechaFin) && (
+    <button 
+      onClick={() => setFilters({...filters, fechaInicio: '', fechaFin: ''})} 
+      className="ml-1 text-red-500 hover:text-red-700 cursor-pointer"
+    >
+      <X size={12}/>
+    </button>
+  )}
+</div>
           </div>
         </header>
 
@@ -761,7 +785,6 @@ const stats = useMemo(() => {
       ))}
     </div>
 
-    {/* SECCIÓN 2: GRÁFICO MENSUAL - FILA 2 */}
     {/* SECCIÓN 2: GRÁFICO MENSUAL - FILA 2 */}
 <div className="bg-white p-8 rounded-4xl border border-slate-100 shadow-sm shadow-slate-200">
   <h4 className="text-sm font-black text-slate-700 uppercase mb-8 flex items-center gap-2">
