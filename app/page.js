@@ -316,7 +316,6 @@ const stats = useMemo(() => {
     return contador;
   };
   
-  // --- 3. GESTIÓN DE DATOS (TABLA PAGINADA + DASHBOARD GLOBAL) ---
   // --- 3. GESTIÓN DE DATOS (TABLA + DASHBOARD GLOBAL) ---
   const fetchDocs = useCallback(async () => {
     setLoading(true);
@@ -332,7 +331,18 @@ const stats = useMemo(() => {
         if (filters.sede) q.eq('sede', filters.sede);
         if (filters.origen) q.eq('origen', filters.origen);
         if (filters.responsable) q.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable}`);
-        
+
+// --- NUEVA LÓGICA DE FILTRO POR ACTIVIDAD (4 FECHAS) ---
+        if (filters.fechaInicio && filters.fechaFin) {
+          // Buscamos si CUALQUIERA de las fechas de etapa cae dentro del rango seleccionado
+          q.or(
+            `and(fecha_verificacion.gte.${filters.fechaInicio},fecha_verificacion.lte.${filters.fechaFin}),` +
+            `and(fecha_elaboracion.gte.${filters.fechaInicio},fecha_elaboracion.lte.${filters.fechaFin}),` +
+            `and(ultimo_seguimiento.gte.${filters.fechaInicio},ultimo_seguimiento.lte.${filters.fechaFin}),` +
+            `and(fecha_devolucion.gte.${filters.fechaInicio},fecha_devolucion.lte.${filters.fechaFin})`
+          );
+        }
+      
         if (filters.estado) {
             if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
             else if (filters.estado === 'RECONSTRUCCION') q.ilike('observaciones_finales', '%RECONSTRUCCION%');
