@@ -342,7 +342,9 @@ const stats = useMemo(() => {
         if (filters.search) q.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%`);
         if (filters.sede) q.eq('sede', filters.sede);
         if (filters.origen) q.eq('origen', filters.origen);
-        if (filters.responsable) q.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable}`);
+        if (filters.responsable) {
+  q.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable},responsable_seguimiento.eq.${filters.responsable}`);
+}
 
 // --- NUEVA LÓGICA DE FILTRO POR ACTIVIDAD (4 FECHAS) ---
         if (filters.fechaInicio && filters.fechaFin) {
