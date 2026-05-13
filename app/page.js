@@ -626,7 +626,8 @@ const stats = useMemo(() => {
         'FECHA NOTIFICACION': formatDMA(doc.fecha_notificacion),
         'MEDIO NOTIFICACION': doc.medio_notificacion || '',
         'DIAS HABILES': dias,
-        'RESP. SEGUIMIENTO (ULTIMO)': doc.ultimo_responsable || 'SIN REGISTRO',
+        'RESP. SEGUIMIENTO': doc.responsable_seguimiento || '',
+        'ULTIMO CONTACTO': doc.ultimo_responsable || '', // El que grabó la última nota
         'CANT. SEGUIMIENTOS': doc.cantidad_seguimientos || 0,
         '¿CARGADO AL SISGED?': doc.cargado_sisged ? 'SI' : 'NO',
         'FECHA DE REMISION': formatDMA(doc.fecha_remision),
