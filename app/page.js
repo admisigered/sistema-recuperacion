@@ -339,12 +339,15 @@ const stats = useMemo(() => {
 
     // 2. Función para aplicar tus filtros exactos
     const aplicarFiltrosInternos = (q) => {
-        if (filters.search) q.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%`);
+        if (filters.search) {
+          q.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%,responsable_verificacion.ilike.%${filters.search}%,responsable_requerimiento.ilike.%${filters.search}%,responsable_devolucion.ilike.%${filters.search}%,responsable_seguimiento.ilike.%${filters.search}%`);
+        }
         if (filters.sede) q.eq('sede', filters.sede);
         if (filters.origen) q.eq('origen', filters.origen);
+        // Filtro por selector de nombres (incluye PENDIENTE y AMERICO)
         if (filters.responsable) {
-  q.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable},responsable_seguimiento.eq.${filters.responsable}`);
-}
+          q.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable},responsable_seguimiento.eq.${filters.responsable}`);
+        }
 
 // --- NUEVA LÓGICA DE FILTRO POR ACTIVIDAD (4 FECHAS) ---
         if (filters.fechaInicio && filters.fechaFin) {
