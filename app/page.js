@@ -107,24 +107,37 @@ export default function SistemaSIGERED() {
         return { etapa: 'CIERRE', estado: 'RECONSTRUCCION', color: 'bg-purple-100 text-purple-700', border: 'border-purple-500' };
     }
 
-    // 3. REGLA: EN PROCESO (Naranja - Solo si hay seguimiento activo)
-    // Si tiene seguimiento pero NO dice "REMITIÓ DOCUMENTO" (lógica simplificada por cantidad)
-    if (cantSeg > 0) {
-        return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' };
+    // 3. REGLA: SEGUIMIENTO (EN PROCESO / ATENDIDO)
+    // Solo aplica para documentos con N° de documento (Etapa 3) que NO estén recuperados
+    if (numDoc && numDoc !== '' && numDoc !== 'null') {
+        
+        // ¿Algún registro de seguimiento dice "REMITIÓ DOCUMENTO"?
+        const fueAtendido = seguimientos.some(s => 
+            String(s.observaciones).toUpperCase().includes('REMITIÓ DOCUMENTO')
+        );
+
+        if (fueAtendido) {
+            // Regla 8 de tu lógica: Si remitió, pasa a ETAPA 4 como PENDIENTE (hasta que marquen SISGED)
+            return { etapa: 'CIERRE', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
+        }
+
+        if (cantSeg > 0) {
+            // Si tiene seguimientos pero no ha remitido: EN PROCESO
+            return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' };
+        }
     }
 
     // 4. REGLA: PENDIENTE UNIVERSAL (Rojo)
-    // Cubre: Etapa 1 (Verificación), Etapa 2 (Requerimiento), Etapa 3 (Seguimiento 0) y Etapa 4 (Internos)
     let etapaDetectada = 'VERIFICACION';
 
     if (colK === 'VERIFICADO') {
         if (origen === 'INTERNO') {
             etapaDetectada = 'CIERRE';
         } else {
-            // Externo verificado: ¿Tiene número de documento?
             if (!numDoc || numDoc === '' || numDoc === 'null') {
                 etapaDetectada = 'REQUERIMIENTO';
             } else {
+                // Tiene N° de documento pero CERO seguimientos (cantSeg === 0)
                 etapaDetectada = 'SEGUIMIENTO';
             }
         }
