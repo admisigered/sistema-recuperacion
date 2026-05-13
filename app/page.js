@@ -436,9 +436,28 @@ const stats = useMemo(() => {
         
         const validarRes = (n) => {
             const name = String(n || '').toUpperCase().trim();
-            return LISTA_RESPONSABLES.includes(name) ? name : "ADMINISTRADOR";
-        };
+            
+            // 1. Si la celda está vacía o dice "PENDIENTE", se queda como PENDIENTE
+            if (name === "" || name === "PENDIENTE" || name === "NULL") {
+                return "PENDIENTE";
+            }
 
+            // 2. Si dice "AMERICO", se queda como AMERICO
+            if (name === "AMERICO") {
+                return "AMERICO";
+            }
+
+            // 3. Si el nombre está en la lista de responsables autorizados (Yanina, Cesar, etc.)
+            // Filtramos "PENDIENTE" de la lista para esta comprobación específica
+            const oficiales = LISTA_RESPONSABLES.filter(r => r !== "PENDIENTE");
+            if (oficiales.includes(name)) {
+                return name;
+            }
+
+            // 4. Si es cualquier otro nombre que no conocemos, se asigna a ADMINISTRADOR
+            return "ADMINISTRADOR";
+        };
+        
         // 1. Mapeo inicial
         const rawBatch = data.slice(1).map(row => {
           if (!row[1]) return null;
