@@ -1219,39 +1219,36 @@ const stats = useMemo(() => {
   Grabar Seguimiento
 </button>
                     </div>
+                    {/* SECCIÓN DEL HISTORIAL */}
                     <div className="space-y-8">
-  <h4 className="font-black text-[10px] uppercase text-slate-400 tracking-widest ml-4">
-    Historial de Seguimientos ({seguimientos.length})
-  </h4>
-  {seguimientos.map(s => (
-    <div key={s.id} className="p-8 border border-slate-100 rounded-3xl flex items-start gap-6 bg-white shadow-sm hover:shadow-md transition-shadow group">
-      <div className="bg-blue-100 p-4 rounded-2xl text-blue-600 shrink-0 shadow-inner">
-        <MessageSquare size={24}/>
-      </div>
-      <div className="flex-1 font-sans">
-        <div className="flex justify-between items-center mb-2">
-          <p className="text-xs font-black text-slate-800 uppercase tracking-widest">{s.responsable}</p>
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full">
-              {s.fecha.split('-').reverse().join('/')}
-            </span>
-            
-            {/* BOTÓN PARA ELIMINAR REGISTRO INDIVIDUAL */}
-            <button 
-              onClick={() => handleDeleteSeguimiento(s.id)}
-              className="text-red-400 hover:text-red-600 transition-colors cursor-pointer p-1"
-              title="Eliminar seguimiento"
-            >
-              <Trash2 size={16}/>
-            </button>
-          </div>
-        </div>
-        <p className="text-[10px] font-black text-blue-600 uppercase mb-2">Canal: {s.medio}</p>
-        <p className="text-sm text-slate-500 font-medium italic">"{s.observaciones}"</p>
-      </div>
-    </div>
-  ))}
-</div>
+                      <h4 className="font-black text-[10px] uppercase text-slate-400 tracking-widest ml-4">
+                        Historial de Seguimientos ({seguimientos.length})
+                      </h4>
+                      {seguimientos.map(s => (
+                        <div key={s.id} className="p-8 border border-slate-100 rounded-3xl flex items-start gap-6 bg-white shadow-sm hover:shadow-md transition-shadow">
+                          <div className="bg-blue-100 p-4 rounded-2xl text-blue-600 shrink-0 shadow-inner">
+                            <MessageSquare size={24}/>
+                          </div>
+                          <div className="flex-1 font-sans">
+                            <div className="flex justify-between items-center mb-2">
+                              <p className="text-xs font-black text-slate-800 uppercase tracking-widest">{s.responsable}</p>
+                              <div className="flex items-center gap-3">
+                                <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full">
+                                  {formatDMA(s.fecha)}
+                                </span>
+                                <button onClick={() => handleDeleteSeguimiento(s.id)} className="text-red-400 hover:text-red-600 cursor-pointer">
+                                  <Trash2 size={16}/>
+                                </button>
+                              </div>
+                            </div>
+                            <p className="text-[10px] font-black text-blue-600 uppercase mb-2">Canal: {s.medio}</p>
+                            <p className="text-sm text-slate-500 font-medium italic">"{s.observaciones}"</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {activeTab === 4 && (
   <div className="grid grid-cols-2 gap-12 animate-in fade-in duration-300 font-sans">
