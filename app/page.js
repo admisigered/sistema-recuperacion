@@ -68,10 +68,10 @@ export default function SistemaSIGERED() {
   const [loginData, setLoginData] = useState({ user: '', pass: '' });
   const [activeTab, setActiveTab] = useState(1);
   const [seguimientos, setSeguimientos] = useState([]);
-  const [editingSegId, setEditingSegId] = useState(null);
-const [tempSegData, setTempSegData] = useState({ responsable: '', medio: '', observaciones: '', fecha: '' });
   const [selectedIds, setSelectedIds] = useState([]);
   const [allDocsForStats, setAllDocsForStats] = useState([]); // Nuevo: para el Dashboard total
+  const [editingSegId, setEditingSegId] = useState(null); // Solo uno
+  const [tempSegData, setTempSegData] = useState({ responsable: '', medio: '', observaciones: '', fecha: '' }); // Solo uno
   
   // --- FILTROS GLOBALES (CONECTADOS) ---
   const [filters, setFilters] = useState({ 
