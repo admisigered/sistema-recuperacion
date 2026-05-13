@@ -539,6 +539,53 @@ const stats = useMemo(() => {
     }
   };
 
+// --- GESTIÓN INDIVIDUAL DE SEGUIMIENTOS (HISTORIAL) ---
+  const handleDeleteSeguimiento = async (segId) => {
+    if (!confirm("¿Está seguro de eliminar este registro de seguimiento?")) return;
+    try {
+      // 1. Borramos el registro de la tabla de seguimientos
+      const { error } = await supabase.from('seguimientos').delete().eq('id', segId);
+      if (error) throw error;
+
+      // 2. Restamos 1 al contador de la tabla principal de documentos
+      const nuevaCant = Math.max(0, (editingDoc.cantidad_seguimientos || 0) - 1);
+      await supabase.from('documentos')
+        .update({ cantidad_seguimientos: nuevaCant })
+        .eq('id', editingDoc.id);
+      
+      // 3. Actualizamos la interfaz local para que los cambios se vean de inmediato
+      setSeguimientos(prev => prev.filter(s => s.id !== segId));
+      setEditingDoc(prev => ({ ...prev, cantidad_seguimientos: nuevaCant }));
+      
+      // 4. Refrescamos la tabla del fondo para que el filtro de estado sea correcto
+      fetchDocs(); 
+      alert("Registro eliminado correctamente");
+    } catch (err) { 
+      alert("Error al eliminar seguimiento: " + err.message); 
+    }
+  };
+
+  const handleUpdateSeguimiento = async (segId) => {
+    try {
+      // Actualizamos los datos en Supabase usando la variable temporal
+      const { error } = await supabase
+        .from('seguimientos')
+        .update(tempSegData)
+        .eq('id', segId);
+        
+      if (error) throw error;
+      
+      // Actualizamos la lista visual
+      setSeguimientos(prev => prev.map(s => s.id === segId ? { ...s, ...tempSegData } : s));
+      
+      // Salimos del modo edición
+      setEditingSegId(null);
+      alert("Registro de seguimiento actualizado");
+    } catch (err) { 
+      alert("Error al actualizar seguimiento: " + err.message); 
+    }
+  };
+  
   const toggleSelectDoc = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
 
   const handleExport = () => {
