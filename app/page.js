@@ -537,6 +537,42 @@ const stats = useMemo(() => {
     }
   };
 
+// --- FUNCIÓN PARA ELIMINAR SOLO UN REGISTRO DEL HISTORIAL DE SEGUIMIENTO ---
+  const handleDeleteSeguimiento = async (segId) => {
+    if (!confirm("¿Está seguro de eliminar este registro de seguimiento?")) return;
+    try {
+      // 1. Borramos el registro específico de la tabla de seguimientos
+      const { error } = await supabase.from('seguimientos').delete().eq('id', segId);
+      if (error) throw error;
+
+      // 2. Calculamos la nueva cantidad de seguimientos restando 1
+      const nuevaCant = Math.max(0, (editingDoc.cantidad_seguimientos || 0) - 1);
+      
+      // 3. Actualizamos la tabla principal de documentos
+      // Si la cantidad llega a 0, ponemos 'ultimo_seguimiento' en null para que vuelva a estado PENDIENTE
+      await supabase.from('documentos')
+        .update({ 
+          cantidad_seguimientos: nuevaCant,
+          ultimo_seguimiento: nuevaCant === 0 ? null : editingDoc.ultimo_seguimiento 
+        })
+        .eq('id', editingDoc.id);
+      
+      // 4. Actualizamos la vista actual del modal (UI local)
+      setSeguimientos(prev => prev.filter(s => s.id !== segId));
+      setEditingDoc(prev => ({ 
+        ...prev, 
+        cantidad_seguimientos: nuevaCant,
+        ultimo_seguimiento: nuevaCant === 0 ? null : prev.ultimo_seguimiento 
+      }));
+      
+      // 5. Refrescamos la tabla general y el dashboard
+      fetchDocs(); 
+      alert("Registro de seguimiento eliminado.");
+    } catch (err) {
+      alert("Error al eliminar el seguimiento: " + err.message);
+    }
+  };
+  
   const toggleSelectDoc = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
 
   const handleExport = () => {
