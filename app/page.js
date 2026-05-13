@@ -518,10 +518,16 @@ const stats = useMemo(() => {
   const handleBulkAssign = async () => {
     if (selectedIds.length === 0) return;
     
-    // Determinamos qué campo actualizar según el filtro de etapa actual
-    let campoResponsable = 'responsable_verificacion'; // Por defecto
-    if (filters.etapa === 'REQUERIMIENTO') campoResponsable = 'responsable_requerimiento';
-    if (filters.etapa === 'CIERRE') campoResponsable = 'responsable_devolucion';
+    // Identificamos el campo destino según la etapa filtrada
+    let campoResponsable = 'responsable_verificacion'; 
+    
+    if (filters.etapa === 'REQUERIMIENTO') {
+        campoResponsable = 'responsable_requerimiento';
+    } else if (filters.etapa === 'SEGUIMIENTO') {
+        campoResponsable = 'responsable_seguimiento'; // <--- NUEVO CAMPO
+    } else if (filters.etapa === 'CIERRE') {
+        campoResponsable = 'responsable_devolucion';
+    }
 
     try {
       setLoading(true);
@@ -532,7 +538,7 @@ const stats = useMemo(() => {
 
       if (error) throw error;
 
-      alert(`${selectedIds.length} documentos asignados a ${session.user}`);
+      alert(`Asignado como responsable de ${filters.etapa || 'VERIFICACIÓN'} en ${selectedIds.length} registro(s).`);
       setSelectedIds([]);
       await fetchDocs();
     } catch (err) {
