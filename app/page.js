@@ -23,8 +23,8 @@ import jsPDF from 'jspdf';
 // --- CONFIGURACIÓN DE USUARIOS AUTORIZADOS ---
 const USUARIOS = [
   { user: 'ADMINISTRADOR', pass: 'admin123' },
-  { user: 'YANINA', pass: '134679' },
-  { user: 'CESAR', pass: '654321' },
+  { user: 'YANINA', pass: '123456' },
+  { user: 'CESAR', pass: '123456' },
   { user: 'XINA', pass: '123456' },
   { user: 'MILI', pass: '123456' },
   { user: 'LISBETH', pass: '123456' },
@@ -70,8 +70,6 @@ export default function SistemaSIGERED() {
   const [seguimientos, setSeguimientos] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [allDocsForStats, setAllDocsForStats] = useState([]); // Nuevo: para el Dashboard total
-  const [editingSegId, setEditingSegId] = useState(null); // Solo uno
-  const [tempSegData, setTempSegData] = useState({ responsable: '', medio: '', observaciones: '', fecha: '' }); // Solo uno
   
   // --- FILTROS GLOBALES (CONECTADOS) ---
   const [filters, setFilters] = useState({ 
@@ -539,53 +537,6 @@ const stats = useMemo(() => {
     }
   };
 
-// --- GESTIÓN INDIVIDUAL DE SEGUIMIENTOS (HISTORIAL) ---
-  const handleDeleteSeguimiento = async (segId) => {
-    if (!confirm("¿Está seguro de eliminar este registro de seguimiento?")) return;
-    try {
-      // 1. Borramos el registro de la tabla de seguimientos
-      const { error } = await supabase.from('seguimientos').delete().eq('id', segId);
-      if (error) throw error;
-
-      // 2. Restamos 1 al contador de la tabla principal de documentos
-      const nuevaCant = Math.max(0, (editingDoc.cantidad_seguimientos || 0) - 1);
-      await supabase.from('documentos')
-        .update({ cantidad_seguimientos: nuevaCant })
-        .eq('id', editingDoc.id);
-      
-      // 3. Actualizamos la interfaz local para que los cambios se vean de inmediato
-      setSeguimientos(prev => prev.filter(s => s.id !== segId));
-      setEditingDoc(prev => ({ ...prev, cantidad_seguimientos: nuevaCant }));
-      
-      // 4. Refrescamos la tabla del fondo para que el filtro de estado sea correcto
-      fetchDocs(); 
-      alert("Registro eliminado correctamente");
-    } catch (err) { 
-      alert("Error al eliminar seguimiento: " + err.message); 
-    }
-  };
-
-  const handleUpdateSeguimiento = async (segId) => {
-    try {
-      // Actualizamos los datos en Supabase usando la variable temporal
-      const { error } = await supabase
-        .from('seguimientos')
-        .update(tempSegData)
-        .eq('id', segId);
-        
-      if (error) throw error;
-      
-      // Actualizamos la lista visual
-      setSeguimientos(prev => prev.map(s => s.id === segId ? { ...s, ...tempSegData } : s));
-      
-      // Salimos del modo edición
-      setEditingSegId(null);
-      alert("Registro de seguimiento actualizado");
-    } catch (err) { 
-      alert("Error al actualizar seguimiento: " + err.message); 
-    }
-  };
-  
   const toggleSelectDoc = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
 
   const handleExport = () => {
@@ -1235,50 +1186,20 @@ const stats = useMemo(() => {
                     <div className="space-y-8">
                       <h4 className="font-black text-[10px] uppercase text-slate-400 tracking-widest ml-4">Historial de Seguimientos ({seguimientos.length})</h4>
                       {seguimientos.map(s => (
-  <div key={s.id} className="p-8 border border-slate-100 rounded-3xl bg-white shadow-sm hover:shadow-md transition-all">
-    {editingSegId === s.id ? (
-      // --- MODO EDICIÓN ---
-      <div className="space-y-4">
-        <div className="grid grid-cols-3 gap-4">
-          <input type="date" className="p-3 border rounded-xl text-xs font-bold" value={tempSegData.fecha} onChange={e => setTempSegData({...tempSegData, fecha: e.target.value})} />
-          <select className="p-3 border rounded-xl text-xs font-bold" value={tempSegData.responsable} onChange={e => setTempSegData({...tempSegData, responsable: e.target.value})}>
-            {LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r}</option>)}
-          </select>
-          <select className="p-3 border rounded-xl text-xs font-bold" value={tempSegData.medio} onChange={e => setTempSegData({...tempSegData, medio: e.target.value})}>
-            <option value="LLAMADA">LLAMADA</option>
-            <option value="WHATSAPP">WHATSAPP</option>
-            <option value="CORREO">CORREO</option>
-          </select>
-        </div>
-        <textarea className="w-full p-4 border rounded-2xl text-sm" rows="2" value={tempSegData.observaciones} onChange={e => setTempSegData({...tempSegData, observaciones: e.target.value})} />
-        <div className="flex gap-2 justify-end">
-          <button onClick={() => setEditingSegId(null)} className="px-4 py-2 text-[10px] font-black uppercase text-slate-400">Cancelar</button>
-          <button onClick={() => handleUpdateSeguimiento(s.id)} className="px-6 py-2 bg-brand-blue text-white rounded-xl text-[10px] font-black uppercase shadow-lg">Guardar Cambios</button>
-        </div>
-      </div>
-    ) : (
-      // --- MODO VISTA ---
-      <div className="flex items-start gap-6">
-        <div className="bg-blue-50 p-4 rounded-2xl text-brand-blue shrink-0 shadow-inner"><MessageSquare size={24}/></div>
-        <div className="flex-1 font-sans">
-          <div className="flex justify-between items-center mb-2">
-            <p className="text-xs font-black text-slate-800 uppercase tracking-widest">{s.responsable}</p>
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full">{formatDMA(s.fecha)}</span>
-              {/* BOTONES DE ACCIÓN */}
-              <button onClick={() => { setEditingSegId(s.id); setTempSegData({ responsable: s.responsable, medio: s.medio, observaciones: s.observaciones, fecha: s.fecha }); }} className="text-blue-500 hover:text-blue-700 transition-colors"><FileText size={16}/></button>
-              <button onClick={() => handleDeleteSeguimiento(s.id)} className="text-red-400 hover:text-red-600 transition-colors"><Trash2 size={16}/></button>
-            </div>
-          </div>
-          <p className="text-[10px] font-black text-brand-blue uppercase mb-2">Canal: {s.medio}</p>
-          <p className="text-sm text-slate-500 font-medium italic">"{s.observaciones}"</p>
-        </div>
-      </div>
-    )}
-  </div>
-))}
-                    </div> {/* Cierra el div space-y-8 */}
-                  </div> {/* Cierra el div space-y-12 */}
+                        <div key={s.id} className="p-8 border border-slate-100 rounded-3xl flex items-start gap-6 bg-white shadow-sm hover:shadow-md transition-shadow">
+                          <div className="bg-blue-100 p-4 rounded-2xl text-blue-600 shrink-0 shadow-inner"><MessageSquare size={24}/></div>
+                          <div className="flex-1 font-sans">
+                            <div className="flex justify-between items-center mb-2">
+                              <p className="text-xs font-black text-slate-800 uppercase tracking-widest">{s.responsable}</p>
+                              <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full">{s.fecha.split('-').reverse().join('/')}</span>
+                            </div>
+                            <p className="text-[10px] font-black text-blue-600 uppercase mb-2">Canal: {s.medio}</p>
+                            <p className="text-sm text-slate-500 font-medium italic">"{s.observaciones}"</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
 
                 {activeTab === 4 && (
@@ -1356,8 +1277,9 @@ const stats = useMemo(() => {
               const { error } = await supabase.from('documentos').insert([doc]);
               if (!error) { setIsNewModalOpen(false); fetchDocs(); } else alert("Error (Verifique si CUT+Doc duplicado)");
             }} className="w-full bg-brand-blue text-white py-6 rounded-3xl font-black uppercase shadow-2xl tracking-[0.3em] hover:bg-blue-700 transition-all outline-none font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans">Registrar Documento</button>
-         </div>
-                  </div>
-                )}
-              </div> {/* <--- ESTE CIERRA EL div flex-1 p-14 (Área blanca de contenidos) */}
-            </div> {/* <--- ESTE CIERRA EL div flex flex-1 (Cuerpo del modal que contiene el sidebar y el contenido) */}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
