@@ -1356,9 +1356,8 @@ const stats = useMemo(() => {
               const { error } = await supabase.from('documentos').insert([doc]);
               if (!error) { setIsNewModalOpen(false); fetchDocs(); } else alert("Error (Verifique si CUT+Doc duplicado)");
             }} className="w-full bg-brand-blue text-white py-6 rounded-3xl font-black uppercase shadow-2xl tracking-[0.3em] hover:bg-blue-700 transition-all outline-none font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans">Registrar Documento</button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+         </div>
+                  </div>
+                )}
+              </div> {/* <--- ESTE CIERRA EL div flex-1 p-14 (Área blanca de contenidos) */}
+            </div> {/* <--- ESTE CIERRA EL div flex flex-1 (Cuerpo del modal que contiene el sidebar y el contenido) */}
