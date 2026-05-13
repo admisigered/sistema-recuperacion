@@ -1235,21 +1235,48 @@ const stats = useMemo(() => {
                     <div className="space-y-8">
                       <h4 className="font-black text-[10px] uppercase text-slate-400 tracking-widest ml-4">Historial de Seguimientos ({seguimientos.length})</h4>
                       {seguimientos.map(s => (
-                        <div key={s.id} className="p-8 border border-slate-100 rounded-3xl flex items-start gap-6 bg-white shadow-sm hover:shadow-md transition-shadow">
-                          <div className="bg-blue-100 p-4 rounded-2xl text-blue-600 shrink-0 shadow-inner"><MessageSquare size={24}/></div>
-                          <div className="flex-1 font-sans">
-                            <div className="flex justify-between items-center mb-2">
-                              <p className="text-xs font-black text-slate-800 uppercase tracking-widest">{s.responsable}</p>
-                              <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full">{s.fecha.split('-').reverse().join('/')}</span>
-                            </div>
-                            <p className="text-[10px] font-black text-blue-600 uppercase mb-2">Canal: {s.medio}</p>
-                            <p className="text-sm text-slate-500 font-medium italic">"{s.observaciones}"</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+  <div key={s.id} className="p-8 border border-slate-100 rounded-3xl bg-white shadow-sm hover:shadow-md transition-all">
+    {editingSegId === s.id ? (
+      // --- MODO EDICIÓN ---
+      <div className="space-y-4">
+        <div className="grid grid-cols-3 gap-4">
+          <input type="date" className="p-3 border rounded-xl text-xs font-bold" value={tempSegData.fecha} onChange={e => setTempSegData({...tempSegData, fecha: e.target.value})} />
+          <select className="p-3 border rounded-xl text-xs font-bold" value={tempSegData.responsable} onChange={e => setTempSegData({...tempSegData, responsable: e.target.value})}>
+            {LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+          <select className="p-3 border rounded-xl text-xs font-bold" value={tempSegData.medio} onChange={e => setTempSegData({...tempSegData, medio: e.target.value})}>
+            <option value="LLAMADA">LLAMADA</option>
+            <option value="WHATSAPP">WHATSAPP</option>
+            <option value="CORREO">CORREO</option>
+          </select>
+        </div>
+        <textarea className="w-full p-4 border rounded-2xl text-sm" rows="2" value={tempSegData.observaciones} onChange={e => setTempSegData({...tempSegData, observaciones: e.target.value})} />
+        <div className="flex gap-2 justify-end">
+          <button onClick={() => setEditingSegId(null)} className="px-4 py-2 text-[10px] font-black uppercase text-slate-400">Cancelar</button>
+          <button onClick={() => handleUpdateSeguimiento(s.id)} className="px-6 py-2 bg-brand-blue text-white rounded-xl text-[10px] font-black uppercase shadow-lg">Guardar Cambios</button>
+        </div>
+      </div>
+    ) : (
+      // --- MODO VISTA ---
+      <div className="flex items-start gap-6">
+        <div className="bg-blue-50 p-4 rounded-2xl text-brand-blue shrink-0 shadow-inner"><MessageSquare size={24}/></div>
+        <div className="flex-1 font-sans">
+          <div className="flex justify-between items-center mb-2">
+            <p className="text-xs font-black text-slate-800 uppercase tracking-widest">{s.responsable}</p>
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full">{formatDMA(s.fecha)}</span>
+              {/* BOTONES DE ACCIÓN */}
+              <button onClick={() => { setEditingSegId(s.id); setTempSegData({ responsable: s.responsable, medio: s.medio, observaciones: s.observaciones, fecha: s.fecha }); }} className="text-blue-500 hover:text-blue-700 transition-colors"><FileText size={16}/></button>
+              <button onClick={() => handleDeleteSeguimiento(s.id)} className="text-red-400 hover:text-red-600 transition-colors"><Trash2 size={16}/></button>
+            </div>
+          </div>
+          <p className="text-[10px] font-black text-brand-blue uppercase mb-2">Canal: {s.medio}</p>
+          <p className="text-sm text-slate-500 font-medium italic">"{s.observaciones}"</p>
+        </div>
+      </div>
+    )}
+  </div>
+))}
 
                 {activeTab === 4 && (
   <div className="grid grid-cols-2 gap-12 animate-in fade-in duration-300 font-sans">
