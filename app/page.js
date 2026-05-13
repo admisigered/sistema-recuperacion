@@ -1277,6 +1277,9 @@ const stats = useMemo(() => {
     )}
   </div>
 ))}
+</div> {/* CIERRA el div className="space-y-8" que abriste en la línea 1010 */}
+                  </div> {/* CIERRA el div className="space-y-12" que abriste en la línea 974 */}
+                )} {/* CIERRA el bloque {activeTab === 3 && ( */}
 
                 {activeTab === 4 && (
   <div className="grid grid-cols-2 gap-12 animate-in fade-in duration-300 font-sans">
