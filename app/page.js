@@ -1277,9 +1277,9 @@ const stats = useMemo(() => {
     )}
   </div>
 ))}
-                    </div> {/* Cierra space-y-8 */}
-                  </div> {/* Cierra space-y-12 */}
-                )} {/* Cierra {activeTab === 3 && ( */}
+                    </div> {/* Cierra el div space-y-8 */}
+                  </div> {/* Cierra el div space-y-12 */}
+                )}
 
                 {activeTab === 4 && (
   <div className="grid grid-cols-2 gap-12 animate-in fade-in duration-300 font-sans">
