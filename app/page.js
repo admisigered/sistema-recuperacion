@@ -1035,17 +1035,49 @@ const stats = useMemo(() => {
         <Tooltip cursor={{fill: '#f8fafc'}} />
         <Legend verticalAlign="top" align="right" iconType="circle" height={50}/>
 
-        <Bar name="Verificaciones" dataKey="Verificaciones" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={15} 
-             label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#3b82f6', dy: -5 }} />
+        <Bar 
+          name="Verificaciones" 
+          dataKey="Verificaciones" 
+          fill="#3b82f6" 
+          radius={[4, 4, 0, 0]} 
+          barSize={15} 
+          className="cursor-pointer"
+          onClick={(data) => handleChartClick(data.name, 'Verificaciones')}
+          label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#3b82f6', dy: -5 }} 
+        />
         
-        <Bar name="Requerimientos" dataKey="Requerimientos" fill="#93c5fd" radius={[4, 4, 0, 0]} barSize={15} 
-             label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#60a5fa', dy: -5 }} />
+        <Bar 
+          name="Requerimientos" 
+          dataKey="Requerimientos" 
+          fill="#93c5fd" 
+          radius={[4, 4, 0, 0]} 
+          barSize={15} 
+          className="cursor-pointer"
+          onClick={(data) => handleChartClick(data.name, 'Requerimientos')}
+          label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#60a5fa', dy: -5 }} 
+        />
         
-        <Bar name="Seguimientos" dataKey="Seguimientos" fill="#f97316" radius={[4, 4, 0, 0]} barSize={15} 
-             label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#f97316', dy: -5 }} />
+        <Bar 
+          name="Seguimientos" 
+          dataKey="Seguimientos" 
+          fill="#f97316" 
+          radius={[4, 4, 0, 0]} 
+          barSize={15} 
+          className="cursor-pointer"
+          onClick={(data) => handleChartClick(data.name, 'Seguimientos')}
+          label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#f97316', dy: -5 }} 
+        />
         
-        <Bar name="Cierres/Recuperados" dataKey="Cierres" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={15} 
-             label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#22c55e', dy: -5 }} />
+        <Bar 
+          name="Cierres/Recuperados" 
+          dataKey="Cierres" 
+          fill="#22c55e" 
+          radius={[4, 4, 0, 0]} 
+          barSize={15} 
+          className="cursor-pointer"
+          onClick={(data) => handleChartClick(data.name, 'Cierres')}
+          label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#22c55e', dy: -5 }} 
+        />
       </BarChart>
     </ResponsiveContainer>
   </div>
