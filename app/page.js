@@ -1153,7 +1153,8 @@ const stats = useMemo(() => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 text-sm">
-{docs.length === 0 ? (
+  {docs.length === 0 ? (
+    // --- VISTA CUANDO NO HAY RESULTADOS ---
     <tr>
       <td colSpan="8" className="p-20 text-center">
         <div className="flex flex-col items-center gap-4 opacity-20">
@@ -1165,108 +1166,81 @@ const stats = useMemo(() => {
       </td>
     </tr>
   ) : (
-  
-  {docs.map(doc => {
-    // 1. Cálculos de estado por fila
-    const status = getEtapaEstado(doc);
-    const isSelected = selectedIds.includes(doc.id);
+    // --- VISTA NORMAL DE LA TABLA (Mapeo de registros) ---
+    docs.map(doc => {
+      const status = getEtapaEstado(doc);
+      const isSelected = selectedIds.includes(doc.id);
 
-    // 2. Lógica para determinar el responsable según la etapa (Filtro vs Actual)
-    let asignadoCalculado = 'PENDIENTE';
-    if (filters.etapa === 'VERIFICACION') {
-        asignadoCalculado = doc.responsable_verificacion;
-    } else if (filters.etapa === 'REQUERIMIENTO') {
-        asignadoCalculado = doc.responsable_requerimiento;
-    } else if (filters.etapa === 'SEGUIMIENTO') {
-        asignadoCalculado = doc.responsable_seguimiento;
-    } else if (filters.etapa === 'CIERRE') {
-        asignadoCalculado = doc.responsable_devolucion;
-    } else {
-        // Si no hay filtro, mostrar el de la etapa donde está el documento hoy
-        if (status.etapa === 'VERIFICACION') asignadoCalculado = doc.responsable_verificacion;
-        else if (status.etapa === 'REQUERIMIENTO') asignadoCalculado = doc.responsable_requerimiento;
-        else if (status.etapa === 'SEGUIMIENTO') asignadoCalculado = doc.responsable_seguimiento;
-        else if (status.etapa === 'CIERRE') asignadoCalculado = doc.responsable_devolucion;
-    }
+      // Lógica para determinar el responsable según la etapa (Filtro vs Actual)
+      let asignadoCalculado = 'PENDIENTE';
+      if (filters.etapa === 'VERIFICACION') {
+          asignadoCalculado = doc.responsable_verificacion;
+      } else if (filters.etapa === 'REQUERIMIENTO') {
+          asignadoCalculado = doc.responsable_requerimiento;
+      } else if (filters.etapa === 'SEGUIMIENTO') {
+          asignadoCalculado = doc.responsable_seguimiento;
+      } else if (filters.etapa === 'CIERRE') {
+          asignadoCalculado = doc.responsable_devolucion;
+      } else {
+          if (status.etapa === 'VERIFICACION') asignadoCalculado = doc.responsable_verificacion;
+          else if (status.etapa === 'REQUERIMIENTO') asignadoCalculado = doc.responsable_requerimiento;
+          else if (status.etapa === 'SEGUIMIENTO') asignadoCalculado = doc.responsable_seguimiento;
+          else if (status.etapa === 'CIERRE') asignadoCalculado = doc.responsable_devolucion;
+      }
 
-    const mostrarAsignado = (!asignadoCalculado || asignadoCalculado === 'null' || asignadoCalculado === '') ? 'PENDIENTE' : asignadoCalculado;
-    const esPendiente = mostrarAsignado === 'PENDIENTE';
+      const mostrarAsignado = (!asignadoCalculado || asignadoCalculado === 'null' || asignadoCalculado === '') ? 'PENDIENTE' : asignadoCalculado;
+      const esPendiente = mostrarAsignado === 'PENDIENTE';
 
-    return (
-      <tr key={doc.id} className={`hover:bg-slate-50/80 transition-all ${isSelected ? 'bg-blue-50/50' : ''}`}>
-        {/* Checkbox de selección */}
-        <td className="p-6 text-center border-r font-sans">
-          <button onClick={() => toggleSelectDoc(doc.id)} className="cursor-pointer">
-            {isSelected ? <CheckSquare size={22} className="text-brand-blue mx-auto"/> : <Square size={22} className="text-slate-200 mx-auto"/>}
-          </button>
-        </td>
-
-        {/* Información del documento */}
-        <td className="p-6 pl-8">
-            <p className="font-black text-slate-800 text-sm">{doc.cut}</p>
-            <p className="text-[10px] font-bold text-slate-400 uppercase mt-1 truncate max-w-[250px]">{doc.documento}</p>
-        </td>
-
-        {/* Sede */}
-        <td className="p-6 text-center font-black text-[10px] text-slate-600 uppercase">{doc.sede}</td>
-
-        {/* Origen */}
-        <td className="p-6 text-center font-bold">
-          <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase ${doc.origen === 'Interno' ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-blue-100 text-blue-700 border border-blue-200'}`}>
-            {doc.origen || 'EXTERNO'}
-          </span>
-        </td>
-
-        {/* Etapa / Estado */}
-        <td className="p-6 text-center">
-          <div className="flex flex-col items-center gap-1 mx-auto">
-            <span className="text-[9px] font-black bg-slate-200 text-slate-500 px-3 py-1 rounded-lg uppercase tracking-tighter">
-              {status.etapa}
-            </span>
-            <span className={`text-[10px] font-black px-4 py-1.5 rounded-xl border shadow-sm uppercase ${status.color}`}>
-              {status.estado}
-            </span>
-          </div>
-        </td>
-
-        {/* COLUMNA: ASIGNADO A (SELECTOR DINÁMICO) */}
-        <td className="p-6 text-center font-sans">
-          <div className="flex flex-col items-center gap-1 mx-auto">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">ASIGNADO A:</span>
-            <select
-              value={mostrarAsignado}
-              onChange={(e) => handleAssignOne(doc.id, e.target.value, filters.etapa || status.etapa)}
-              className={`text-[10px] font-black px-2 py-1 rounded-lg border shadow-sm outline-none cursor-pointer transition-all ${
-                esPendiente 
-                  ? 'bg-red-50 text-red-600 border-red-200' 
-                  : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-              }`}
-            >
-              {LISTA_RESPONSABLES.map((r) => (
-                <option key={r} value={r}>
-                  {r === 'PENDIENTE' ? '🔴 SIN ASIGNAR' : r}
-                </option>
-              ))}
-            </select>
-          </div>
-        </td>
-
-        {/* Acciones */}
-        <td className="p-6 text-center font-bold">
-          <div className="flex items-center justify-center gap-3">
-            <button onClick={() => { setEditingDoc(doc); setActiveTab(1); }} className="bg-white border-2 border-blue-50 text-brand-blue font-black text-[10px] px-5 py-2.5 rounded-2xl hover:bg-brand-blue hover:text-white transition-all uppercase cursor-pointer">
-              Detalles
+      return (
+        <tr key={doc.id} className={`hover:bg-slate-50/80 transition-all ${isSelected ? 'bg-blue-50/50' : ''}`}>
+          <td className="p-6 text-center border-r font-sans">
+            <button onClick={() => toggleSelectDoc(doc.id)} className="cursor-pointer">
+              {isSelected ? <CheckSquare size={22} className="text-brand-blue mx-auto"/> : <Square size={22} className="text-slate-200 mx-auto"/>}
             </button>
-            {session.user.toUpperCase() === 'ADMINISTRADOR' && (
-              <button onClick={() => handleDeleteIndividual(doc.id)} className="bg-white border-2 border-red-50 text-red-500 p-2.5 rounded-2xl hover:bg-red-600 hover:text-white transition-all cursor-pointer">
-                <Trash2 size={16}/>
-              </button>
-            )}
-          </div>
-        </td>
-      </tr>
-    )
-  })}
+          </td>
+          <td className="p-6 pl-8">
+              <p className="font-black text-slate-800 text-sm">{doc.cut}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase mt-1 truncate max-w-[250px]">{doc.documento}</p>
+          </td>
+          <td className="p-6 text-center font-black text-[10px] text-slate-600 uppercase">{doc.sede}</td>
+          <td className="p-6 text-center font-bold">
+            <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase ${doc.origen === 'Interno' ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-blue-100 text-blue-700 border border-blue-200'}`}>
+              {doc.origen || 'EXTERNO'}
+            </span>
+          </td>
+          <td className="p-6 text-center">
+            <div className="flex flex-col items-center gap-1 mx-auto">
+              <span className="text-[9px] font-black bg-slate-200 text-slate-500 px-3 py-1 rounded-lg uppercase tracking-tighter">{status.etapa}</span>
+              <span className={`text-[10px] font-black px-4 py-1.5 rounded-xl border shadow-sm uppercase ${status.color}`}>{status.estado}</span>
+            </div>
+          </td>
+          
+          {/* COLUMNA ASIGNADO A (Con selector directo) */}
+          <td className="p-6 text-center font-sans">
+            <div className="flex flex-col items-center gap-1 mx-auto">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">ASIGNADO A:</span>
+              <select
+                value={mostrarAsignado}
+                onChange={(e) => handleAssignOne(doc.id, e.target.value, filters.etapa || status.etapa)}
+                className={`text-[10px] font-black px-2 py-1 rounded-lg border shadow-sm outline-none cursor-pointer transition-all ${esPendiente ? 'bg-red-50 text-red-600 border-red-200' : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'}`}
+              >
+                {LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r === 'PENDIENTE' ? '🔴 SIN ASIGNAR' : r}</option>)}
+              </select>
+            </div>
+          </td>
+
+          <td className="p-6 text-center font-bold">
+            <div className="flex items-center justify-center gap-3">
+              <button onClick={() => { setEditingDoc(doc); setActiveTab(1); }} className="bg-white border-2 border-blue-50 text-brand-blue font-black text-[10px] px-5 py-2.5 rounded-2xl hover:bg-brand-blue hover:text-white transition-all uppercase shadow-sm cursor-pointer">Detalles</button>
+              {session.user.toUpperCase() === 'ADMINISTRADOR' && (
+                <button onClick={() => handleDeleteIndividual(doc.id)} className="bg-white border-2 border-red-50 text-red-500 p-2.5 rounded-2xl hover:bg-red-600 hover:text-white transition-all cursor-pointer"><Trash2 size={16}/></button>
+              )}
+            </div>
+          </td>
+        </tr>
+      );
+    })
+  )}
 </tbody>
               </table>
               <div className="p-10 bg-slate-50 flex justify-between items-center border-t border-slate-100 font-sans shadow-inner"><p className="text-xs font-black text-slate-400 uppercase tracking-widest font-sans font-sans">Página {page} • Total: {totalDocs}</p>
