@@ -1053,6 +1053,19 @@ const stats = useMemo(() => {
                   {docs.map(doc => {
                     const status = getEtapaEstado(doc);
                     const isSelected = selectedIds.includes(doc.id);
+                    
+// --- 1. LÓGICA PARA DETERMINAR EL RESPONSABLE SEGÚN LA ETAPA ACTUAL ---
+    let asignado = 'PENDIENTE';
+    if (status.etapa === 'VERIFICACION') asignado = doc.responsable_verificacion;
+    else if (status.etapa === 'REQUERIMIENTO') asignado = doc.responsable_requerimiento;
+    else if (status.etapa === 'SEGUIMIENTO') asignado = doc.responsable_seguimiento;
+    else if (status.etapa === 'CIERRE') asignado = doc.responsable_devolucion;
+
+    // Normalizamos si el valor es nulo o vacío
+    const mostrarAsignado = (!asignado || asignado === 'null' || asignado === '') ? 'PENDIENTE' : asignado;
+    const esPendiente = mostrarAsignado === 'PENDIENTE';
+    // ---------------------------------------------------------------------
+                    
                     return (
                       <tr key={doc.id} className={`hover:bg-slate-50/80 transition-all ${isSelected ? 'bg-blue-50/50' : ''}`}>
                         <td className="p-6 text-center border-r font-sans"><button onClick={() => toggleSelectDoc(doc.id)}>{isSelected ? <CheckSquare size={22} className="text-blue-600 mx-auto"/> : <Square size={22} className="text-slate-200 mx-auto"/>}</button></td>
@@ -1063,22 +1076,23 @@ const stats = useMemo(() => {
                         <td className="p-6 text-center font-black text-[10px] text-slate-600 uppercase font-sans font-bold">{doc.sede}</td>
                         <td className="p-6 text-center font-sans font-bold font-bold"><span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase ${doc.origen === 'Interno' ? 'bg-purple-100 text-purple-700 border border-purple-200 shadow-sm' : 'bg-blue-100 text-blue-700 border border-blue-200 shadow-sm'}`}>{doc.origen || 'EXTERNO'}</span></td>
                         <td className="p-6 text-center font-sans"><div className="flex flex-col items-center gap-1 mx-auto font-sans"><span className="text-[9px] font-black bg-slate-200 text-slate-500 px-3 py-1 rounded-lg uppercase tracking-tighter shadow-sm">{status.etapa}</span><span className={`text-[10px] font-black px-4 py-1.5 rounded-xl border shadow-sm uppercase ${status.color}`}>{status.estado}</span></div></td>
+  {/* --- 2. NUEVA COLUMNA: ASIGNADO A --- */}
+        <td className="p-6 text-center font-sans">
+          <div className="flex flex-col items-center gap-1 mx-auto">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">ASIGNADO A:</span>
+            <span className={`text-[10px] font-black px-4 py-1.5 rounded-xl border shadow-sm uppercase ${esPendiente ? 'bg-red-50 text-red-600 border-red-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
+              {esPendiente ? '🔴 PENDIENTE' : mostrarAsignado}
+            </span>
+          </div>
+        </td>
                         <td className="p-6 text-center font-sans font-bold"><div className="flex items-center justify-center gap-3">
-                            <button onClick={() => { setEditingDoc(doc); setActiveTab(1); }} className="bg-white border-2 border-blue-50 text-blue-600 font-black text-[10px] px-5 py-2.5 rounded-2xl hover:bg-blue-600 hover:text-white transition-all uppercase shadow-sm">Detalles</button>
-                            {session.user.toUpperCase() === 'ADMINISTRADOR' && (<button onClick={() => handleDeleteIndividual(doc.id)} className="bg-white border-2 border-red-50 text-red-500 p-2.5 rounded-2xl hover:bg-red-600 hover:text-white transition-all shadow-sm font-sans font-bold"><Trash2 size={16}/></button>)}
-                        </div></td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-              <div className="p-10 bg-slate-50 flex justify-between items-center border-t border-slate-100 font-sans shadow-inner"><p className="text-xs font-black text-slate-400 uppercase tracking-widest font-sans font-sans">Página {page} • Total: {totalDocs}</p>
-                <div className="flex gap-4 font-sans font-bold"><button onClick={() => setPage(p => p - 1)} disabled={page === 1} className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center hover:bg-blue-600 hover:text-white shadow-sm disabled:opacity-20 transition-all shadow-lg"><ChevronLeft size={20}/></button><button onClick={() => setPage(p => p + 1)} disabled={page * 100 >= totalDocs} className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center hover:bg-blue-600 hover:text-white shadow-sm disabled:opacity-20 transition-all shadow-lg"><ChevronRight size={20}/></button></div>
-              </div>
-            </div>
-          )}
-        </div>
-      </main> {/* <--- AGREGA ESTA LÍNEA AQUÍ PARA CERRAR EL MAIN */}
+            <button onClick={() => { setEditingDoc(doc); setActiveTab(1); }} className="bg-white border-2 border-blue-50 text-blue-600 font-black text-[10px] px-5 py-2.5 rounded-2xl hover:bg-blue-600 hover:text-white transition-all uppercase shadow-sm">Detalles</button>
+            {session.user.toUpperCase() === 'ADMINISTRADOR' && (<button onClick={() => handleDeleteIndividual(doc.id)} className="bg-white border-2 border-red-50 text-red-500 p-2.5 rounded-2xl hover:bg-red-600 hover:text-white transition-all shadow-sm font-sans font-bold"><Trash2 size={16}/></button>)}
+        </div></td>
+      </tr>
+    )
+  })}
+</tbody>
 
       {/* --- MODAL DETALLES TOTAL (A-AD INTEGRAL) --- */}
       {editingDoc && (
