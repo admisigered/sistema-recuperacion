@@ -798,6 +798,46 @@ const stats = useMemo(() => {
       alert("Hubo un problema al generar el PDF. El sistema de colores v4 es muy nuevo. Intente nuevamente.");
     }
   };
+
+// --- FUNCIÓN PARA FILTRAR AL HACER CLIC EN LAS BARRAS DEL GRÁFICO ---
+  const handleChartClick = (data, stageKey) => {
+    if (!data || !data.name) return;
+
+    // 1. Mapeo de meses (Debe coincidir con las etiquetas de tu stats)
+    const configMeses = {
+      'DICIEMBRE': { inicio: '2025-12-01', fin: '2025-12-31' },
+      'ENERO': { inicio: '2026-01-01', fin: '2026-01-31' },
+      'FEBRERO': { inicio: '2026-02-01', fin: '2026-02-28' },
+      'MARZO': { inicio: '2026-03-01', fin: '2026-03-31' },
+      'ABRIL': { inicio: '2026-04-01', fin: '2026-04-30' },
+      'MAYO': { inicio: '2026-05-01', fin: '2026-05-31' }
+    };
+
+    const rango = configMeses[data.name.toUpperCase()];
+    if (!rango) return;
+
+    // 2. Mapeo de nombres de barras a valores de filtro de Etapa
+    const stageMap = {
+      'Verificaciones': 'VERIFICACION',
+      'Requerimientos': 'REQUERIMIENTO',
+      'Seguimientos': 'SEGUIMIENTO',
+      'Cierres': 'CIERRE'
+    };
+
+    // 3. Aplicamos los filtros de forma automática
+    setFilters({
+      ...filters,
+      fechaInicio: rango.inicio,
+      fechaFin: rango.fin,
+      etapa: stageMap[stageKey] || '',
+      estado: '', // Limpiamos estado para ver todo lo de esa etapa
+      search: ''  // Limpiamos búsqueda de texto
+    });
+
+    // 4. Saltamos a la vista de Gestión
+    setView('list');
+    alert(`Filtrando ${stageKey} de ${data.name}`);
+  };
   
   // --- 6. DASHBOARD BARRAS ---
   const chartData = useMemo(() => {
