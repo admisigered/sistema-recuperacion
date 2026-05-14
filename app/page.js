@@ -1280,32 +1280,40 @@ const stats = useMemo(() => {
       </div>
             <div className="flex flex-1 overflow-hidden font-sans font-sans font-sans font-sans">
              <div className="w-80 bg-slate-50 border-r p-10 space-y-4 shrink-0 font-sans font-bold">
-  {/* Etapa 1: Siempre habilitada */}
-  <button onClick={() => setActiveTab(1)} className={`w-full text-left p-6 rounded-3xl font-black text-xs transition-all flex items-center justify-between ${activeTab === 1 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}>1. VERIFICACIÓN <UserCheck size={16}/></button>
+  {/* Etapa 1: Siempre habilitada para todos */}
+  <button 
+    onClick={() => setActiveTab(1)} 
+    className={`w-full text-left p-6 rounded-3xl font-black text-xs transition-all flex items-center justify-between ${activeTab === 1 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400'}`}
+  >
+    1. VERIFICACIÓN <UserCheck size={16}/>
+  </button>
   
-  {/* Etapas 2 y 3: Solo Externos y con validación secuencial */}
-  {String(editingDoc.origen).toUpperCase() === 'EXTERNO' && (
-    <>
-      <button 
-        disabled={editingDoc.estado_verificacion_k !== 'VERIFICADO'} 
-        onClick={() => setActiveTab(2)} 
-        className={`w-full text-left p-6 rounded-3xl font-black text-xs transition-all flex items-center justify-between shadow-sm ${editingDoc.estado_verificacion_k !== 'VERIFICADO' ? 'opacity-30 cursor-not-allowed' : (activeTab === 2 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400')}`}
-      >2. REQUERIMIENTO <Truck size={16}/></button>
-      
-      <button 
-        disabled={!editingDoc.numero_documento} 
-        onClick={() => setActiveTab(3)} 
-        className={`w-full text-left p-6 rounded-3xl font-black text-xs transition-all flex items-center justify-between shadow-sm ${!editingDoc.numero_documento ? 'opacity-30 cursor-not-allowed' : (activeTab === 3 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400')}`}
-      >3. SEGUIMIENTO ({seguimientos.length}) <MessageSquare size={16}/></button>
-    </>
-  )}
+  {/* Etapa 2: Habilitada para TODOS (Internos y Externos) si ya se verificó */}
+  <button 
+    disabled={editingDoc.estado_verificacion_k !== 'VERIFICADO'} 
+    onClick={() => setActiveTab(2)} 
+    className={`w-full text-left p-6 rounded-3xl font-black text-xs transition-all flex items-center justify-between shadow-sm ${editingDoc.estado_verificacion_k !== 'VERIFICADO' ? 'opacity-30 cursor-not-allowed' : (activeTab === 2 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400')}`}
+  >
+    2. REQUERIMIENTO <Truck size={16}/>
+  </button>
   
-  {/* Etapa 4: Habilitada si es Interno Verificado o Externo en etapa de Cierre */}
+  {/* Etapa 3: Habilitada para TODOS si ya tiene número de documento */}
+  <button 
+    disabled={!editingDoc.numero_documento || editingDoc.numero_documento === 'null' || editingDoc.numero_documento === ''} 
+    onClick={() => setActiveTab(3)} 
+    className={`w-full text-left p-6 rounded-3xl font-black text-xs transition-all flex items-center justify-between shadow-sm ${(!editingDoc.numero_documento || editingDoc.numero_documento === 'null' || editingDoc.numero_documento === '') ? 'opacity-30 cursor-not-allowed' : (activeTab === 3 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400')}`}
+  >
+    3. SEGUIMIENTO ({seguimientos.length}) <MessageSquare size={16}/>
+  </button>
+  
+  {/* Etapa 4: Habilitada para TODOS si ya se verificó */}
   <button 
     disabled={editingDoc.estado_verificacion_k !== 'VERIFICADO'}
     onClick={() => setActiveTab(4)} 
     className={`w-full text-left p-6 rounded-3xl font-black text-xs transition-all flex items-center justify-between shadow-sm ${editingDoc.estado_verificacion_k !== 'VERIFICADO' ? 'opacity-30 cursor-not-allowed' : (activeTab === 4 ? 'bg-white border-2 border-blue-600 text-blue-700 shadow-2xl' : 'text-slate-400')}`}
-  >4. CIERRE <Save size={16}/></button>
+  >
+    4. CIERRE <Save size={16}/>
+  </button>
 </div>
               <div className="flex-1 p-14 overflow-y-auto bg-white font-sans font-sans font-sans">
                 {activeTab === 1 && (
