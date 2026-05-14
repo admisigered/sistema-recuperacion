@@ -1153,6 +1153,19 @@ const stats = useMemo(() => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 text-sm">
+{docs.length === 0 ? (
+    <tr>
+      <td colSpan="8" className="p-20 text-center">
+        <div className="flex flex-col items-center gap-4 opacity-20">
+          <Search size={64} className="text-slate-400" />
+          <p className="text-xl font-black uppercase tracking-widest text-slate-800">
+            No se encontraron documentos
+          </p>
+        </div>
+      </td>
+    </tr>
+  ) : (
+  
   {docs.map(doc => {
     // 1. Cálculos de estado por fila
     const status = getEtapaEstado(doc);
