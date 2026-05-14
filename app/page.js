@@ -223,7 +223,10 @@ const stats = useMemo(() => {
       // Cantidades Reales (vVal, reVal, sVal, cVal)
       const v = allDocsForStats.filter(d => String(d.responsable_verificacion).toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO').length;
       const re = allDocsForStats.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.numero_documento && d.numero_documento !== 'null').length;
-      const s = allDocsForStats.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.cantidad_seguimientos > 0).length;
+      const s = allDocsForStats.filter(d => 
+    String(d.responsable_seguimiento).toUpperCase() === user && 
+    (d.cantidad_seguimientos > 0 || d.ultimo_seguimiento)
+).length;
       const c = allDocsForStats.filter(d => String(d.responsable_devolucion).toUpperCase() === user && d.cargado_sisged).length;
 
       const total = v + re + s + c || 1; // Total para cálculo de porcentaje (100% stack)
