@@ -849,7 +849,7 @@ const stats = useMemo(() => {
       {[
         { 
           label: 'TOTAL REGISTROS', 
-          val: totalDocs, 
+          val: totalDocs, // Este número de 785 ya es correcto
           color: 'border-b-blue-600', 
           text: 'text-slate-800' 
         },
@@ -875,6 +875,7 @@ const stats = useMemo(() => {
         <div key={i} className={`bg-white p-6 rounded-3xl shadow-sm border-b-4 ${kpi.color} flex flex-col justify-center min-h-[140px] shadow-slate-200`}>
           <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase">{kpi.label}</p>
           <h3 className={`text-5xl font-black ${kpi.text}`}>
+            {/* Mientras carga mostramos los puntos, luego el valor filtrado */}
             {loading && allDocsForStats.length === 0 ? "..." : kpi.val}
           </h3>
         </div>
