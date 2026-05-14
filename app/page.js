@@ -569,6 +569,29 @@ const stats = useMemo(() => {
       setLoading(false);
     }
   };
+
+// --- ASIGNACIÓN MANUAL INDIVIDUAL DESDE LA TABLA ---
+  const handleAssignOne = async (docId, newName, etapaActual) => {
+    // Identificamos qué columna actualizar según la etapa que muestra la tabla
+    let campo = 'responsable_verificacion';
+    if (etapaActual === 'REQUERIMIENTO') campo = 'responsable_requerimiento';
+    if (etapaActual === 'SEGUIMIENTO') campo = 'responsable_seguimiento';
+    if (etapaActual === 'CIERRE') campo = 'responsable_devolucion';
+
+    try {
+      const { error } = await supabase
+        .from('documentos')
+        .update({ [campo]: newName.toUpperCase() })
+        .eq('id', docId);
+
+      if (error) throw error;
+      
+      // Refrescamos los datos para que el Dashboard y la tabla se actualicen
+      await fetchDocs(); 
+    } catch (err) {
+      alert("Error al asignar: " + err.message);
+    }
+  };
   
   const handleDeleteIndividual = async (id) => {
     if (session.user !== 'ADMINISTRADOR') return alert("Solo administrador.");
