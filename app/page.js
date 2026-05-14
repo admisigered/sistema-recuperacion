@@ -365,18 +365,27 @@ const stats = useMemo(() => {
             if (filters.fechaFin) q.lte('fecha_verificacion', filters.fechaFin);
         } 
         else if (filters.etapa === 'REQUERIMIENTO') {
-            // Aseguramos que solo salgan los que faltan requerir (sin N° Doc)
-            if (filters.estado === 'ATENDIDO') q.not('numero_documento', 'is', null).neq('numero_documento', '');
-            else q.or('numero_documento.is.null,numero_documento.eq.""');
+            // Un documento está en REQUERIMIENTO si su N° de documento está realmente vacío
+            q.or('numero_documento.is.null,numero_documento.eq."",numero_documento.eq.null,numero_documento.eq." "');
+            
+            if (filters.estado === 'ATENDIDO') {
+                // Caso hipotético si quisieras ver "Atendidos" aquí, pero según tu lógica:
+                q.not('numero_documento', 'is', null).neq('numero_documento', '');
+            }
             
             if (filters.responsable) q.eq('responsable_requerimiento', filters.responsable);
             if (filters.fechaInicio) q.gte('fecha_elaboracion', filters.fechaInicio);
             if (filters.fechaFin) q.lte('fecha_elaboracion', filters.fechaFin);
         }
         else if (filters.etapa === 'SEGUIMIENTO') {
-            // Un documento en seguimiento solo es PENDIENTE si tiene 0 seguimientos
+            // IMPORTANTE: Un documento SOLO entra en seguimiento si TIENE un número de documento válido
+            q.not('numero_documento', 'is', null)
+             .neq('numero_documento', '')
+             .neq('numero_documento', 'null')
+             .neq('numero_documento', ' ');
+
             if (filters.estado === 'EN PROCESO') q.gt('cantidad_seguimientos', 0);
-            else q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
+            else if (filters.estado === 'PENDIENTE') q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
 
             if (filters.responsable) q.eq('responsable_seguimiento', filters.responsable);
             if (filters.fechaInicio) q.gte('ultimo_seguimiento', filters.fechaInicio);
