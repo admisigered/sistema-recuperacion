@@ -1092,7 +1092,7 @@ const stats = useMemo(() => {
           fill="#3b82f6" 
           radius={[4, 4, 0, 0]} 
           barSize={15} 
-          className="cursor-pointer"
+          style={{ cursor: 'pointer' }}
           onClick={(data) => handleChartClick(data.name, 'Verificaciones')}
           label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#3b82f6', dy: -5 }} 
         />
@@ -1103,7 +1103,7 @@ const stats = useMemo(() => {
           fill="#93c5fd" 
           radius={[4, 4, 0, 0]} 
           barSize={15} 
-          className="cursor-pointer"
+          style={{ cursor: 'pointer' }}
           onClick={(data) => handleChartClick(data.name, 'Requerimientos')}
           label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#60a5fa', dy: -5 }} 
         />
@@ -1114,7 +1114,7 @@ const stats = useMemo(() => {
           fill="#f97316" 
           radius={[4, 4, 0, 0]} 
           barSize={15} 
-          className="cursor-pointer"
+          style={{ cursor: 'pointer' }}
           onClick={(data) => handleChartClick(data.name, 'Seguimientos')}
           label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#f97316', dy: -5 }} 
         />
@@ -1125,7 +1125,7 @@ const stats = useMemo(() => {
           fill="#22c55e" 
           radius={[4, 4, 0, 0]} 
           barSize={15} 
-          className="cursor-pointer"
+          style={{ cursor: 'pointer' }}
           onClick={(data) => handleChartClick(data.name, 'Cierres')}
           label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#22c55e', dy: -5 }} 
         />
