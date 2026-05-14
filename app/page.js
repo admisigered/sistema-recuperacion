@@ -339,9 +339,8 @@ const stats = useMemo(() => {
 
     // 2. Función para aplicar tus filtros exactos
     const aplicarFiltrosInternos = (q) => {
-        if (filters.search) {
-          q.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%,responsable_verificacion.ilike.%${filters.search}%,responsable_requerimiento.ilike.%${filters.search}%,responsable_devolucion.ilike.%${filters.search}%,responsable_seguimiento.ilike.%${filters.search}%`);
-        }
+        // Filtros básicos
+        if (filters.search) q.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%,responsable_verificacion.ilike.%${filters.search}%,responsable_requerimiento.ilike.%${filters.search}%,responsable_devolucion.ilike.%${filters.search}%,responsable_seguimiento.ilike.%${filters.search}%`);
         if (filters.sede) q.eq('sede', filters.sede);
         if (filters.origen) q.eq('origen', filters.origen);
         // Filtro por selector de nombres (incluye PENDIENTE y AMERICO)
@@ -349,15 +348,11 @@ const stats = useMemo(() => {
           q.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable},responsable_seguimiento.eq.${filters.responsable}`);
         }
 
-// --- NUEVA LÓGICA DE FILTRO POR ACTIVIDAD (4 FECHAS) ---
+// --- FILTRO DE FECHAS CORREGIDO PARA CONSULTAS MASIVAS ---
         if (filters.fechaInicio && filters.fechaFin) {
-          // Buscamos si CUALQUIERA de las fechas de etapa cae dentro del rango seleccionado
-          q.or(
-            `and(fecha_verificacion.gte.${filters.fechaInicio},fecha_verificacion.lte.${filters.fechaFin}),` +
-            `and(fecha_elaboracion.gte.${filters.fechaInicio},fecha_elaboracion.lte.${filters.fechaFin}),` +
-            `and(ultimo_seguimiento.gte.${filters.fechaInicio},ultimo_seguimiento.lte.${filters.fechaFin}),` +
-            `and(fecha_devolucion.gte.${filters.fechaInicio},fecha_devolucion.lte.${filters.fechaFin})`
-          );
+          // Usamos una sintaxis más limpia compatible con los lotes
+          q.or(`fecha_verificacion.gte.${filters.fechaInicio},fecha_elaboracion.gte.${filters.fechaInicio},ultimo_seguimiento.gte.${filters.fechaInicio},fecha_devolucion.gte.${filters.fechaInicio}`);
+          q.or(`fecha_verificacion.lte.${filters.fechaFin},fecha_elaboracion.lte.${filters.fechaFin},ultimo_seguimiento.lte.${filters.fechaFin},fecha_devolucion.lte.${filters.fechaFin}`);
         }
       
         if (filters.estado) {
