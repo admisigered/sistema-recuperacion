@@ -362,7 +362,6 @@ const stats = useMemo(() => {
             if (filters.fechaFin) q.lte('fecha_verificacion', filters.fechaFin);
         } 
         else if (filters.etapa === 'REQUERIMIENTO') {
-            // Filtro de Estado para esta etapa (Atendido = Ya tiene N° de documento)
             if (filters.estado === 'ATENDIDO') q.not('numero_documento', 'is', null).neq('numero_documento', '');
             else if (filters.estado === 'PENDIENTE') q.or('numero_documento.is.null,numero_documento.eq.""');
             
@@ -372,10 +371,8 @@ const stats = useMemo(() => {
             if (filters.fechaFin) q.lte('fecha_elaboracion', filters.fechaFin);
         }
         else if (filters.etapa === 'SEGUIMIENTO') {
-            // Filtro de Estado para esta etapa
             if (filters.estado === 'EN PROCESO') q.gt('cantidad_seguimientos', 0);
             else if (filters.estado === 'PENDIENTE') q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
-            // (Atendido en Seguimiento redirige a Cierre según lógica previa)
 
             // RESPONSABLE y FECHA apuntan a Seguimiento
             if (filters.responsable) q.eq('responsable_seguimiento', filters.responsable);
@@ -383,7 +380,6 @@ const stats = useMemo(() => {
             if (filters.fechaFin) q.lte('ultimo_seguimiento', filters.fechaFin);
         }
         else if (filters.etapa === 'CIERRE') {
-            // Filtro de Estado para esta etapa
             if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
             else if (filters.estado === 'PENDIENTE') q.neq('cargado_sisged', true).neq('estado_visualizacion', 'SI SE VISUALIZA');
             
@@ -393,14 +389,29 @@ const stats = useMemo(() => {
             if (filters.fechaFin) q.lte('fecha_devolucion', filters.fechaFin);
         }
         else {
-            // 3. LÓGICA GLOBAL (Si no hay Etapa seleccionada)
+            // --- 3. LÓGICA GLOBAL (Sin Etapa seleccionada) ---
+            
+            // FILTRO DE RESPONSABLE INTELIGENTE (Crucial para el "PENDIENTE")
             if (filters.responsable) {
-                q.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable},responsable_seguimiento.eq.${filters.responsable}`);
+                if (filters.responsable === 'PENDIENTE') {
+                    // Solo muestra documentos que no tienen dueño en su ETAPA ACTUAL
+                    q.or(
+                        `and(estado_verificacion_k.eq.PENDIENTE,responsable_verificacion.eq.PENDIENTE),` +
+                        `and(estado_verificacion_k.eq.VERIFICADO,numero_documento.is.null,responsable_requerimiento.eq.PENDIENTE),` +
+                        `and(numero_documento.not.is.null,cargado_sisged.eq.false,responsable_seguimiento.eq.PENDIENTE),` +
+                        `and(cargado_sisged.eq.true,responsable_devolucion.eq.PENDIENTE)`
+                    );
+                } else {
+                    // Búsqueda por nombre en cualquier columna
+                    q.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable},responsable_seguimiento.eq.${filters.responsable}`);
+                }
             }
+
             if (filters.fechaInicio && filters.fechaFin) {
                 q.or(`fecha_verificacion.gte.${filters.fechaInicio},fecha_elaboracion.gte.${filters.fechaInicio},ultimo_seguimiento.gte.${filters.fechaInicio},fecha_devolucion.gte.${filters.fechaInicio}`);
                 q.or(`fecha_verificacion.lte.${filters.fechaFin},fecha_elaboracion.lte.${filters.fechaFin},ultimo_seguimiento.lte.${filters.fechaFin},fecha_devolucion.lte.${filters.fechaFin}`);
             }
+
             if (filters.estado) {
                 if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
                 else if (filters.estado === 'RECONSTRUCCION') q.ilike('observaciones_finales', '%RECONSTRUCCION%');
@@ -411,7 +422,7 @@ const stats = useMemo(() => {
                 }
             }
         }
-    };
+    }; // Fin de aplicarFiltrosInternos
 
     // A. Consultamos la tabla (100 registros)
     aplicarFiltrosInternos(queryTable);
