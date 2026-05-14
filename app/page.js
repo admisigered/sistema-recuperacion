@@ -1045,6 +1045,7 @@ const stats = useMemo(() => {
                     <th className="p-6 text-center font-sans font-bold uppercase">Sede</th>
                     <th className="p-6 text-center font-sans font-bold uppercase">Origen</th>
                     <th className="p-6 text-center font-sans font-bold uppercase">Etapa / Estado</th>
+                    <th className="p-6 text-center font-sans font-bold uppercase">Asignado A</th>
                     <th className="p-6 text-center font-sans font-bold uppercase">Acciones</th>
                   </tr>
                 </thead>
