@@ -1104,13 +1104,29 @@ const stats = useMemo(() => {
                         <td className="p-6 text-center font-sans"><div className="flex flex-col items-center gap-1 mx-auto font-sans"><span className="text-[9px] font-black bg-slate-200 text-slate-500 px-3 py-1 rounded-lg uppercase tracking-tighter shadow-sm">{status.etapa}</span><span className={`text-[10px] font-black px-4 py-1.5 rounded-xl border shadow-sm uppercase ${status.color}`}>{status.estado}</span></div></td>
   {/* --- 2. NUEVA COLUMNA: ASIGNADO A --- */}
         <td className="p-6 text-center font-sans">
-          <div className="flex flex-col items-center gap-1 mx-auto">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">ASIGNADO A:</span>
-            <span className={`text-[10px] font-black px-4 py-1.5 rounded-xl border shadow-sm uppercase ${esPendiente ? 'bg-red-50 text-red-600 border-red-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
-              {esPendiente ? '🔴 PENDIENTE' : mostrarAsignado}
-            </span>
-          </div>
-        </td>
+  <div className="flex flex-col items-center gap-1 mx-auto">
+    <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">
+      ASIGNADO A:
+    </span>
+    {/* SELECTOR MANUAL DIRECTO EN TABLA */}
+    <select
+      value={mostrarAsignado} // 'mostrarAsignado' es la variable que ya calculamos en el bloque anterior
+      onChange={(e) => handleAssignOne(doc.id, e.target.value, status.etapa)}
+      className={`text-[10px] font-black px-2 py-1 rounded-lg border shadow-sm outline-none cursor-pointer transition-all ${
+        esPendiente 
+          ? 'bg-red-50 text-red-600 border-red-200' 
+          : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+      }`}
+    >
+      {LISTA_RESPONSABLES.map((r) => (
+        <option key={r} value={r}>
+          {r === 'PENDIENTE' ? '🔴 SIN ASIGNAR' : r}
+        </option>
+      ))}
+    </select>
+  </div>
+</td>
+      
                         <td className="p-6 text-center font-sans font-bold"><div className="flex items-center justify-center gap-3">
             <button onClick={() => { setEditingDoc(doc); setActiveTab(1); }} className="bg-white border-2 border-blue-50 text-blue-600 font-black text-[10px] px-5 py-2.5 rounded-2xl hover:bg-blue-600 hover:text-white transition-all uppercase shadow-sm">Detalles</button>
             {session.user.toUpperCase() === 'ADMINISTRADOR' && (<button onClick={() => handleDeleteIndividual(doc.id)} className="bg-white border-2 border-red-50 text-red-500 p-2.5 rounded-2xl hover:bg-red-600 hover:text-white transition-all shadow-sm font-sans font-bold"><Trash2 size={16}/></button>)}
