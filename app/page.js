@@ -131,19 +131,16 @@ export default function SistemaSIGERED() {
     }
 
     // 4. REGLA: PENDIENTE UNIVERSAL (Rojo)
-    // Cubre: Etapa 1 (Verificación), Etapa 2 (Requerimiento), Etapa 3 (Seguimiento 0) y Etapa 4 (Internos)
+    // Ahora Internos y Externos siguen la misma lógica secuencial
     let etapaDetectada = 'VERIFICACION';
 
     if (colK === 'VERIFICADO') {
-        if (origen === 'INTERNO') {
-            etapaDetectada = 'CIERRE';
+        // Independiente del origen, verificamos el avance por columnas
+        if (!numDoc || numDoc === '' || numDoc === 'null') {
+            etapaDetectada = 'REQUERIMIENTO';
         } else {
-            if (!numDoc || numDoc === '' || numDoc === 'null') {
-                etapaDetectada = 'REQUERIMIENTO';
-            } else {
-                // Tiene N° de documento pero CERO seguimientos (cantSeg === 0)
-                etapaDetectada = 'SEGUIMIENTO';
-            }
+            // Tiene N° de documento pero CERO seguimientos (cantSeg === 0)
+            etapaDetectada = 'SEGUIMIENTO';
         }
     }
 
