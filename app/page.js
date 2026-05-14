@@ -343,47 +343,49 @@ const stats = useMemo(() => {
 
     // 2. Función para aplicar tus filtros exactos
     const aplicarFiltrosInternos = (q) => {
-        // 1. FILTROS BÁSICOS (Siempre activos)
-        if (filters.search) {
-          q.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%,responsable_verificacion.ilike.%${filters.search}%,responsable_requerimiento.ilike.%${filters.search}%,responsable_devolucion.ilike.%${filters.search}%,responsable_seguimiento.ilike.%${filters.search}%`);
-        }
+        // 1. FILTROS BÁSICOS
+        if (filters.search) q.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%,responsable_verificacion.ilike.%${filters.search}%,responsable_requerimiento.ilike.%${filters.search}%,responsable_devolucion.ilike.%${filters.search}%,responsable_seguimiento.ilike.%${filters.search}%`);
         if (filters.sede) q.eq('sede', filters.sede);
         if (filters.origen) q.eq('origen', filters.origen);
 
-        // 2. LÓGICA CONDICIONADA POR ETAPA (Auditoría Específica)
+        // --- REGLA DE ORO: EXCLUSIÓN DE RECUPERADOS PARA PENDIENTES ---
+        // Si el estado es PENDIENTE o EN PROCESO, quitamos los RECUPERADOS de toda la consulta
+        if (filters.estado === 'PENDIENTE' || filters.estado === 'EN PROCESO') {
+            q.neq('cargado_sisged', true);
+            q.neq('estado_visualizacion', 'SI SE VISUALIZA');
+        }
+
+        // 2. LÓGICA POR ETAPA
         if (filters.etapa === 'VERIFICACION') {
-            // Filtro de Estado para esta etapa
             if (filters.estado === 'VERIFICADO') q.eq('estado_verificacion_k', 'VERIFICADO');
             else if (filters.estado === 'PENDIENTE') q.eq('estado_verificacion_k', 'PENDIENTE');
             
-            // RESPONSABLE y FECHA apuntan a Verificación
             if (filters.responsable) q.eq('responsable_verificacion', filters.responsable);
             if (filters.fechaInicio) q.gte('fecha_verificacion', filters.fechaInicio);
             if (filters.fechaFin) q.lte('fecha_verificacion', filters.fechaFin);
         } 
         else if (filters.etapa === 'REQUERIMIENTO') {
+            // Aseguramos que solo salgan los que faltan requerir (sin N° Doc)
             if (filters.estado === 'ATENDIDO') q.not('numero_documento', 'is', null).neq('numero_documento', '');
-            else if (filters.estado === 'PENDIENTE') q.or('numero_documento.is.null,numero_documento.eq.""');
+            else q.or('numero_documento.is.null,numero_documento.eq.""');
             
-            // RESPONSABLE y FECHA apuntan a Requerimiento
             if (filters.responsable) q.eq('responsable_requerimiento', filters.responsable);
             if (filters.fechaInicio) q.gte('fecha_elaboracion', filters.fechaInicio);
             if (filters.fechaFin) q.lte('fecha_elaboracion', filters.fechaFin);
         }
         else if (filters.etapa === 'SEGUIMIENTO') {
+            // Un documento en seguimiento solo es PENDIENTE si tiene 0 seguimientos
             if (filters.estado === 'EN PROCESO') q.gt('cantidad_seguimientos', 0);
-            else if (filters.estado === 'PENDIENTE') q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
+            else q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
 
-            // RESPONSABLE y FECHA apuntan a Seguimiento
             if (filters.responsable) q.eq('responsable_seguimiento', filters.responsable);
             if (filters.fechaInicio) q.gte('ultimo_seguimiento', filters.fechaInicio);
             if (filters.fechaFin) q.lte('ultimo_seguimiento', filters.fechaFin);
         }
         else if (filters.etapa === 'CIERRE') {
             if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
-            else if (filters.estado === 'PENDIENTE') q.neq('cargado_sisged', true).neq('estado_visualizacion', 'SI SE VISUALIZA');
+            // Si en CIERRE buscas PENDIENTE, la regla de arriba (paso 1) ya limpió los verdes
             
-            // RESPONSABLE y FECHA apuntan a Devolución/Cierre
             if (filters.responsable) q.eq('responsable_devolucion', filters.responsable);
             if (filters.fechaInicio) q.gte('fecha_devolucion', filters.fechaInicio);
             if (filters.fechaFin) q.lte('fecha_devolucion', filters.fechaFin);
