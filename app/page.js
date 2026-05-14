@@ -608,7 +608,6 @@ const stats = useMemo(() => {
 
 // --- ASIGNACIÓN MANUAL INDIVIDUAL DESDE LA TABLA ---
   const handleAssignOne = async (docId, newName, etapaActual) => {
-    // Identificamos qué columna actualizar según la etapa que muestra la tabla
     let campo = 'responsable_verificacion';
     if (etapaActual === 'REQUERIMIENTO') campo = 'responsable_requerimiento';
     if (etapaActual === 'SEGUIMIENTO') campo = 'responsable_seguimiento';
@@ -621,11 +620,9 @@ const stats = useMemo(() => {
         .eq('id', docId);
 
       if (error) throw error;
-      
-      // Refrescamos los datos para que el Dashboard y la tabla se actualicen
       await fetchDocs(); 
     } catch (err) {
-      alert("Error al asignar: " + err.message);
+      console.error("Error asignando:", err.message);
     }
   };
   
