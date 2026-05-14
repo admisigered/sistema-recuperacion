@@ -1272,8 +1272,9 @@ const stats = useMemo(() => {
       await supabase.from('documentos')
   .update({ 
     cantidad_seguimientos: (editingDoc.cantidad_seguimientos || 0) + 1,
-    ultimo_seguimiento: now,      // <--- Se guarda en la nueva columna
-    ultimo_responsable: r        // <--- Se guarda el nombre en la nueva columna
+    ultimo_seguimiento: now,
+    ultimo_responsable: r,
+    responsable_seguimiento: r // <--- ESTA LÍNEA ES LA QUE ACTIVA EL COLOR NARANJA EN EL GRÁFICO
   })
   .eq('id', editingDoc.id);
 
