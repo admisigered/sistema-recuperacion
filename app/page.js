@@ -804,10 +804,11 @@ const stats = useMemo(() => {
   };
 
 // --- FUNCIÓN PARA FILTRAR AL HACER CLIC EN LAS BARRAS DEL GRÁFICO ---
-  const handleChartClick = (data, stageKey) => {
-    if (!data || !data.name) return;
+  const handleChartClick = (mesLabel, stageKey) => {
+    // Si no detecta el mes, no hace nada
+    if (!mesLabel) return;
 
-    // 1. Mapeo de meses (Debe coincidir con las etiquetas de tu stats)
+    // 1. Mapeo de meses (Debe coincidir con las etiquetas: DICIEMBRE, ENERO, etc.)
     const configMeses = {
       'DICIEMBRE': { inicio: '2025-12-01', fin: '2025-12-31' },
       'ENERO': { inicio: '2026-01-01', fin: '2026-01-31' },
@@ -817,10 +818,16 @@ const stats = useMemo(() => {
       'MAYO': { inicio: '2026-05-01', fin: '2026-05-31' }
     };
 
-    const rango = configMeses[data.name.toUpperCase()];
-    if (!rango) return;
+    // Limpiamos el texto por si tiene espacios o años (ej: "MAYO 26")
+    const mesLimpio = mesLabel.split(' ')[0].toUpperCase();
+    const rango = configMeses[mesLimpio];
 
-    // 2. Mapeo de nombres de barras a valores de filtro de Etapa
+    if (!rango) {
+      console.error("Mes no encontrado en el mapa:", mesLimpio);
+      return;
+    }
+
+    // 2. Mapeo de barras a los valores de tu filtro de Etapa
     const stageMap = {
       'Verificaciones': 'VERIFICACION',
       'Requerimientos': 'REQUERIMIENTO',
@@ -828,19 +835,19 @@ const stats = useMemo(() => {
       'Cierres': 'CIERRE'
     };
 
-    // 3. Aplicamos los filtros de forma automática
+    // 3. Aplicamos los filtros globales
     setFilters({
       ...filters,
       fechaInicio: rango.inicio,
       fechaFin: rango.fin,
-      etapa: stageMap[stageKey] || '',
-      estado: '', // Limpiamos estado para ver todo lo de esa etapa
-      search: ''  // Limpiamos búsqueda de texto
+      etapa: stageMap[stageKey] || '', 
+      estado: '', // Limpiamos para ver todos (Pendientes y Recuperados)
+      search: '',
+      responsable: '' // Limpiamos responsable para ver el total del mes
     });
 
-    // 4. Saltamos a la vista de Gestión
+    // 4. Cambiamos la vista a Gestión (tabla)
     setView('list');
-    alert(`Filtrando ${stageKey} de ${data.name}`);
   };
   
   // --- 6. DASHBOARD BARRAS ---
