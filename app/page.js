@@ -342,37 +342,73 @@ const stats = useMemo(() => {
 
     // 2. Función para aplicar tus filtros exactos
     const aplicarFiltrosInternos = (q) => {
-        // Filtros básicos
-        if (filters.search) q.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%,responsable_verificacion.ilike.%${filters.search}%,responsable_requerimiento.ilike.%${filters.search}%,responsable_devolucion.ilike.%${filters.search}%,responsable_seguimiento.ilike.%${filters.search}%`);
+        // 1. FILTROS BÁSICOS (Siempre activos)
+        if (filters.search) {
+          q.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%,responsable_verificacion.ilike.%${filters.search}%,responsable_requerimiento.ilike.%${filters.search}%,responsable_devolucion.ilike.%${filters.search}%,responsable_seguimiento.ilike.%${filters.search}%`);
+        }
         if (filters.sede) q.eq('sede', filters.sede);
         if (filters.origen) q.eq('origen', filters.origen);
-        // Filtro por selector de nombres (incluye PENDIENTE y AMERICO)
-        if (filters.responsable) {
-          q.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable},responsable_seguimiento.eq.${filters.responsable}`);
-        }
 
-// --- FILTRO DE FECHAS CORREGIDO PARA CONSULTAS MASIVAS ---
-        if (filters.fechaInicio && filters.fechaFin) {
-          // Usamos una sintaxis más limpia compatible con los lotes
-          q.or(`fecha_verificacion.gte.${filters.fechaInicio},fecha_elaboracion.gte.${filters.fechaInicio},ultimo_seguimiento.gte.${filters.fechaInicio},fecha_devolucion.gte.${filters.fechaInicio}`);
-          q.or(`fecha_verificacion.lte.${filters.fechaFin},fecha_elaboracion.lte.${filters.fechaFin},ultimo_seguimiento.lte.${filters.fechaFin},fecha_devolucion.lte.${filters.fechaFin}`);
+        // 2. LÓGICA CONDICIONADA POR ETAPA (Auditoría Específica)
+        if (filters.etapa === 'VERIFICACION') {
+            // Filtro de Estado para esta etapa
+            if (filters.estado === 'VERIFICADO') q.eq('estado_verificacion_k', 'VERIFICADO');
+            else if (filters.estado === 'PENDIENTE') q.eq('estado_verificacion_k', 'PENDIENTE');
+            
+            // RESPONSABLE y FECHA apuntan a Verificación
+            if (filters.responsable) q.eq('responsable_verificacion', filters.responsable);
+            if (filters.fechaInicio) q.gte('fecha_verificacion', filters.fechaInicio);
+            if (filters.fechaFin) q.lte('fecha_verificacion', filters.fechaFin);
+        } 
+        else if (filters.etapa === 'REQUERIMIENTO') {
+            // Filtro de Estado para esta etapa (Atendido = Ya tiene N° de documento)
+            if (filters.estado === 'ATENDIDO') q.not('numero_documento', 'is', null).neq('numero_documento', '');
+            else if (filters.estado === 'PENDIENTE') q.or('numero_documento.is.null,numero_documento.eq.""');
+            
+            // RESPONSABLE y FECHA apuntan a Requerimiento
+            if (filters.responsable) q.eq('responsable_requerimiento', filters.responsable);
+            if (filters.fechaInicio) q.gte('fecha_elaboracion', filters.fechaInicio);
+            if (filters.fechaFin) q.lte('fecha_elaboracion', filters.fechaFin);
         }
-      
-        if (filters.estado) {
+        else if (filters.etapa === 'SEGUIMIENTO') {
+            // Filtro de Estado para esta etapa
+            if (filters.estado === 'EN PROCESO') q.gt('cantidad_seguimientos', 0);
+            else if (filters.estado === 'PENDIENTE') q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
+            // (Atendido en Seguimiento redirige a Cierre según lógica previa)
+
+            // RESPONSABLE y FECHA apuntan a Seguimiento
+            if (filters.responsable) q.eq('responsable_seguimiento', filters.responsable);
+            if (filters.fechaInicio) q.gte('ultimo_seguimiento', filters.fechaInicio);
+            if (filters.fechaFin) q.lte('ultimo_seguimiento', filters.fechaFin);
+        }
+        else if (filters.etapa === 'CIERRE') {
+            // Filtro de Estado para esta etapa
             if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
-            else if (filters.estado === 'RECONSTRUCCION') q.ilike('observaciones_finales', '%RECONSTRUCCION%');
-            else {
-                q.neq('cargado_sisged', true).neq('estado_visualizacion', 'SI SE VISUALIZA').or('observaciones_finales.is.null,observaciones_finales.not.ilike.*RECONSTRUCCION*');
-                if (filters.estado === 'EN PROCESO') q.gt('cantidad_seguimientos', 0);
-                else if (filters.estado === 'PENDIENTE') q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
-            }
+            else if (filters.estado === 'PENDIENTE') q.neq('cargado_sisged', true).neq('estado_visualizacion', 'SI SE VISUALIZA');
+            
+            // RESPONSABLE y FECHA apuntan a Devolución/Cierre
+            if (filters.responsable) q.eq('responsable_devolucion', filters.responsable);
+            if (filters.fechaInicio) q.gte('fecha_devolucion', filters.fechaInicio);
+            if (filters.fechaFin) q.lte('fecha_devolucion', filters.fechaFin);
         }
-
-        if (filters.etapa) {
-            if (filters.etapa === 'VERIFICACION') q.eq('estado_verificacion_k', 'PENDIENTE').eq('cargado_sisged', false);
-            else if (filters.etapa === 'REQUERIMIENTO') q.eq('origen', 'Externo').eq('estado_verificacion_k', 'VERIFICADO').eq('estado_visualizacion', 'NO SE VISUALIZA').eq('cargado_sisged', false).or('numero_documento.is.null,numero_documento.eq.""');
-            else if (filters.etapa === 'SEGUIMIENTO') q.eq('origen', 'Externo').eq('estado_verificacion_k', 'VERIFICADO').eq('estado_visualizacion', 'NO SE VISUALIZA').eq('cargado_sisged', false).not('numero_documento', 'is', null).neq('numero_documento', '');
-            else if (filters.etapa === 'CIERRE') q.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA,and(origen.eq.Interno,estado_verificacion_k.eq.VERIFICADO)');
+        else {
+            // 3. LÓGICA GLOBAL (Si no hay Etapa seleccionada)
+            if (filters.responsable) {
+                q.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable},responsable_seguimiento.eq.${filters.responsable}`);
+            }
+            if (filters.fechaInicio && filters.fechaFin) {
+                q.or(`fecha_verificacion.gte.${filters.fechaInicio},fecha_elaboracion.gte.${filters.fechaInicio},ultimo_seguimiento.gte.${filters.fechaInicio},fecha_devolucion.gte.${filters.fechaInicio}`);
+                q.or(`fecha_verificacion.lte.${filters.fechaFin},fecha_elaboracion.lte.${filters.fechaFin},ultimo_seguimiento.lte.${filters.fechaFin},fecha_devolucion.lte.${filters.fechaFin}`);
+            }
+            if (filters.estado) {
+                if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
+                else if (filters.estado === 'RECONSTRUCCION') q.ilike('observaciones_finales', '%RECONSTRUCCION%');
+                else {
+                    q.neq('cargado_sisged', true).neq('estado_visualizacion', 'SI SE VISUALIZA').or('observaciones_finales.is.null,observaciones_finales.not.ilike.*RECONSTRUCCION*');
+                    if (filters.estado === 'EN PROCESO') q.gt('cantidad_seguimientos', 0);
+                    else if (filters.estado === 'PENDIENTE') q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
+                }
+            }
         }
     };
 
@@ -831,11 +867,43 @@ const stats = useMemo(() => {
   value={filters.estado}
 >
   <option value="">ESTADO (TODOS)</option>
-  <option value="PENDIENTE">PENDIENTE</option>
-  <option value="EN PROCESO">EN PROCESO</option>
-  <option value="RECUPERADO">RECUPERADO</option>
-  <option value="RECONSTRUCCION">RECONSTRUCCION</option>
+  
+  {/* Opciones dinámicas según la Etapa */}
+  {!filters.etapa && (
+    <>
+      <option value="PENDIENTE">PENDIENTE</option>
+      <option value="EN PROCESO">EN PROCESO</option>
+      <option value="RECUPERADO">RECUPERADO</option>
+      <option value="RECONSTRUCCION">RECONSTRUCCION</option>
+    </>
+  )}
+  {filters.etapa === 'VERIFICACION' && (
+    <>
+      <option value="PENDIENTE">PENDIENTE</option>
+      <option value="VERIFICADO">VERIFICADO</option>
+    </>
+  )}
+  {filters.etapa === 'REQUERIMIENTO' && (
+    <>
+      <option value="PENDIENTE">PENDIENTE</option>
+      <option value="ATENDIDO">ATENDIDO</option>
+    </>
+  )}
+  {filters.etapa === 'SEGUIMIENTO' && (
+    <>
+      <option value="PENDIENTE">PENDIENTE</option>
+      <option value="EN PROCESO">EN PROCESO</option>
+      <option value="ATENDIDO">ATENDIDO</option>
+    </>
+  )}
+  {filters.etapa === 'CIERRE' && (
+    <>
+      <option value="PENDIENTE">PENDIENTE</option>
+      <option value="RECUPERADO">RECUPERADO</option>
+    </>
+  )}
 </select>
+  
             <select className="border rounded-xl p-2.5 text-[10px] font-black bg-white cursor-pointer shadow-sm outline-none" onChange={e => setFilters({...filters, responsable: e.target.value})}><option value="">RESPONSABLE</option>{LISTA_RESPONSABLES.map(r => <option key={r} value={r}>{r}</option>)}</select>
 <div className="flex items-center gap-1 border border-slate-900 rounded-xl px-3 py-1.5 bg-white shadow-sm">
   <Calendar size={12} className="text-slate-500"/>
@@ -1078,18 +1146,28 @@ const stats = useMemo(() => {
                 <tbody className="divide-y divide-slate-50 text-sm">
                   {docs.map(doc => {
                     const status = getEtapaEstado(doc);
-                    const isSelected = selectedIds.includes(doc.id);
-                    
-// --- 1. LÓGICA PARA DETERMINAR EL RESPONSABLE SEGÚN LA ETAPA ACTUAL ---
-    let asignado = 'PENDIENTE';
-    if (status.etapa === 'VERIFICACION') asignado = doc.responsable_verificacion;
-    else if (status.etapa === 'REQUERIMIENTO') asignado = doc.responsable_requerimiento;
-    else if (status.etapa === 'SEGUIMIENTO') asignado = doc.responsable_seguimiento;
-    else if (status.etapa === 'CIERRE') asignado = doc.responsable_devolucion;
 
-    // Normalizamos si el valor es nulo o vacío
-    const mostrarAsignado = (!asignado || asignado === 'null' || asignado === '') ? 'PENDIENTE' : asignado;
-    const esPendiente = mostrarAsignado === 'PENDIENTE';
+let asignadoCalculado = 'PENDIENTE';
+
+// REGLA: Si hay filtro de etapa, mostrar el responsable de ESA etapa
+if (filters.etapa === 'VERIFICACION') {
+    asignadoCalculado = doc.responsable_verificacion;
+} else if (filters.etapa === 'REQUERIMIENTO') {
+    asignadoCalculado = doc.responsable_requerimiento;
+} else if (filters.etapa === 'SEGUIMIENTO') {
+    asignadoCalculado = doc.responsable_seguimiento;
+} else if (filters.etapa === 'CIERRE') {
+    asignadoCalculado = doc.responsable_devolucion;
+} else {
+    // REGLA: Si no hay filtro, mostrar el de la etapa ACTUAL del documento
+    if (status.etapa === 'VERIFICACION') asignadoCalculado = doc.responsable_verificacion;
+    else if (status.etapa === 'REQUERIMIENTO') asignadoCalculado = doc.responsable_requerimiento;
+    else if (status.etapa === 'SEGUIMIENTO') asignadoCalculado = doc.responsable_seguimiento;
+    else if (status.etapa === 'CIERRE') asignadoCalculado = doc.responsable_devolucion;
+}
+
+const mostrarAsignado = (!asignadoCalculado || asignadoCalculado === 'null' || asignadoCalculado === '') ? 'PENDIENTE' : asignadoCalculado;
+const esPendiente = mostrarAsignado === 'PENDIENTE';
     // ---------------------------------------------------------------------
                     
                     return (
