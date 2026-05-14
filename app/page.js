@@ -1093,6 +1093,15 @@ const stats = useMemo(() => {
     )
   })}
 </tbody>
+              </table>
+              <div className="p-10 bg-slate-50 flex justify-between items-center border-t border-slate-100 font-sans shadow-inner"><p className="text-xs font-black text-slate-400 uppercase tracking-widest font-sans font-sans">Página {page} • Total: {totalDocs}</p>
+                <div className="flex gap-4 font-sans font-bold"><button onClick={() => setPage(p => p - 1)} disabled={page === 1} className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center hover:bg-blue-600 hover:text-white shadow-sm disabled:opacity-20 transition-all shadow-lg"><ChevronLeft size={20}/></button><button onClick={() => setPage(p => p + 1)} disabled={page * 100 >= totalDocs} className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center hover:bg-blue-600 hover:text-white shadow-sm disabled:opacity-20 transition-all shadow-lg"><ChevronRight size={20}/></button></div>
+              </div>
+            </div>
+          )}
+        </div>
+      </main> {/* <--- AGREGA ESTA LÍNEA AQUÍ PARA CERRAR EL MAIN */}
+
 
       {/* --- MODAL DETALLES TOTAL (A-AD INTEGRAL) --- */}
       {editingDoc && (
