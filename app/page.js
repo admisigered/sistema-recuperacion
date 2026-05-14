@@ -108,26 +108,30 @@ export default function SistemaSIGERED() {
     }
 
     // 3. REGLA: SEGUIMIENTO (EN PROCESO / ATENDIDO)
-    // Solo aplica para documentos con N° de documento (Etapa 3) que NO estén recuperados
+    // Solo aplica para documentos con N° de documento (Etapa 3)
     if (numDoc && numDoc !== '' && numDoc !== 'null') {
         
-        // ¿Algún registro de seguimiento dice "REMITIÓ DOCUMENTO"?
-        const fueAtendido = seguimientos.some(s => 
+        // Verificación de seguridad: Solo buscamos el texto "REMITIÓ DOCUMENTO" 
+        // si el documento es el que estamos editando actualmente en el modal.
+        // Esto evita que la tabla de 13,000 registros colapse.
+        const esDocActivo = editingDoc && doc.id === editingDoc.id;
+        const fueAtendido = esDocActivo && seguimientos.some(s => 
             String(s.observaciones).toUpperCase().includes('REMITIÓ DOCUMENTO')
         );
 
         if (fueAtendido) {
-            // Regla 8 de tu lógica: Si remitió, pasa a ETAPA 4 como PENDIENTE (hasta que marquen SISGED)
+            // Regla 8: Si remitió, pasa a ETAPA 4 como PENDIENTE
             return { etapa: 'CIERRE', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
         }
 
         if (cantSeg > 0) {
-            // Si tiene seguimientos pero no ha remitido: EN PROCESO
+            // Si tiene seguimientos en la base de datos: EN PROCESO
             return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' };
         }
     }
 
     // 4. REGLA: PENDIENTE UNIVERSAL (Rojo)
+    // Cubre: Etapa 1 (Verificación), Etapa 2 (Requerimiento), Etapa 3 (Seguimiento 0) y Etapa 4 (Internos)
     let etapaDetectada = 'VERIFICACION';
 
     if (colK === 'VERIFICADO') {
@@ -150,8 +154,8 @@ export default function SistemaSIGERED() {
       border: 'border-red-500' 
     };
 
-  }, []);
-
+  }, [seguimientos, editingDoc]);
+  
 const stats = useMemo(() => {
     // Si no hay documentos, devolvemos datos vacíos para evitar errores en los gráficos
     if (!allDocsForStats || allDocsForStats.length === 0) {
