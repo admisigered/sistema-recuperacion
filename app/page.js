@@ -218,23 +218,46 @@ const stats = useMemo(() => {
       },
     ];
 
-    // 3. RENDIMIENTO DE RESPONSABLES (Barras horizontales 100% apiladas) + ALERTA
+    // 3. RENDIMIENTO DE RESPONSABLES (Filtrado por fecha de acción individual)
     let maxPromedio = 0;
     let responsableLento = "ADMINISTRADOR";
 
     const respData = LISTA_RESPONSABLES.map(r => {
       const user = r.toUpperCase();
       
-      // Cantidades Reales (vVal, reVal, sVal, cVal)
-      const v = allDocsForStats.filter(d => String(d.responsable_verificacion).toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO').length;
-      const re = allDocsForStats.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.numero_documento && d.numero_documento !== 'null').length;
-      const s = allDocsForStats.filter(d => 
-    String(d.responsable_seguimiento).toUpperCase() === user && 
-    (d.cantidad_seguimientos > 0 || d.ultimo_seguimiento)
-).length;
-      const c = allDocsForStats.filter(d => String(d.responsable_devolucion).toUpperCase() === user && d.cargado_sisged).length;
+      // Función para saber si una fecha específica cae en el rango del filtro
+      const estaEnRango = (fecha) => {
+        if (!filters.fechaInicio || !filters.fechaFin) return true; // Si no hay filtro, cuenta todo
+        const f = formatExcelDate(fecha);
+        return f >= filters.fechaInicio && f <= filters.fechaFin;
+      };
 
-      const total = v + re + s + c || 1; // Total para cálculo de porcentaje (100% stack)
+      // CONTAMOS LA ACCIÓN SOLO SI OCURRIÓ EN EL RANGO SELECCIONADO
+      const vVal = allDocsForStats.filter(d => 
+        String(d.responsable_verificacion).toUpperCase() === user && 
+        d.estado_verificacion_k === 'VERIFICADO' && 
+        estaEnRango(d.fecha_verificacion) // <--- Solo cuenta si verificó en esa fecha
+      ).length;
+
+      const reVal = allDocsForStats.filter(d => 
+        String(d.responsable_requerimiento).toUpperCase() === user && 
+        (d.numero_documento && d.numero_documento !== 'null') && 
+        estaEnRango(d.fecha_elaboracion) // <--- Solo cuenta si hizo el oficio en esa fecha
+      ).length;
+
+      const sVal = allDocsForStats.filter(d => 
+        String(d.responsable_seguimiento).toUpperCase() === user && 
+        d.cantidad_seguimientos > 0 && 
+        estaEnRango(d.ultimo_seguimiento) // <--- Solo cuenta si llamó en esa fecha
+      ).length;
+
+      const cVal = allDocsForStats.filter(d => 
+        String(d.responsable_devolucion).toUpperCase() === user && 
+        d.cargado_sisged && 
+        estaEnRango(d.fecha_devolucion) // <--- Solo cuenta si cerró en esa fecha
+      ).length;
+
+      const total = vVal + reVal + sVal + cVal || 1;
       
       // Lógica de Alerta (Detección del más demorado)
       const prom = parseFloat((Math.random() * 4 + 2).toFixed(1)); 
@@ -242,11 +265,11 @@ const stats = useMemo(() => {
 
       return {
         name: r,
-        vVal: v, reVal: re, sVal: s, cVal: c, // Números reales para etiquetas
-        vPct: (v / total) * 100, // Porcentajes para el ancho de la barra
-        rePct: (re / total) * 100,
-        sPct: (s / total) * 100,
-        cPct: (c / total) * 100
+        vVal, reVal, sVal, cVal,      // Cantidades exactas del periodo
+        vPct: (vVal / total) * 100,   // Ancho de la barra proporcional
+        rePct: (reVal / total) * 100,
+        sPct: (sVal / total) * 100,
+        cPct: (cVal / total) * 100
       };
     });
 
