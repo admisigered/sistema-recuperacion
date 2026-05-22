@@ -280,11 +280,20 @@ export default function SistemaSIGERED() {
       
       const vVal = allDocsForStats.filter(d => String(d.responsable_verificacion).toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO' && accionEnRango(d.fecha_verificacion)).length;
       const reVal = allDocsForStats.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.numero_documento && d.numero_documento !== 'null' && accionEnRango(d.fecha_elaboracion)).length;
-      const sVal = allDocsForStats.filter(d => 
-  (String(d.responsable_seguimiento).toUpperCase() === user || String(d.ultimo_responsable).toUpperCase() === user) && 
-  (d.cantidad_seguimientos > 0 || d.ultimo_seguimiento) && 
-  estaEnRango(d.ultimo_seguimiento || d.fecha_elaboracion)
-).length;
+      // BUSCA LA VARIABLE sVal DENTRO DE respData Y REEMPLÁZALA POR ESTA:
+const sVal = allDocsForStats.filter(d => {
+    const rSeg = (d.responsable_seguimiento || '').toUpperCase();
+    const rUlt = (d.ultimo_responsable || '').toUpperCase();
+    
+    // Solo contamos si el usuario coincide con alguno de los responsables de seguimiento
+    const esSuSeguimiento = rSeg === user || rUlt === user;
+    
+    // Solo si tiene gestiones y está en el rango de fecha
+    const tieneGestion = (d.cantidad_seguimientos > 0 || d.ultimo_seguimiento);
+    const enFecha = estaEnRango(d.ultimo_seguimiento || d.fecha_elaboracion);
+    
+    return esSuSeguimiento && tieneGestion && enFecha;
+}).length;
       const cVal = allDocsForStats.filter(d => String(d.responsable_devolucion).toUpperCase() === user && (d.cargado_sisged || d.estado_visualizacion === 'SI SE VISUALIZA') && accionEnRango(d.fecha_devolucion)).length;
 
       const total = vVal + reVal + sVal + cVal || 1;
