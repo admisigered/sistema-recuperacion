@@ -149,6 +149,7 @@ export default function SistemaSIGERED() {
   const [seguimientos, setSeguimientos] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [allDocsForStats, setAllDocsForStats] = useState([]); // Nuevo: para el Dashboard total
+  const [allSegsForStats, setAllSegsForStats] = useState([]);
   
   // --- FILTROS GLOBALES (CONECTADOS) ---
   const [filters, setFilters] = useState({ 
@@ -426,28 +427,24 @@ const stats = useMemo(() => {
         // Aplicamos los filtros
         aplicarFiltrosInternos(qStats);
         
-        const { data: chunk, error: errChunk } = await qStats.range(desde, desde + paso - 1);
+        const { data: segsData, error: segsError } = await supabase
+        .from('seguimientos')
+        .select('responsable, fecha, observaciones, documento_id');
 
-        if (errChunk) {
-            console.error("Error en lote:", errChunk);
-            hayMas = false;
-        } else if (!chunk || chunk.length === 0) {
-            hayMas = false;
-        } else {
-            allData = [...allData, ...chunk];
-            if (chunk.length < paso) hayMas = false;
-            else desde += paso;
-        }
-        if (desde > 20000) hayMas = false; 
+    if (segsError) {
+        console.error("Error cargando historial de acciones:", segsError);
+    } else {
+        // Guardamos todos los seguimientos en el nuevo estado para las tarjetas
+        setAllSegsForStats(segsData || []);
     }
 
     setAllDocsForStats(allData);
     setLoading(false);
-  }, [page, filters]); // Cierre correcto de useCallback
+  }, [page, filters]); // Cierre de useCallback
 
   useEffect(() => {
     if (session) fetchDocs();
-  }, [session, fetchDocs]); // Cierre correcto de useEffect
+  }, [session, fetchDocs]); // Cierre de useEffect
 
   
   // --- 4. IMPORTACIÓN MASIVA CON LIMPIEZA DE DUPLICADOS ---
