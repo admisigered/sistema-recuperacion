@@ -279,10 +279,19 @@ const stats = useMemo(() => {
 
       // 3. SEGUIMIENTOS (Lo más importante): Contamos cada registro de la tabla historial
       // Esto hará que si Yanina hizo 21 llamadas el 21/05, aparezca el número 21
-      const s = allSegsForStats.filter(seg => 
-        (seg.responsable || '').toUpperCase().trim() === user && 
-        enRango(seg.fecha)
-      ).length;
+      // BUSCA LA VARIABLE 's' DENTRO DE respData Y REEMPLÁZALA POR ESTA:
+const s = allSegsForStats.filter(seg => {
+    // 1. ¿El responsable del seguimiento es el usuario de la tarjeta?
+    const esSuResponsabilidad = (seg.responsable || '').toUpperCase().trim() === user;
+    
+    // 2. ¿La fecha del seguimiento está en el rango?
+    const estaEnFecha = enRango(seg.fecha);
+    
+    // 3. ¡EL FILTRO CRUCIAL!: ¿Este seguimiento pertenece a uno de los documentos que estoy filtrando arriba?
+    const perteneceADocsFiltrados = allDocsForStats.some(d => d.id === seg.documento_id);
+
+    return esSuResponsabilidad && estaEnFecha && perteneceADocsFiltrados;
+}).length;
 
       // 4. Cierres: Documentos que este usuario marcó como recuperados en este rango
       const c = allDocsForStats.filter(d => 
