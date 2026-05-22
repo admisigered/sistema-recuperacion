@@ -345,9 +345,11 @@ export default function SistemaSIGERED() {
                     q.eq('responsable_verificacion', filters.responsable);
                 }
             }
-            if (filters.fechaInicio) q.gte('fecha_verificacion', filters.fechaInicio);
-            if (filters.fechaFin) q.lte('fecha_verificacion', filters.fechaFin);
-        } 
+            // Filtro de fecha específico para esta etapa (Actividad en Verificación)
+            if (filters.fechaInicio && filters.fechaFin) {
+                q.gte('fecha_verificacion', filters.fechaInicio).lte('fecha_verificacion', filters.fechaFin);
+            }
+              
         else if (filters.etapa === 'REQUERIMIENTO') {
             // Un documento está en REQUERIMIENTO si su N° de documento está realmente vacío
             q.or('numero_documento.is.null,numero_documento.eq."",numero_documento.eq.null,numero_documento.eq." "');
@@ -364,9 +366,11 @@ export default function SistemaSIGERED() {
                     q.eq('responsable_requerimiento', filters.responsable);
                 }
             }
-            if (filters.fechaInicio) q.gte('fecha_elaboracion', filters.fechaInicio);
-            if (filters.fechaFin) q.lte('fecha_elaboracion', filters.fechaFin);
-        }
+            // Filtro de fecha específico para esta etapa (Actividad en Requerimiento)
+            if (filters.fechaInicio && filters.fechaFin) {
+                q.gte('fecha_elaboracion', filters.fechaInicio).lte('fecha_elaboracion', filters.fechaFin);
+            }
+              
         else if (filters.etapa === 'SEGUIMIENTO') {
             // Un documento SOLO entra en seguimiento si TIENE un número de documento válido
             q.not('numero_documento', 'is', null).neq('numero_documento', '').neq('numero_documento', 'null').neq('numero_documento', ' ');
@@ -382,9 +386,11 @@ export default function SistemaSIGERED() {
                     q.eq('responsable_seguimiento', filters.responsable);
                 }
             }
-            if (filters.fechaInicio) q.gte('ultimo_seguimiento', filters.fechaInicio);
-            if (filters.fechaFin) q.lte('ultimo_seguimiento', filters.fechaFin);
-        }
+            // Filtro de fecha específico para esta etapa (Actividad en Seguimiento)
+            if (filters.fechaInicio && filters.fechaFin) {
+                q.gte('ultimo_seguimiento', filters.fechaInicio).lte('ultimo_seguimiento', filters.fechaFin);
+            }
+              
         else if (filters.etapa === 'CIERRE') {
             if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
             
@@ -396,9 +402,10 @@ export default function SistemaSIGERED() {
                     q.eq('responsable_devolucion', filters.responsable);
                 }
             }
-            if (filters.fechaInicio) q.gte('fecha_devolucion', filters.fechaInicio);
-            if (filters.fechaFin) q.lte('fecha_devolucion', filters.fechaFin);
-        }
+            // Filtro de fecha específico para esta etapa (Actividad en Cierre)
+            if (filters.fechaInicio && filters.fechaFin) {
+                q.gte('fecha_devolucion', filters.fechaInicio).lte('fecha_devolucion', filters.fechaFin);
+            }
         else {
             // --- 3. LÓGICA GLOBAL (Sin Etapa seleccionada) ---
             if (filters.responsable) {
@@ -414,9 +421,12 @@ export default function SistemaSIGERED() {
                 }
             }
 
+            // FILTRO DE FECHA GLOBAL (Actividad en cualquiera de las 4 etapas)
             if (filters.fechaInicio && filters.fechaFin) {
-                q.or(`fecha_verificacion.gte.${filters.fechaInicio},fecha_elaboracion.gte.${filters.fechaInicio},ultimo_seguimiento.gte.${filters.fechaInicio},fecha_devolucion.gte.${filters.fechaInicio}`);
-                q.or(`fecha_verificacion.lte.${filters.fechaFin},fecha_elaboracion.lte.${filters.fechaFin},ultimo_seguimiento.lte.${filters.fechaFin},fecha_devolucion.lte.${filters.fechaFin}`);
+                const fI = filters.fechaInicio;
+                const fF = filters.fechaFin;
+                // Usamos una sola cadena OR con lógica AND interna para máxima estabilidad
+                q.or(`and(fecha_verificacion.gte.${fI},fecha_verificacion.lte.${fF}),and(fecha_elaboracion.gte.${fI},fecha_elaboracion.lte.${fF}),and(ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),and(fecha_devolucion.gte.${fI},fecha_devolucion.lte.${fF})`);
             }
 
             if (filters.estado) {
