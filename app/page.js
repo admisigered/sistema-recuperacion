@@ -236,27 +236,25 @@ export default function SistemaSIGERED() {
 
   }, [seguimientos, editingDoc]);
   
-const stats = useMemo(() => {
+// --- 2. PROCESAMIENTO DE ESTADÍSTICAS (FILTRADO POR FECHA DE ACCIÓN) ---
+  const stats = useMemo(() => {
     if (!allDocsForStats || allDocsForStats.length === 0) {
       return { monthlyData: [], stageData: [], originData: [], sedeData: [], respData: [], alertaMensaje: "" };
     }
 
-    // --- FUNCIÓN INTERNA: Validador de Fecha para cada Acción ---
+    // Función interna para validar si una acción específica ocurrió en el rango
     const accionEnRango = (fechaAccion) => {
-      if (!filters.fechaInicio || !filters.fechaFin) return true; // Si no hay filtro, cuenta todo
+      if (!filters.fechaInicio || !filters.fechaFin) return true;
       const f = formatExcelDate(fechaAccion);
       if (!f) return false;
       return f >= filters.fechaInicio && f <= filters.fechaFin;
     };
 
-    // 1. AVANCE DE ETAPAS POR MES (Histórico)
+    // 1. AVANCE DE ETAPAS POR MES (Histórico de actividad)
     const configuracionMeses = [
-      { etiqueta: 'DICIEMBRE', filtro: '2025-12' },
-      { etiqueta: 'ENERO', filtro: '2026-01' },
-      { etiqueta: 'FEBRERO', filtro: '2026-02' },
-      { etiqueta: 'MARZO', filtro: '2026-03' },
-      { etiqueta: 'ABRIL', filtro: '2026-04' },
-      { etiqueta: 'MAYO', filtro: '2026-05' }
+      { etiqueta: 'DICIEMBRE', filtro: '2025-12' }, { etiqueta: 'ENERO', filtro: '2026-01' },
+      { etiqueta: 'FEBRERO', filtro: '2026-02' }, { etiqueta: 'MARZO', filtro: '2026-03' },
+      { etiqueta: 'ABRIL', filtro: '2026-04' }, { etiqueta: 'MAYO', filtro: '2026-05' }
     ];
 
     const monthlyData = configuracionMeses.map((mes) => {
@@ -273,57 +271,30 @@ const stats = useMemo(() => {
       };
     });
 
-    // 2. RENDIMIENTO DE RESPONSABLES (Basado en la fecha de cada Acción)
+    // 2. RENDIMIENTO POR RESPONSABLE (CONTANDO ACCIONES EN EL RANGO)
     let maxPromedio = 0;
     let responsableLento = "ADMINISTRADOR";
 
     const respData = LISTA_RESPONSABLES.map(r => {
       const user = r.toUpperCase();
       
-      // Filtramos las acciones individuales por el responsable Y por la fecha en que se hizo
-      const vVal = allDocsForStats.filter(d => 
-        String(d.responsable_verificacion).toUpperCase() === user && 
-        d.estado_verificacion_k === 'VERIFICADO' && 
-        accionEnRango(d.fecha_verificacion)
-      ).length;
-
-      const reVal = allDocsForStats.filter(d => 
-        String(d.responsable_requerimiento).toUpperCase() === user && 
-        d.numero_documento && d.numero_documento !== 'null' && 
-        accionEnRango(d.fecha_elaboracion)
-      ).length;
-
-      const sVal = allDocsForStats.filter(d => 
-        String(d.responsable_seguimiento).toUpperCase() === user && 
-        d.cantidad_seguimientos > 0 && 
-        accionEnRango(d.ultimo_seguimiento)
-      ).length;
-
-      const cVal = allDocsForStats.filter(d => 
-        String(d.responsable_devolucion).toUpperCase() === user && 
-        (d.cargado_sisged || d.estado_visualizacion === 'SI SE VISUALIZA') && 
-        accionEnRango(d.fecha_devolucion)
-      ).length;
+      const vVal = allDocsForStats.filter(d => String(d.responsable_verificacion).toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO' && accionEnRango(d.fecha_verificacion)).length;
+      const reVal = allDocsForStats.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.numero_documento && d.numero_documento !== 'null' && accionEnRango(d.fecha_elaboracion)).length;
+      const sVal = allDocsForStats.filter(d => String(d.responsable_seguimiento).toUpperCase() === user && (d.cantidad_seguimientos > 0 || d.ultimo_seguimiento) && accionEnRango(d.ultimo_seguimiento)).length;
+      const cVal = allDocsForStats.filter(d => String(d.responsable_devolucion).toUpperCase() === user && (d.cargado_sisged || d.estado_visualizacion === 'SI SE VISUALIZA') && accionEnRango(d.fecha_devolucion)).length;
 
       const total = vVal + reVal + sVal + cVal || 1;
-      
-      // Alerta de eficiencia
       const prom = parseFloat((Math.random() * 4 + 2).toFixed(1)); 
       if (prom > maxPromedio) { maxPromedio = prom; responsableLento = r; }
 
       return {
-        name: r,
-        vVal, reVal, sVal, cVal,
-        vPct: (vVal / total) * 100,
-        rePct: (reVal / total) * 100,
-        sPct: (sVal / total) * 100,
-        cPct: (cVal / total) * 100
+        name: r, vVal, reVal, sVal, cVal,
+        vPct: (vVal / total) * 100, rePct: (reVal / total) * 100, sPct: (sVal / total) * 100, cPct: (cVal / total) * 100
       };
     });
 
     return { 
-      monthlyData, 
-      respData, 
+      monthlyData, respData, 
       alertaMensaje: `ETAPA MÁS DEMORADA: ${responsableLento} — SEGUIMIENTO: ${maxPromedio} DÍAS AVG.`,
       stageData: [
         { name: 'Verif.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'VERIFICACION').length },
@@ -342,7 +313,6 @@ const stats = useMemo(() => {
     };
   }, [allDocsForStats, getEtapaEstado, filters.fechaInicio, filters.fechaFin]);
   
- 
   // --- 3. GESTIÓN DE DATOS (TABLA + DASHBOARD GLOBAL) ---
   const fetchDocs = useCallback(async () => {
     setLoading(true);
