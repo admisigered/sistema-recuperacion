@@ -1212,23 +1212,24 @@ const stats = useMemo(() => {
       <div className="h-[450px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={stats.respData} layout="vertical" margin={{ top: 5, right: 40, left: 40, bottom: 5 }}>
-            <XAxis type="number" hide domain={[0, 100]} />
-            <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 'bold', fill: '#1e293b'}} width={120} />
-            <Tooltip formatter={(value, name, props) => [props.payload[props.dataKey.replace('Pct', 'Val')], name]} />
-            <Legend verticalAlign="bottom" height={40} iconType="circle"/>
-            <Bar name="Verificados" dataKey="vPct" stackId="a" fill="#3b82f6">
-              <LabelList dataKey="vVal" position="center" fill="#fff" fontSize={13} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
-            </Bar>
-            <Bar name="Requeridos" dataKey="rePct" stackId="a" fill="#93c5fd">
-              <LabelList dataKey="reVal" position="center" fill="#1e3a8a" fontSize={13} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
-            </Bar>
-            <Bar name="Seguimientos" dataKey="sPct" stackId="a" fill="#f97316">
-              <LabelList dataKey="sVal" position="center" fill="#fff" fontSize={13} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
-            </Bar>
-            <Bar name="Cerrados/SISGED" dataKey="cPct" stackId="a" fill="#22c55e">
-              <LabelList dataKey="cVal" position="center" fill="#fff" fontSize={13} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
-            </Bar>
-          </BarChart>
+  <XAxis type="number" hide domain={[0, 100]} />
+  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 'bold', fill: '#1e293b'}} width={120} />
+  <Tooltip formatter={(value, name, props) => [props.payload[props.dataKey.replace('Pct', 'Val')], name]} />
+  <Legend verticalAlign="bottom" height={40} iconType="circle"/>
+  
+  <Bar name="Verificados" dataKey="vPct" stackId="a" fill="#3b82f6">
+    <LabelList dataKey="vVal" position="center" fill="#fff" fontSize={12} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
+  </Bar>
+  <Bar name="Requeridos" dataKey="rePct" stackId="a" fill="#93c5fd">
+    <LabelList dataKey="reVal" position="center" fill="#1e3a8a" fontSize={12} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
+  </Bar>
+  <Bar name="Seguimientos" dataKey="sPct" stackId="a" fill="#f97316">
+    <LabelList dataKey="sVal" position="center" fill="#fff" fontSize={12} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
+  </Bar>
+  <Bar name="Cerrados/SISGED" dataKey="cPct" stackId="a" fill="#22c55e">
+    <LabelList dataKey="cVal" position="center" fill="#fff" fontSize={12} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
+  </Bar>
+</BarChart>
         </ResponsiveContainer>
       </div>
     </div>
