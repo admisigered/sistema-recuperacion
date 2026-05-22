@@ -254,24 +254,24 @@ const stats = useMemo(() => {
     const respData = listaSoloPersonal.map(r => {
       const user = r.toUpperCase();
       
-      // Función para validar rango de fecha
+      // Función para validar rango de fecha según la etapa
       const enRango = (f) => {
         if (!filters.fechaInicio || !filters.fechaFin) return true;
         const fecha = formatExcelDate(f);
         return fecha && fecha >= filters.fechaInicio && fecha <= filters.fechaFin;
       };
 
-      // Filtramos documentos donde el usuario hizo Verif, Req o Cierre en el rango
+      // 1. Verificados: Documentos donde fue el verificador
       const v = allDocsForStats.filter(d => (d.responsable_verificacion || '').toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO' && enRango(d.fecha_verificacion)).length;
-      const re = allDocsForStats.filter(d => (d.responsable_requerimiento || '').toUpperCase() === user && d.numero_documento && enRango(d.fecha_elaboracion)).length;
-      const c = allDocsForStats.filter(d => (d.responsable_devolucion || '').toUpperCase() === user && d.cargado_sisged && enRango(d.fecha_devolucion)).length;
+      
+      // 2. Requeridos: Documentos que pasaron por su mano en Requerimiento (tengan o no número aún)
+      const re = allDocsForStats.filter(d => (d.responsable_requerimiento || '').toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO' && enRango(d.fecha_elaboracion || d.fecha_verificacion)).length;
+      
+      // 3. Seguimientos: TODOS los seguimientos realizados por él (Lógica de acciones reales)
+      const s = allSegsForStats.filter(seg => (seg.responsable || '').toUpperCase() === user && enRango(seg.fecha)).length;
 
-      // --- CAMBIO CLAVE: Contamos TODOS los seguimientos de la tabla histórica ---
-      // Filtramos la tabla de seguimientos por responsable y fecha
-      const s = allSegsForStats.filter(seg => 
-  (seg.responsable || '').toUpperCase() === user && 
-  estaEnRango(seg.fecha)
-).length;
+      // 4. Cerrados: Documentos que él marcó como recuperados o cargó a SISGED
+      const c = allDocsForStats.filter(d => (d.responsable_devolucion || '').toUpperCase() === user && (d.cargado_sisged || d.estado_visualizacion === 'SI SE VISUALIZA') && enRango(d.fecha_devolucion)).length;
 
       return { name: r, verif: v, req: re, seg: s, cierre: c };
     });
@@ -900,7 +900,7 @@ const stats = useMemo(() => {
       {[
         { 
           label: 'TOTAL REGISTROS', 
-          val: totalDocs, // Este número de 785 ya es correcto
+          val: totalDocs, 
           color: 'border-b-blue-600', 
           text: 'text-slate-800' 
         },
@@ -925,9 +925,8 @@ const stats = useMemo(() => {
       ].map((kpi, i) => (
         <div key={i} className={`bg-white p-6 rounded-3xl shadow-sm border-b-4 ${kpi.color} flex flex-col justify-center min-h-[140px] shadow-slate-200`}>
           <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase">{kpi.label}</p>
-          <h3 className={`text-5xl font-black ${kpi.text}`}>
-            {/* Mientras carga mostramos los puntos, luego el valor filtrado */}
-            {loading && allDocsForStats.length === 0 ? "..." : kpi.val}
+          <h3 className="text-5xl font-black transition-all">
+            {loading ? "..." : kpi.val}
           </h3>
         </div>
       ))}
