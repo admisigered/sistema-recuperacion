@@ -314,134 +314,85 @@ export default function SistemaSIGERED() {
     let from = (page - 1) * ITEMS_PER_PAGE;
     let to = from + ITEMS_PER_PAGE - 1;
 
-    // 1. Definimos las dos consultas base
+    // 1. Definimos la consulta para la tabla
     let queryTable = supabase.from('documentos').select('*', { count: 'exact' });
 
-    // 2. Función para aplicar tus filtros exactos
+    // 2. Función para aplicar filtros de forma consistente
     const aplicarFiltrosInternos = (q) => {
-        // 1. FILTROS BÁSICOS
+        // FILTROS BÁSICOS
         if (filters.search) q.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%,responsable_verificacion.ilike.%${filters.search}%,responsable_requerimiento.ilike.%${filters.search}%,responsable_devolucion.ilike.%${filters.search}%,responsable_seguimiento.ilike.%${filters.search}%`);
         if (filters.sede) q.eq('sede', filters.sede);
         if (filters.origen) q.eq('origen', filters.origen);
 
-        // --- REGLA DE ORO: EXCLUSIÓN DE RECUPERADOS PARA PENDIENTES ---
-        // Si el estado es PENDIENTE o EN PROCESO, quitamos los RECUPERADOS de toda la consulta
+        // EXCLUSIÓN GLOBAL DE RECUPERADOS
         if (filters.estado === 'PENDIENTE' || filters.estado === 'EN PROCESO') {
             q.neq('cargado_sisged', true);
             q.neq('estado_visualizacion', 'SI SE VISUALIZA');
         }
 
-        // 2. LÓGICA POR ETAPA
+        // LÓGICA POR ETAPA
         if (filters.etapa === 'VERIFICACION') {
-            // Filtrar estado dentro de Verificación
             if (filters.estado === 'VERIFICADO') q.eq('estado_verificacion_k', 'VERIFICADO');
             else if (filters.estado === 'PENDIENTE') q.eq('estado_verificacion_k', 'PENDIENTE');
             
-            // Lógica inteligente para RESPONSABLE PENDIENTE en esta etapa
             if (filters.responsable) {
-                if (filters.responsable === 'PENDIENTE') {
-                    q.or('responsable_verificacion.is.null,responsable_verificacion.eq."",responsable_verificacion.eq.PENDIENTE,responsable_verificacion.eq.null');
-                } else {
-                    q.eq('responsable_verificacion', filters.responsable);
-                }
+                if (filters.responsable === 'PENDIENTE') q.or('responsable_verificacion.is.null,responsable_verificacion.eq."",responsable_verificacion.eq.PENDIENTE');
+                else q.eq('responsable_verificacion', filters.responsable);
             }
-            // Filtro de fecha específico para esta etapa (Actividad en Verificación)
-            if (filters.fechaInicio && filters.fechaFin) {
-                q.gte('fecha_verificacion', filters.fechaInicio).lte('fecha_verificacion', filters.fechaFin);
-            }
-              
+            if (filters.fechaInicio && filters.fechaFin) q.gte('fecha_verificacion', filters.fechaInicio).lte('fecha_verificacion', filters.fechaFin);
+        } 
         else if (filters.etapa === 'REQUERIMIENTO') {
-            // Un documento está en REQUERIMIENTO si su N° de documento está realmente vacío
-            q.or('numero_documento.is.null,numero_documento.eq."",numero_documento.eq.null,numero_documento.eq." "');
-            
-            if (filters.estado === 'ATENDIDO') {
-                q.not('numero_documento', 'is', null).neq('numero_documento', '');
-            }
-
-            // Lógica inteligente para RESPONSABLE PENDIENTE en esta etapa
+            q.or('numero_documento.is.null,numero_documento.eq."",numero_documento.eq.null');
             if (filters.responsable) {
-                if (filters.responsable === 'PENDIENTE') {
-                    q.or('responsable_requerimiento.is.null,responsable_requerimiento.eq."",responsable_requerimiento.eq.PENDIENTE,responsable_requerimiento.eq.null');
-                } else {
-                    q.eq('responsable_requerimiento', filters.responsable);
-                }
+                if (filters.responsable === 'PENDIENTE') q.or('responsable_requerimiento.is.null,responsable_requerimiento.eq."",responsable_requerimiento.eq.PENDIENTE');
+                else q.eq('responsable_requerimiento', filters.responsable);
             }
-            // Filtro de fecha específico para esta etapa (Actividad en Requerimiento)
-            if (filters.fechaInicio && filters.fechaFin) {
-                q.gte('fecha_elaboracion', filters.fechaInicio).lte('fecha_elaboracion', filters.fechaFin);
-            }
-              
+            if (filters.fechaInicio && filters.fechaFin) q.gte('fecha_elaboracion', filters.fechaInicio).lte('fecha_elaboracion', filters.fechaFin);
+        }
         else if (filters.etapa === 'SEGUIMIENTO') {
-            // Un documento SOLO entra en seguimiento si TIENE un número de documento válido
-            q.not('numero_documento', 'is', null).neq('numero_documento', '').neq('numero_documento', 'null').neq('numero_documento', ' ');
-
+            q.not('numero_documento', 'is', null).neq('numero_documento', '').neq('numero_documento', 'null');
             if (filters.estado === 'EN PROCESO') q.gt('cantidad_seguimientos', 0);
             else if (filters.estado === 'PENDIENTE') q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
 
-            // Lógica inteligente para RESPONSABLE PENDIENTE en esta etapa
             if (filters.responsable) {
-                if (filters.responsable === 'PENDIENTE') {
-                    q.or('responsable_seguimiento.is.null,responsable_seguimiento.eq."",responsable_seguimiento.eq.PENDIENTE,responsable_seguimiento.eq.null');
-                } else {
-                    q.eq('responsable_seguimiento', filters.responsable);
-                }
+                if (filters.responsable === 'PENDIENTE') q.or('responsable_seguimiento.is.null,responsable_seguimiento.eq."",responsable_seguimiento.eq.PENDIENTE');
+                else q.eq('responsable_seguimiento', filters.responsable);
             }
-            // Filtro de fecha específico para esta etapa (Actividad en Seguimiento)
-            if (filters.fechaInicio && filters.fechaFin) {
-                q.gte('ultimo_seguimiento', filters.fechaInicio).lte('ultimo_seguimiento', filters.fechaFin);
-            }
-              
+            if (filters.fechaInicio && filters.fechaFin) q.gte('ultimo_seguimiento', filters.fechaInicio).lte('ultimo_seguimiento', filters.fechaFin);
+        }
         else if (filters.etapa === 'CIERRE') {
             if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
-            
-            // Lógica inteligente para RESPONSABLE PENDIENTE en esta etapa
             if (filters.responsable) {
-                if (filters.responsable === 'PENDIENTE') {
-                    q.or('responsable_devolucion.is.null,responsable_devolucion.eq."",responsable_devolucion.eq.PENDIENTE,responsable_devolucion.eq.null');
-                } else {
-                    q.eq('responsable_devolucion', filters.responsable);
-                }
+                if (filters.responsable === 'PENDIENTE') q.or('responsable_devolucion.is.null,responsable_devolucion.eq."",responsable_devolucion.eq.PENDIENTE');
+                else q.eq('responsable_devolucion', filters.responsable);
             }
-            // Filtro de fecha específico para esta etapa (Actividad en Cierre)
-            if (filters.fechaInicio && filters.fechaFin) {
-                q.gte('fecha_devolucion', filters.fechaInicio).lte('fecha_devolucion', filters.fechaFin);
-            }
+            if (filters.fechaInicio && filters.fechaFin) q.gte('fecha_devolucion', filters.fechaInicio).lte('fecha_devolucion', filters.fechaFin);
+        }
         else {
-            // --- 3. LÓGICA GLOBAL (Sin Etapa seleccionada) ---
+            // LÓGICA GLOBAL (Sin etapa seleccionada)
             if (filters.responsable) {
                 if (filters.responsable === 'PENDIENTE') {
-                    q.or(
-                        `and(estado_verificacion_k.eq.PENDIENTE,responsable_verificacion.eq.PENDIENTE),` +
-                        `and(estado_verificacion_k.eq.VERIFICADO,numero_documento.is.null,responsable_requerimiento.eq.PENDIENTE),` +
-                        `and(numero_documento.not.is.null,cargado_sisged.eq.false,responsable_seguimiento.eq.PENDIENTE),` +
-                        `and(cargado_sisged.eq.true,responsable_devolucion.eq.PENDIENTE)`
-                    );
+                    q.or(`and(estado_verificacion_k.eq.PENDIENTE,responsable_verificacion.eq.PENDIENTE),and(estado_verificacion_k.eq.VERIFICADO,numero_documento.is.null,responsable_requerimiento.eq.PENDIENTE),and(numero_documento.not.is.null,cargado_sisged.eq.false,responsable_seguimiento.eq.PENDIENTE),and(cargado_sisged.eq.true,responsable_devolucion.eq.PENDIENTE)`);
                 } else {
                     q.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable},responsable_seguimiento.eq.${filters.responsable}`);
                 }
             }
-
-            // FILTRO DE FECHA GLOBAL (Actividad en cualquiera de las 4 etapas)
             if (filters.fechaInicio && filters.fechaFin) {
-                const fI = filters.fechaInicio;
-                const fF = filters.fechaFin;
-                // Usamos una sola cadena OR con lógica AND interna para máxima estabilidad
+                const fI = filters.fechaInicio; const fF = filters.fechaFin;
                 q.or(`and(fecha_verificacion.gte.${fI},fecha_verificacion.lte.${fF}),and(fecha_elaboracion.gte.${fI},fecha_elaboracion.lte.${fF}),and(ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),and(fecha_devolucion.gte.${fI},fecha_devolucion.lte.${fF})`);
             }
-
             if (filters.estado) {
                 if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
                 else if (filters.estado === 'RECONSTRUCCION') q.ilike('observaciones_finales', '%RECONSTRUCCION%');
                 else {
-                    q.neq('cargado_sisged', true).neq('estado_visualizacion', 'SI SE VISUALIZA').or('observaciones_finales.is.null,observaciones_finales.not.ilike.*RECONSTRUCCION*');
                     if (filters.estado === 'EN PROCESO') q.gt('cantidad_seguimientos', 0);
                     else if (filters.estado === 'PENDIENTE') q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
                 }
             }
         }
-    }; // Fin de aplicarFiltrosInternos
+    };
 
-    // A. Consultamos la tabla (100 registros)
+    // A. Ejecutar consulta de tabla
     aplicarFiltrosInternos(queryTable);
     const { data: tableData, count, error: tableError } = await queryTable.order('creado_at', { ascending: false }).range(from, to);
 
@@ -450,27 +401,19 @@ export default function SistemaSIGERED() {
         setTotalDocs(count || 0); 
     }
 
-    // --- B. CONSULTA DEL DASHBOARD EN LOTES ---
+    // B. Ejecutar consulta de Dashboard por lotes
     let allData = [];
     let hayMas = true;
     let desde = 0;
     const paso = 1000;
 
     while (hayMas) {
-        // Simplificamos el select para asegurar que no falte ninguna columna
         let qStats = supabase.from('documentos').select('*');
-        
-        // Aplicamos los filtros
         aplicarFiltrosInternos(qStats);
-        
         const { data: chunk, error: errChunk } = await qStats.range(desde, desde + paso - 1);
 
-        if (errChunk) {
-            console.error("Error en lote:", errChunk);
-            hayMas = false;
-        } else if (!chunk || chunk.length === 0) {
-            hayMas = false;
-        } else {
+        if (errChunk || !chunk || chunk.length === 0) hayMas = false;
+        else {
             allData = [...allData, ...chunk];
             if (chunk.length < paso) hayMas = false;
             else desde += paso;
@@ -480,13 +423,12 @@ export default function SistemaSIGERED() {
 
     setAllDocsForStats(allData);
     setLoading(false);
-  }, [page, filters]); // Cierre correcto de useCallback
+  }, [page, filters]);
 
   useEffect(() => {
     if (session) fetchDocs();
-  }, [session, fetchDocs]); // Cierre correcto de useEffect
+  }, [session, fetchDocs]);
 
-  
   // --- 4. IMPORTACIÓN MASIVA CON LIMPIEZA DE DUPLICADOS ---
   const handleImport = (e) => {
     const file = e.target.files[0];
