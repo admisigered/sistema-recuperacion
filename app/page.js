@@ -157,20 +157,19 @@ export default function SistemaSIGERED() {
 
   }, [seguimientos, editingDoc]);
   
-const stats = useMemo(() => {
+// --- 2. PROCESAMIENTO DE ESTADÍSTICAS (LÓGICA UNIFICADA Y SEGURA) ---
+  const stats = useMemo(() => {
     if (!allDocsForStats || allDocsForStats.length === 0) {
       return { monthlyData: [], stageData: [], originData: [], sedeData: [], respData: [], alertaMensaje: "" };
     }
 
-    // Función auxiliar para validar si una fecha de acción cae en el rango seleccionado
     const estaEnRango = (fecha) => {
-      if (!filters.fechaInicio || !filters.fechaFin) return true; // Si no hay filtro, cuenta todo
+      if (!filters.fechaInicio || !filters.fechaFin) return true;
       const f = formatExcelDate(fecha);
-      if (!f) return false;
-      return f >= filters.fechaInicio && f <= filters.fechaFin;
+      return f && f >= filters.fechaInicio && f <= filters.fechaFin;
     };
 
-    // 1. AVANCE DE ETAPAS POR MES (Histórico de actividad)
+    // 1. AVANCE MENSUAL
     const configuracionMeses = [
       { etiqueta: 'DICIEMBRE', filtro: '2025-12' }, { etiqueta: 'ENERO', filtro: '2026-01' },
       { etiqueta: 'FEBRERO', filtro: '2026-02' }, { etiqueta: 'MARZO', filtro: '2026-03' },
@@ -191,30 +190,22 @@ const stats = useMemo(() => {
       };
     });
 
-    // 2. RENDIMIENTO DE RESPONSABLES (FILTRADO POR FECHA DE ACCIÓN REAL)
+    // 2. RENDIMIENTO POR RESPONSABLE (FILTRADO POR FECHA SELECCIONADA)
     let maxPromedio = 0;
     let responsableLento = "ADMINISTRADOR";
 
     const respData = LISTA_RESPONSABLES.map(r => {
       const user = r.toUpperCase();
+      const v = allDocsForStats.filter(d => String(d.responsable_verificacion).toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO' && estaEnRango(d.fecha_verificacion)).length;
+      const re = allDocsForStats.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.numero_documento && estaEnRango(d.fecha_elaboracion)).length;
+      const s = allDocsForStats.filter(d => String(d.responsable_seguimiento).toUpperCase() === user && (d.cantidad_seguimientos > 0 || d.ultimo_seguimiento) && estaEnRango(d.ultimo_seguimiento)).length;
+      const c = allDocsForStats.filter(d => String(d.responsable_devolucion).toUpperCase() === user && (d.cargado_sisged || d.estado_visualizacion === 'SI SE VISUALIZA') && estaEnRango(d.fecha_devolucion)).length;
       
-      // Contamos la acción solo si el responsable coincide Y la fecha de esa acción está en el rango
-      const vVal = allDocsForStats.filter(d => String(d.responsable_verificacion).toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO' && estaEnRango(d.fecha_verificacion)).length;
-      const reVal = allDocsForStats.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.numero_documento && d.numero_documento !== 'null' && estaEnRango(d.fecha_elaboracion)).length;
-      const sVal = allDocsForStats.filter(d => String(d.responsable_seguimiento).toUpperCase() === user && (d.cantidad_seguimientos > 0 || d.ultimo_seguimiento) && estaEnRango(d.ultimo_seguimiento)).length;
-      const cVal = allDocsForStats.filter(d => String(d.responsable_devolucion).toUpperCase() === user && (d.cargado_sisged || d.estado_visualizacion === 'SI SE VISUALIZA') && estaEnRango(d.fecha_devolucion)).length;
-
-      const total = vVal + reVal + sVal + cVal || 1;
-      
-      // Simulación de eficiencia para la alerta
+      const total = v + re + s + c || 1;
       const prom = parseFloat((Math.random() * 4 + 2).toFixed(1)); 
       if (prom > maxPromedio) { maxPromedio = prom; responsableLento = r; }
 
-      return {
-        name: r,
-        vVal, reVal, sVal, cVal, // Cantidades reales
-        vPct: (vVal / total) * 100, rePct: (reVal / total) * 100, sPct: (sVal / total) * 100, cPct: (cVal / total) * 100
-      };
+      return { name: r, vVal: v, reVal: re, sVal: s, cVal: c, vPct: (v/total)*100, rePct: (re/total)*100, sPct: (s/total)*100, cPct: (c/total)*100 };
     });
 
     return { 
