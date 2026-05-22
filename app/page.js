@@ -1051,7 +1051,7 @@ const stats = useMemo(() => {
     {/* SECCIÓN 2: GRÁFICO MENSUAL - FILA 2 */}
 <div className="bg-white p-8 rounded-4xl border border-slate-100 shadow-sm shadow-slate-200">
   <h4 className="text-sm font-black text-slate-700 uppercase mb-8 flex items-center gap-2">
-    <BarChart3 size={18} className="text-blue-600"/> Avance Comparativo Mensual (Histórico)
+    <BarChart3 size={18} className="text-blue-600"/> AVANCE COMPARATIVO MENSUAL (Histórico)
   </h4>
   <div className="h-[350px] w-full">
     <ResponsiveContainer width="100%" height="100%">
@@ -1119,7 +1119,7 @@ const stats = useMemo(() => {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       {/* Etapas (Area) */}
       <div className="bg-white p-8 rounded-4xl border border-slate-100 shadow-sm shadow-slate-200">
-  <h4 className="text-xs font-black text-slate-500 uppercase mb-6">Documentos por Etapa</h4>
+  <h4 className="text-xs font-black text-slate-500 uppercase mb-6">DOCUMENTOS POR ETAPA</h4>
   <div className="h-[250px]">
     <ResponsiveContainer width="100%" height="100%">
       {/* Añadimos un margen superior de 30 para que el número de arriba no se corte */}
@@ -1152,7 +1152,7 @@ const stats = useMemo(() => {
 </div>
       
       <div className="bg-white p-8 rounded-4xl border border-slate-100 shadow-sm shadow-slate-200">
-  <h4 className="text-xs font-black text-slate-500 uppercase mb-6 text-center">Origen de Documentos</h4>
+  <h4 className="text-xs font-black text-slate-500 uppercase mb-6 text-center">DOCUMENTOS POR ORIGEN</h4>
   <div className="h-[250px]">
     <ResponsiveContainer width="100%" height="100%">
       <PieChart margin={{ left: 45, right: 45 }}>
@@ -1180,7 +1180,7 @@ const stats = useMemo(() => {
 
       {/* Sedes (Stacked) */}
       <div className="bg-white p-8 rounded-4xl border border-slate-100 shadow-sm shadow-slate-200">
-  <h4 className="text-xs font-black text-slate-500 uppercase mb-6">Documentos por Sede</h4>
+  <h4 className="text-xs font-black text-slate-500 uppercase mb-6">DOCUMENTOS POR SEDE</h4>
   <div className="h-[250px]">
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={stats.sedeData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
@@ -1208,7 +1208,7 @@ const stats = useMemo(() => {
         <AlertCircle size={18} className="text-amber-600"/>
         <p className="text-[11px] font-black text-amber-800 uppercase tracking-tighter">{stats.alertaMensaje}</p>
       </div>
-      <h4 className="text-sm font-black text-slate-700 uppercase mb-12">Rendimiento de Responsables (Barras 100%)</h4>
+      <h4 className="text-sm font-black text-slate-700 uppercase mb-12">ACCIONES REALIZADAS POR RESPONSABLE</h4>
       <div className="h-[450px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={stats.respData} layout="vertical" margin={{ top: 5, right: 40, left: 40, bottom: 5 }}>
