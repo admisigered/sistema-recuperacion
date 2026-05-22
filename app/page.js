@@ -55,6 +55,85 @@ const renderMultiLineLabel = ({ cx, x, y, name, value }) => {
   );
 };
 
+const formatExcelDate = (val) => {
+    // Si el valor no existe, es nulo o es solo un espacio en blanco, devolvemos null
+    if (!val || String(val).trim() === "" || String(val).trim() === "null") return null;
+
+    if (typeof val === 'number') {
+      return new Date((val - 25569) * 86400 * 1000).toISOString().split('T')[0];
+    }
+    
+    if (typeof val === 'string') {
+      const limpia = val.trim();
+      if (limpia.includes('/')) {
+        const parts = limpia.split('/');
+        // Soporta D/M/YYYY o DD/MM/YYYY
+        const d = parts[0].padStart(2, '0');
+        const m = parts[1].padStart(2, '0');
+        const y = parts[2];
+        return `${y}-${m}-${d}`;
+      }
+      return limpia;
+    }
+    return val;
+  };
+
+  const calcularDiasHabiles = (fechaRef) => {
+    if (!fechaRef) return 0;
+
+    // Lista de feriados nacionales en Perú (Formato MM-DD)
+    // Se incluyen los fijos y los movibles específicos para el año 2026
+    const feriadosPeru2026 = [
+      '01-01', // Año Nuevo
+      '04-02', // Jueves Santo (2026)
+      '04-03', // Viernes Santo (2026)
+      '05-01', // Día del Trabajo
+      '06-07', // Batalla de Arica / Día de la Bandera
+      '06-29', // San Pedro y San Pablo
+      '07-23', // Día de la Fuerza Aérea (Abelardo Quiñones)
+      '07-28', // Fiestas Patrias
+      '07-29', // Fiestas Patrias
+      '08-06', // Batalla de Junín
+      '08-30', // Santa Rosa de Lima
+      '10-08', // Combate de Angamos
+      '11-01', // Todos los Santos
+      '12-08', // Inmaculada Concepción
+      '12-09', // Batalla de Ayacucho
+      '12-25', // Navidad
+    ];
+
+    // 1. Configuramos la fecha de inicio (día de notificación)
+    let fechaActual = new Date(fechaRef + 'T00:00:00');
+    
+    // 2. El conteo empieza SIEMPRE desde el día SIGUIENTE a la notificación
+    fechaActual.setDate(fechaActual.getDate() + 1);
+
+    // 3. Obtenemos la fecha de hoy a medianoche
+    let hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    let contador = 0;
+
+    // 4. Recorremos los días desde el día siguiente hasta hoy
+    while (fechaActual <= hoy) {
+      const diaSemana = fechaActual.getDay(); // 0: Domingo, 6: Sábado
+      const mesDia = `${(fechaActual.getMonth() + 1).toString().padStart(2, '0')}-${fechaActual.getDate().toString().padStart(2, '0')}`;
+
+      // Regla: No es sábado (6), no es domingo (0) y no está en la lista de feriados
+      const esFinDeSemana = (diaSemana === 0 || diaSemana === 6);
+      const esFeriado = feriadosPeru2026.includes(mesDia);
+
+      if (!esFinDeSemana && !esFeriado) {
+        contador++;
+      }
+
+      // Avanzamos al siguiente día
+      fechaActual.setDate(fechaActual.getDate() + 1);
+    }
+    
+    return contador;
+  };
+
 export default function SistemaSIGERED() {
   // --- ESTADOS DEL SISTEMA ---
   const [session, setSession] = useState(null);
@@ -263,86 +342,7 @@ const stats = useMemo(() => {
     };
   }, [allDocsForStats, getEtapaEstado, filters.fechaInicio, filters.fechaFin]);
   
-  // --- 2. FUNCIONES DE APOYO ---
-  const formatExcelDate = (val) => {
-    // Si el valor no existe, es nulo o es solo un espacio en blanco, devolvemos null
-    if (!val || String(val).trim() === "" || String(val).trim() === "null") return null;
-
-    if (typeof val === 'number') {
-      return new Date((val - 25569) * 86400 * 1000).toISOString().split('T')[0];
-    }
-    
-    if (typeof val === 'string') {
-      const limpia = val.trim();
-      if (limpia.includes('/')) {
-        const parts = limpia.split('/');
-        // Soporta D/M/YYYY o DD/MM/YYYY
-        const d = parts[0].padStart(2, '0');
-        const m = parts[1].padStart(2, '0');
-        const y = parts[2];
-        return `${y}-${m}-${d}`;
-      }
-      return limpia;
-    }
-    return val;
-  };
-
-  const calcularDiasHabiles = (fechaRef) => {
-    if (!fechaRef) return 0;
-
-    // Lista de feriados nacionales en Perú (Formato MM-DD)
-    // Se incluyen los fijos y los movibles específicos para el año 2026
-    const feriadosPeru2026 = [
-      '01-01', // Año Nuevo
-      '04-02', // Jueves Santo (2026)
-      '04-03', // Viernes Santo (2026)
-      '05-01', // Día del Trabajo
-      '06-07', // Batalla de Arica / Día de la Bandera
-      '06-29', // San Pedro y San Pablo
-      '07-23', // Día de la Fuerza Aérea (Abelardo Quiñones)
-      '07-28', // Fiestas Patrias
-      '07-29', // Fiestas Patrias
-      '08-06', // Batalla de Junín
-      '08-30', // Santa Rosa de Lima
-      '10-08', // Combate de Angamos
-      '11-01', // Todos los Santos
-      '12-08', // Inmaculada Concepción
-      '12-09', // Batalla de Ayacucho
-      '12-25', // Navidad
-    ];
-
-    // 1. Configuramos la fecha de inicio (día de notificación)
-    let fechaActual = new Date(fechaRef + 'T00:00:00');
-    
-    // 2. El conteo empieza SIEMPRE desde el día SIGUIENTE a la notificación
-    fechaActual.setDate(fechaActual.getDate() + 1);
-
-    // 3. Obtenemos la fecha de hoy a medianoche
-    let hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-
-    let contador = 0;
-
-    // 4. Recorremos los días desde el día siguiente hasta hoy
-    while (fechaActual <= hoy) {
-      const diaSemana = fechaActual.getDay(); // 0: Domingo, 6: Sábado
-      const mesDia = `${(fechaActual.getMonth() + 1).toString().padStart(2, '0')}-${fechaActual.getDate().toString().padStart(2, '0')}`;
-
-      // Regla: No es sábado (6), no es domingo (0) y no está en la lista de feriados
-      const esFinDeSemana = (diaSemana === 0 || diaSemana === 6);
-      const esFeriado = feriadosPeru2026.includes(mesDia);
-
-      if (!esFinDeSemana && !esFeriado) {
-        contador++;
-      }
-
-      // Avanzamos al siguiente día
-      fechaActual.setDate(fechaActual.getDate() + 1);
-    }
-    
-    return contador;
-  };
-  
+ 
   // --- 3. GESTIÓN DE DATOS (TABLA + DASHBOARD GLOBAL) ---
   const fetchDocs = useCallback(async () => {
     setLoading(true);
