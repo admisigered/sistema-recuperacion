@@ -248,30 +248,48 @@ const stats = useMemo(() => {
       return f && f >= filters.fechaInicio && f <= filters.fechaFin;
     };
 
-    // 2. RENDIMIENTO POR RESPONSABLE (CONTANDO ACCIONES REALES)
+    // 2. RENDIMIENTO POR RESPONSABLE (Basado en ACCIONES REALES en el rango)
     const listaSoloPersonal = LISTA_RESPONSABLES.filter(r => r !== "PENDIENTE");
 
     const respData = listaSoloPersonal.map(r => {
-      const user = r.toUpperCase();
+      const user = r.toUpperCase().trim();
       
-      // Función para validar rango de fecha según la etapa
+      // Función interna para validar si la fecha de la acción está en el rango seleccionado
       const enRango = (f) => {
         if (!filters.fechaInicio || !filters.fechaFin) return true;
         const fecha = formatExcelDate(f);
         return fecha && fecha >= filters.fechaInicio && fecha <= filters.fechaFin;
       };
 
-      // 1. Verificados: Documentos donde fue el verificador
-      const v = allDocsForStats.filter(d => (d.responsable_verificacion || '').toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO' && enRango(d.fecha_verificacion)).length;
-      
-      // 2. Requeridos: Documentos que pasaron por su mano en Requerimiento (tengan o no número aún)
-      const re = allDocsForStats.filter(d => (d.responsable_requerimiento || '').toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO' && enRango(d.fecha_elaboracion || d.fecha_verificacion)).length;
-      
-      // 3. Seguimientos: TODOS los seguimientos realizados por él (Lógica de acciones reales)
-      const s = allSegsForStats.filter(seg => (seg.responsable || '').toUpperCase() === user && enRango(seg.fecha)).length;
+      // --- CONTEO DE ACCIONES INDIVIDUALES ---
 
-      // 4. Cerrados: Documentos que él marcó como recuperados o cargó a SISGED
-      const c = allDocsForStats.filter(d => (d.responsable_devolucion || '').toUpperCase() === user && (d.cargado_sisged || d.estado_visualizacion === 'SI SE VISUALIZA') && enRango(d.fecha_devolucion)).length;
+      // 1. Verificaciones: Documentos donde este usuario fue el verificador Y la fecha está en rango
+      const v = allDocsForStats.filter(d => 
+        (d.responsable_verificacion || '').toUpperCase().trim() === user && 
+        d.estado_verificacion_k === 'VERIFICADO' && 
+        enRango(d.fecha_verificacion)
+      ).length;
+
+      // 2. Requerimientos: Oficios generados por este usuario en este rango
+      const re = allDocsForStats.filter(d => 
+        (d.responsable_requerimiento || '').toUpperCase().trim() === user && 
+        d.numero_documento && 
+        enRango(d.fecha_elaboracion)
+      ).length;
+
+      // 3. SEGUIMIENTOS (Lo más importante): Contamos cada registro de la tabla historial
+      // Esto hará que si Yanina hizo 21 llamadas el 21/05, aparezca el número 21
+      const s = allSegsForStats.filter(seg => 
+        (seg.responsable || '').toUpperCase().trim() === user && 
+        enRango(seg.fecha)
+      ).length;
+
+      // 4. Cierres: Documentos que este usuario marcó como recuperados en este rango
+      const c = allDocsForStats.filter(d => 
+        (d.responsable_devolucion || '').toUpperCase().trim() === user && 
+        (d.cargado_sisged || d.estado_visualizacion === 'SI SE VISUALIZA') && 
+        enRango(d.fecha_devolucion || d.fecha_verificacion)
+      ).length;
 
       return { name: r, verif: v, req: re, seg: s, cierre: c };
     });
