@@ -164,12 +164,12 @@ export default function SistemaSIGERED() {
     }
 
     const estaEnRango = (fecha) => {
-      if (!filters.fechaInicio || !filters.fechaFin) return true;
-      const f = formatExcelDate(fecha);
-      return f && f >= filters.fechaInicio && f <= filters.fechaFin;
+        if (!filters.fechaInicio || !filters.fechaFin) return true;
+        const f = formatExcelDate(fecha);
+        return f && f >= filters.fechaInicio && f <= filters.fechaFin;
     };
 
-    // 1. AVANCE MENSUAL
+    // 1. AVANCE DE ETAPAS POR MES
     const configuracionMeses = [
       { etiqueta: 'DICIEMBRE', filtro: '2025-12' }, { etiqueta: 'ENERO', filtro: '2026-01' },
       { etiqueta: 'FEBRERO', filtro: '2026-02' }, { etiqueta: 'MARZO', filtro: '2026-03' },
@@ -190,26 +190,29 @@ export default function SistemaSIGERED() {
       };
     });
 
-    // 2. RENDIMIENTO POR RESPONSABLE (FILTRADO POR FECHA SELECCIONADA)
+    // 2. RENDIMIENTO DE RESPONSABLES (100% APILADO)
     let maxPromedio = 0;
     let responsableLento = "ADMINISTRADOR";
 
     const respData = LISTA_RESPONSABLES.map(r => {
       const user = r.toUpperCase();
-      const v = allDocsForStats.filter(d => String(d.responsable_verificacion).toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO' && estaEnRango(d.fecha_verificacion)).length;
-      const re = allDocsForStats.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.numero_documento && estaEnRango(d.fecha_elaboracion)).length;
-      const s = allDocsForStats.filter(d => String(d.responsable_seguimiento).toUpperCase() === user && (d.cantidad_seguimientos > 0 || d.ultimo_seguimiento) && estaEnRango(d.ultimo_seguimiento)).length;
-      const c = allDocsForStats.filter(d => String(d.responsable_devolucion).toUpperCase() === user && (d.cargado_sisged || d.estado_visualizacion === 'SI SE VISUALIZA') && estaEnRango(d.fecha_devolucion)).length;
-      
-      const total = v + re + s + c || 1;
+      const vVal = allDocsForStats.filter(d => String(d.responsable_verificacion).toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO' && estaEnRango(d.fecha_verificacion)).length;
+      const reVal = allDocsForStats.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.numero_documento && d.numero_documento !== 'null' && estaEnRango(d.fecha_elaboracion)).length;
+      const sVal = allDocsForStats.filter(d => String(d.responsable_seguimiento).toUpperCase() === user && (d.cantidad_seguimientos > 0 || d.ultimo_seguimiento) && estaEnRango(d.ultimo_seguimiento)).length;
+      const cVal = allDocsForStats.filter(d => String(d.responsable_devolucion).toUpperCase() === user && d.cargado_sisged && estaEnRango(d.fecha_devolucion)).length;
+
+      const total = vVal + reVal + sVal + cVal || 1;
       const prom = parseFloat((Math.random() * 4 + 2).toFixed(1)); 
       if (prom > maxPromedio) { maxPromedio = prom; responsableLento = r; }
 
-      return { name: r, vVal: v, reVal: re, sVal: s, cVal: c, vPct: (v/total)*100, rePct: (re/total)*100, sPct: (s/total)*100, cPct: (c/total)*100 };
+      return {
+        name: r, vVal, reVal, sVal, cVal,
+        vPct: (vVal / total) * 100, rePct: (reVal / total) * 100, sPct: (sVal / total) * 100, cPct: (cVal / total) * 100
+      };
     });
 
     return { 
-      monthlyData, respData,
+      monthlyData, respData, 
       alertaMensaje: `ETAPA MÁS DEMORADA: ${responsableLento} — SEGUIMIENTO: ${maxPromedio} DÍAS AVG.`,
       stageData: [
         { name: 'Verif.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'VERIFICACION').length },
