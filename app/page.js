@@ -158,19 +158,12 @@ export default function SistemaSIGERED() {
   }, [seguimientos, editingDoc]);
   
 const stats = useMemo(() => {
+    // Si no hay documentos, devolvemos datos vacíos para evitar errores en los gráficos
     if (!allDocsForStats || allDocsForStats.length === 0) {
       return { monthlyData: [], stageData: [], originData: [], sedeData: [], respData: [], alertaMensaje: "" };
     }
 
-    // Función interna para validar si una fecha está en el rango
-    const estaEnRango = (fecha) => {
-      if (!filters.fechaInicio || !filters.fechaFin) return true;
-      const f = formatExcelDate(fecha);
-      if (!f) return false;
-      return f >= filters.fechaInicio && f <= filters.fechaFin;
-    };
-
-    // 1. AVANCE DE ETAPAS POR MES (Histórico)
+    // 1. AVANCE DE ETAPAS POR MES (Histórico de actividad)
     const configuracionMeses = [
       { etiqueta: 'DICIEMBRE', filtro: '2025-12' },
       { etiqueta: 'ENERO', filtro: '2026-01' },
@@ -182,9 +175,15 @@ const stats = useMemo(() => {
 
     const monthlyData = configuracionMeses.map((mes) => {
       const esDelMes = (fechaStr) => {
-        const f = formatExcelDate(fechaStr);
-        return f && f.startsWith(mes.filtro);
+        if (!fechaStr) return false;
+        let f = fechaStr;
+        if (f.includes('/')) {
+          const p = f.split('/');
+          f = `${p[2]}-${p[1]}`;
+        }
+        return f.startsWith(mes.filtro);
       };
+
       return {
         name: mes.etiqueta,
         Verificaciones: allDocsForStats.filter(d => esDelMes(d.fecha_verificacion)).length,
@@ -194,96 +193,48 @@ const stats = useMemo(() => {
       };
     });
 
-    // 2. RENDIMIENTO DE RESPONSABLES (Basado en el rango seleccionado)
-    let maxPromedio = 0;
-    let responsableLento = "PENDIENTE";
-
-    const respData = LISTA_RESPONSABLES.map(r => {
-      const user = r.toUpperCase();
-      
-      const vVal = allDocsForStats.filter(d => String(d.responsable_verificacion).toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO' && estaEnRango(d.fecha_verificacion)).length;
-      const reVal = allDocsForStats.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.numero_documento && d.numero_documento !== 'null' && estaEnRango(d.fecha_elaboracion)).length;
-      const sVal = allDocsForStats.filter(d => String(d.responsable_seguimiento).toUpperCase() === user && (d.cantidad_seguimientos > 0 || d.ultimo_seguimiento) && estaEnRango(d.ultimo_seguimiento)).length;
-      const cVal = allDocsForStats.filter(d => String(d.responsable_devolucion).toUpperCase() === user && d.cargado_sisged && estaEnRango(d.fecha_devolucion)).length;
-
-      const total = vVal + reVal + sVal + cVal || 1;
-      
-      // Lógica de Alerta
-      const prom = parseFloat((Math.random() * 4 + 2).toFixed(1)); 
-      if (prom > maxPromedio) { maxPromedio = prom; responsableLento = r; }
-
-      return {
-        name: r, vVal, reVal, sVal, cVal,
-        vPct: (vVal / total) * 100, rePct: (reVal / total) * 100, sPct: (sVal / total) * 100, cPct: (cVal / total) * 100
-      };
-    });
-
-    // 3. DATOS DE LOS GRÁFICOS DE SEGMENTACIÓN
+    // 2. DATOS POR ETAPA, ORIGEN Y SEDE (Para los gráficos pequeños)
     const stageData = [
       { name: 'Verif.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'VERIFICACION').length },
       { name: 'Req.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'REQUERIMIENTO').length },
       { name: 'Seg.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'SEGUIMIENTO').length },
-      { name: 'Cierre', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'CIERRE').length }
+      { name: 'Cierre', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'CIERRE').length },
     ];
 
     const originData = [
       { name: 'Internos', value: allDocsForStats.filter(d => d.origen?.toUpperCase() === 'INTERNO').length },
-      { name: 'Externos', value: allDocsForStats.filter(d => d.origen?.toUpperCase() === 'EXTERNO').length }
+      { name: 'Externos', value: allDocsForStats.filter(d => d.origen?.toUpperCase() === 'EXTERNO').length },
     ];
 
+    // 4. Sedes (Conteo total simple)
     const sedeData = [
-      { name: 'SC', total: allDocsForStats.filter(d => d.sede === 'SC').length },
-      { name: 'OD', total: allDocsForStats.filter(d => d.sede === 'OD').length }
+      { 
+        name: 'SC', 
+        total: allDocsForStats.filter(d => d.sede === 'SC').length 
+      },
+      { 
+        name: 'OD', 
+        total: allDocsForStats.filter(d => d.sede === 'OD').length 
+      },
     ];
 
-    return { 
-      monthlyData, stageData, originData, sedeData, respData, 
-      alertaMensaje: `ETAPA MÁS DEMORADA: ${responsableLento} — SEGUIMIENTO: ${maxPromedio} DÍAS AVG.` 
-    };
-
-  }, [allDocsForStats, getEtapaEstado, filters.fechaInicio, filters.fechaFin]);
-  
-
-    // 3. RENDIMIENTO DE RESPONSABLES (Filtrado por fecha de acción individual)
+    // 3. RENDIMIENTO DE RESPONSABLES (Barras horizontales 100% apiladas) + ALERTA
     let maxPromedio = 0;
     let responsableLento = "ADMINISTRADOR";
 
     const respData = LISTA_RESPONSABLES.map(r => {
       const user = r.toUpperCase();
       
-      // Función para saber si una fecha específica cae en el rango del filtro
-      const estaEnRango = (fecha) => {
-        if (!filters.fechaInicio || !filters.fechaFin) return true; // Si no hay filtro, cuenta todo
-        const f = formatExcelDate(fecha);
-        return f >= filters.fechaInicio && f <= filters.fechaFin;
-      };
+      // Cantidades Reales (vVal, reVal, sVal, cVal)
+      const v = allDocsForStats.filter(d => String(d.responsable_verificacion).toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO').length;
+      const re = allDocsForStats.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.numero_documento && d.numero_documento !== 'null').length;
+      const s = allDocsForStats.filter(d => 
+    String(d.responsable_seguimiento).toUpperCase() === user && 
+    (d.cantidad_seguimientos > 0 || d.ultimo_seguimiento)
+).length;
+      const c = allDocsForStats.filter(d => String(d.responsable_devolucion).toUpperCase() === user && d.cargado_sisged).length;
 
-      // CONTAMOS LA ACCIÓN SOLO SI OCURRIÓ EN EL RANGO SELECCIONADO
-      const vVal = allDocsForStats.filter(d => 
-        String(d.responsable_verificacion).toUpperCase() === user && 
-        d.estado_verificacion_k === 'VERIFICADO' && 
-        estaEnRango(d.fecha_verificacion) // <--- Solo cuenta si verificó en esa fecha
-      ).length;
-
-      const reVal = allDocsForStats.filter(d => 
-        String(d.responsable_requerimiento).toUpperCase() === user && 
-        (d.numero_documento && d.numero_documento !== 'null') && 
-        estaEnRango(d.fecha_elaboracion) // <--- Solo cuenta si hizo el oficio en esa fecha
-      ).length;
-
-      const sVal = allDocsForStats.filter(d => 
-        String(d.responsable_seguimiento).toUpperCase() === user && 
-        d.cantidad_seguimientos > 0 && 
-        estaEnRango(d.ultimo_seguimiento) // <--- Solo cuenta si llamó en esa fecha
-      ).length;
-
-      const cVal = allDocsForStats.filter(d => 
-        String(d.responsable_devolucion).toUpperCase() === user && 
-        d.cargado_sisged && 
-        estaEnRango(d.fecha_devolucion) // <--- Solo cuenta si cerró en esa fecha
-      ).length;
-
-      const total = vVal + reVal + sVal + cVal || 1;
+      const total = v + re + s + c || 1; // Total para cálculo de porcentaje (100% stack)
       
       // Lógica de Alerta (Detección del más demorado)
       const prom = parseFloat((Math.random() * 4 + 2).toFixed(1)); 
@@ -291,11 +242,11 @@ const stats = useMemo(() => {
 
       return {
         name: r,
-        vVal, reVal, sVal, cVal,      // Cantidades exactas del periodo
-        vPct: (vVal / total) * 100,   // Ancho de la barra proporcional
-        rePct: (reVal / total) * 100,
-        sPct: (sVal / total) * 100,
-        cPct: (cVal / total) * 100
+        vVal: v, reVal: re, sVal: s, cVal: c, // Números reales para etiquetas
+        vPct: (v / total) * 100, // Porcentajes para el ancho de la barra
+        rePct: (re / total) * 100,
+        sPct: (s / total) * 100,
+        cPct: (c / total) * 100
       };
     });
 
@@ -307,31 +258,26 @@ const stats = useMemo(() => {
   
   // --- 2. FUNCIONES DE APOYO ---
   const formatExcelDate = (val) => {
+    // Si el valor no existe, es nulo o es solo un espacio en blanco, devolvemos null
     if (!val || String(val).trim() === "" || String(val).trim() === "null") return null;
 
-    try {
-      // Si ya es formato ISO (YYYY-MM-DD), lo devolvemos limpio
-      if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val)) {
-        return val.split('T')[0];
+    if (typeof val === 'number') {
+      return new Date((val - 25569) * 86400 * 1000).toISOString().split('T')[0];
+    }
+    
+    if (typeof val === 'string') {
+      const limpia = val.trim();
+      if (limpia.includes('/')) {
+        const parts = limpia.split('/');
+        // Soporta D/M/YYYY o DD/MM/YYYY
+        const d = parts[0].padStart(2, '0');
+        const m = parts[1].padStart(2, '0');
+        const y = parts[2];
+        return `${y}-${m}-${d}`;
       }
-      
-      // Si viene de Excel como número
-      if (typeof val === 'number') {
-        return new Date((val - 25569) * 86400 * 1000).toISOString().split('T')[0];
-      }
-      
-      // Si viene como DD/MM/YYYY
-      if (typeof val === 'string' && val.includes('/')) {
-        const parts = val.trim().split('/');
-        if (parts.length === 3) {
-            const d = parts[0].padStart(2, '0');
-            const m = parts[1].padStart(2, '0');
-            const y = parts[2];
-            return `${y}-${m}-${d}`;
-        }
-      }
-    } catch (e) { return null; }
-    return null;
+      return limpia;
+    }
+    return val;
   };
 
   const calcularDiasHabiles = (fechaRef) => {
@@ -401,79 +347,104 @@ const stats = useMemo(() => {
 
     // 2. Función para aplicar tus filtros exactos
     const aplicarFiltrosInternos = (q) => {
-        // 1. FILTROS BÁSICOS (Búsqueda, Sede, Origen)
-        if (filters.search) {
-          q.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%,responsable_verificacion.ilike.%${filters.search}%,responsable_requerimiento.ilike.%${filters.search}%,responsable_devolucion.ilike.%${filters.search}%,responsable_seguimiento.ilike.%${filters.search}%`);
-        }
+        // 1. FILTROS BÁSICOS
+        if (filters.search) q.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%,responsable_verificacion.ilike.%${filters.search}%,responsable_requerimiento.ilike.%${filters.search}%,responsable_devolucion.ilike.%${filters.search}%,responsable_seguimiento.ilike.%${filters.search}%`);
         if (filters.sede) q.eq('sede', filters.sede);
         if (filters.origen) q.eq('origen', filters.origen);
 
         // --- REGLA DE ORO: EXCLUSIÓN DE RECUPERADOS PARA PENDIENTES ---
+        // Si el estado es PENDIENTE o EN PROCESO, quitamos los RECUPERADOS de toda la consulta
         if (filters.estado === 'PENDIENTE' || filters.estado === 'EN PROCESO') {
             q.neq('cargado_sisged', true);
             q.neq('estado_visualizacion', 'SI SE VISUALIZA');
         }
 
-        // 2. LÓGICA CONDICIONADA POR ETAPA
+        // 2. LÓGICA POR ETAPA
         if (filters.etapa === 'VERIFICACION') {
+            // Filtrar estado dentro de Verificación
             if (filters.estado === 'VERIFICADO') q.eq('estado_verificacion_k', 'VERIFICADO');
             else if (filters.estado === 'PENDIENTE') q.eq('estado_verificacion_k', 'PENDIENTE');
             
-            if (filters.responsable) q.eq('responsable_verificacion', filters.responsable);
-            
-            // Filtro de fecha específico para esta etapa
-            if (filters.fechaInicio && filters.fechaFin) {
-                q.gte('fecha_verificacion', filters.fechaInicio).lte('fecha_verificacion', filters.fechaFin);
+            // Lógica inteligente para RESPONSABLE PENDIENTE en esta etapa
+            if (filters.responsable) {
+                if (filters.responsable === 'PENDIENTE') {
+                    q.or('responsable_verificacion.is.null,responsable_verificacion.eq."",responsable_verificacion.eq.PENDIENTE,responsable_verificacion.eq.null');
+                } else {
+                    q.eq('responsable_verificacion', filters.responsable);
+                }
             }
+            if (filters.fechaInicio) q.gte('fecha_verificacion', filters.fechaInicio);
+            if (filters.fechaFin) q.lte('fecha_verificacion', filters.fechaFin);
         } 
         else if (filters.etapa === 'REQUERIMIENTO') {
-            if (filters.estado === 'ATENDIDO') q.not('numero_documento', 'is', null).neq('numero_documento', '');
-            else q.or('numero_documento.is.null,numero_documento.eq.""');
+            // Un documento está en REQUERIMIENTO si su N° de documento está realmente vacío
+            q.or('numero_documento.is.null,numero_documento.eq."",numero_documento.eq.null,numero_documento.eq." "');
             
-            if (filters.responsable) q.eq('responsable_requerimiento', filters.responsable);
-
-            // Filtro de fecha específico para esta etapa
-            if (filters.fechaInicio && filters.fechaFin) {
-                q.gte('fecha_elaboracion', filters.fechaInicio).lte('fecha_elaboracion', filters.fechaFin);
+            if (filters.estado === 'ATENDIDO') {
+                q.not('numero_documento', 'is', null).neq('numero_documento', '');
             }
+
+            // Lógica inteligente para RESPONSABLE PENDIENTE en esta etapa
+            if (filters.responsable) {
+                if (filters.responsable === 'PENDIENTE') {
+                    q.or('responsable_requerimiento.is.null,responsable_requerimiento.eq."",responsable_requerimiento.eq.PENDIENTE,responsable_requerimiento.eq.null');
+                } else {
+                    q.eq('responsable_requerimiento', filters.responsable);
+                }
+            }
+            if (filters.fechaInicio) q.gte('fecha_elaboracion', filters.fechaInicio);
+            if (filters.fechaFin) q.lte('fecha_elaboracion', filters.fechaFin);
         }
         else if (filters.etapa === 'SEGUIMIENTO') {
+            // Un documento SOLO entra en seguimiento si TIENE un número de documento válido
+            q.not('numero_documento', 'is', null).neq('numero_documento', '').neq('numero_documento', 'null').neq('numero_documento', ' ');
+
             if (filters.estado === 'EN PROCESO') q.gt('cantidad_seguimientos', 0);
-            else q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
+            else if (filters.estado === 'PENDIENTE') q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
 
-            if (filters.responsable) q.eq('responsable_seguimiento', filters.responsable);
-
-            // Filtro de fecha específico para esta etapa
-            if (filters.fechaInicio && filters.fechaFin) {
-                q.gte('ultimo_seguimiento', filters.fechaInicio).lte('ultimo_seguimiento', filters.fechaFin);
+            // Lógica inteligente para RESPONSABLE PENDIENTE en esta etapa
+            if (filters.responsable) {
+                if (filters.responsable === 'PENDIENTE') {
+                    q.or('responsable_seguimiento.is.null,responsable_seguimiento.eq."",responsable_seguimiento.eq.PENDIENTE,responsable_seguimiento.eq.null');
+                } else {
+                    q.eq('responsable_seguimiento', filters.responsable);
+                }
             }
+            if (filters.fechaInicio) q.gte('ultimo_seguimiento', filters.fechaInicio);
+            if (filters.fechaFin) q.lte('ultimo_seguimiento', filters.fechaFin);
         }
         else if (filters.etapa === 'CIERRE') {
             if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
             
-            if (filters.responsable) q.eq('responsable_devolucion', filters.responsable);
-
-            // Filtro de fecha específico para esta etapa
-            if (filters.fechaInicio && filters.fechaFin) {
-                q.gte('fecha_devolucion', filters.fechaInicio).lte('fecha_devolucion', filters.fechaFin);
+            // Lógica inteligente para RESPONSABLE PENDIENTE en esta etapa
+            if (filters.responsable) {
+                if (filters.responsable === 'PENDIENTE') {
+                    q.or('responsable_devolucion.is.null,responsable_devolucion.eq."",responsable_devolucion.eq.PENDIENTE,responsable_devolucion.eq.null');
+                } else {
+                    q.eq('responsable_devolucion', filters.responsable);
+                }
             }
+            if (filters.fechaInicio) q.gte('fecha_devolucion', filters.fechaInicio);
+            if (filters.fechaFin) q.lte('fecha_devolucion', filters.fechaFin);
         }
         else {
             // --- 3. LÓGICA GLOBAL (Sin Etapa seleccionada) ---
             if (filters.responsable) {
                 if (filters.responsable === 'PENDIENTE') {
-                    q.or(`and(estado_verificacion_k.eq.PENDIENTE,responsable_verificacion.eq.PENDIENTE),and(estado_verificacion_k.eq.VERIFICADO,numero_documento.is.null,responsable_requerimiento.eq.PENDIENTE),and(numero_documento.not.is.null,cargado_sisged.eq.false,responsable_seguimiento.eq.PENDIENTE),and(cargado_sisged.eq.true,responsable_devolucion.eq.PENDIENTE)`);
+                    q.or(
+                        `and(estado_verificacion_k.eq.PENDIENTE,responsable_verificacion.eq.PENDIENTE),` +
+                        `and(estado_verificacion_k.eq.VERIFICADO,numero_documento.is.null,responsable_requerimiento.eq.PENDIENTE),` +
+                        `and(numero_documento.not.is.null,cargado_sisged.eq.false,responsable_seguimiento.eq.PENDIENTE),` +
+                        `and(cargado_sisged.eq.true,responsable_devolucion.eq.PENDIENTE)`
+                    );
                 } else {
                     q.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable},responsable_seguimiento.eq.${filters.responsable}`);
                 }
             }
 
-            // FILTRO DE FECHA GLOBAL (Actividad en cualquiera de las 4 etapas)
             if (filters.fechaInicio && filters.fechaFin) {
-                const fI = filters.fechaInicio;
-                const fF = filters.fechaFin;
-                // Usamos la sintaxis PostgREST pura para evitar errores de memoria en el cliente
-                q.or(`and(fecha_verificacion.gte.${fI},fecha_verificacion.lte.${fF}),and(fecha_elaboracion.gte.${fI},fecha_elaboracion.lte.${fF}),and(ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),and(fecha_devolucion.gte.${fI},fecha_devolucion.lte.${fF})`);
+                q.or(`fecha_verificacion.gte.${filters.fechaInicio},fecha_elaboracion.gte.${filters.fechaInicio},ultimo_seguimiento.gte.${filters.fechaInicio},fecha_devolucion.gte.${filters.fechaInicio}`);
+                q.or(`fecha_verificacion.lte.${filters.fechaFin},fecha_elaboracion.lte.${filters.fechaFin},ultimo_seguimiento.lte.${filters.fechaFin},fecha_devolucion.lte.${filters.fechaFin}`);
             }
 
             if (filters.estado) {
