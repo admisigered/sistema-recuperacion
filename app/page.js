@@ -1175,38 +1175,32 @@ const stats = useMemo(() => {
 </div>
     </div>
 
-    {/* SECCIÓN 4: RENDIMIENTO INDIVIDUAL - TARJETAS DE PRODUCTIVIDAD */}
+    {/* SECCIÓN 4: RENDIMIENTO INDIVIDUAL */}
     <div className="space-y-6">
       <h4 className="text-sm font-black text-slate-700 uppercase flex items-center gap-2">
-        <UserCheck size={20} className="text-brand-blue"/> Rendimiento por Responsable (Actividad en el Rango)
+        <UserCheck size={20} className="text-brand-blue"/> Productividad por Responsable (Acciones en Rango)
       </h4>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {stats.respData.map((res) => (
-          <div key={res.name} className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 hover:shadow-md transition-all">
-            <div className="flex justify-between items-center mb-6 border-b pb-4 border-slate-50">
-              <h5 className="font-black text-brand-blue text-sm uppercase">{res.name}</h5>
-              <div className="bg-slate-50 px-3 py-1 rounded-full text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                Acciones: {res.verif + res.req + res.seg + res.cierre}
+          <div key={res.name} className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 hover:border-brand-blue/30 transition-all">
+            <h5 className="font-black text-brand-blue text-xs uppercase mb-4 border-b pb-2">{res.name}</h5>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center bg-blue-50/50 p-2 px-3 rounded-xl">
+                <span className="text-[10px] font-bold text-blue-500 uppercase">Verif.</span>
+                <span className="text-sm font-black text-blue-700">{res.verif}</span>
               </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-blue-50/50 p-3 rounded-2xl border border-blue-100/50">
-                <p className="text-[9px] font-bold text-blue-400 uppercase tracking-tighter">Verificados</p>
-                <p className="text-2xl font-black text-blue-600">{res.verif}</p>
+              <div className="flex justify-between items-center bg-sky-50/50 p-2 px-3 rounded-xl">
+                <span className="text-[10px] font-bold text-sky-500 uppercase">Req.</span>
+                <span className="text-sm font-black text-sky-700">{res.req}</span>
               </div>
-              <div className="bg-sky-50/50 p-3 rounded-2xl border border-sky-100/50">
-                <p className="text-[9px] font-bold text-sky-400 uppercase tracking-tighter">Requeridos</p>
-                <p className="text-2xl font-black text-sky-600">{res.req}</p>
+              <div className="flex justify-between items-center bg-orange-50/50 p-2 px-3 rounded-xl border border-orange-100">
+                <span className="text-[10px] font-bold text-orange-500 uppercase">Seguimientos</span>
+                <span className="text-sm font-black text-orange-700">{res.seg}</span>
               </div>
-              <div className="bg-orange-50/50 p-3 rounded-2xl border border-orange-100/50">
-                <p className="text-[9px] font-bold text-orange-400 uppercase tracking-tighter">Seguimientos</p>
-                <p className="text-2xl font-black text-orange-600">{res.seg}</p>
-              </div>
-              <div className="bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100/50">
-                <p className="text-[9px] font-bold text-emerald-400 uppercase tracking-tighter">Cerrados</p>
-                <p className="text-2xl font-black text-emerald-600">{res.cierre}</p>
+              <div className="flex justify-between items-center bg-emerald-50/50 p-2 px-3 rounded-xl">
+                <span className="text-[10px] font-bold text-emerald-500 uppercase">Cierres</span>
+                <span className="text-sm font-black text-emerald-700">{res.cierre}</span>
               </div>
             </div>
           </div>
