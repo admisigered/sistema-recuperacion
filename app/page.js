@@ -55,6 +55,85 @@ const renderMultiLineLabel = ({ cx, x, y, name, value }) => {
   );
 };
 
+const formatExcelDate = (val) => {
+    // Si el valor no existe, es nulo o es solo un espacio en blanco, devolvemos null
+    if (!val || String(val).trim() === "" || String(val).trim() === "null") return null;
+
+    if (typeof val === 'number') {
+      return new Date((val - 25569) * 86400 * 1000).toISOString().split('T')[0];
+    }
+    
+    if (typeof val === 'string') {
+      const limpia = val.trim();
+      if (limpia.includes('/')) {
+        const parts = limpia.split('/');
+        // Soporta D/M/YYYY o DD/MM/YYYY
+        const d = parts[0].padStart(2, '0');
+        const m = parts[1].padStart(2, '0');
+        const y = parts[2];
+        return `${y}-${m}-${d}`;
+      }
+      return limpia;
+    }
+    return val;
+  };
+
+  const calcularDiasHabiles = (fechaRef) => {
+    if (!fechaRef) return 0;
+
+    // Lista de feriados nacionales en Perú (Formato MM-DD)
+    // Se incluyen los fijos y los movibles específicos para el año 2026
+    const feriadosPeru2026 = [
+      '01-01', // Año Nuevo
+      '04-02', // Jueves Santo (2026)
+      '04-03', // Viernes Santo (2026)
+      '05-01', // Día del Trabajo
+      '06-07', // Batalla de Arica / Día de la Bandera
+      '06-29', // San Pedro y San Pablo
+      '07-23', // Día de la Fuerza Aérea (Abelardo Quiñones)
+      '07-28', // Fiestas Patrias
+      '07-29', // Fiestas Patrias
+      '08-06', // Batalla de Junín
+      '08-30', // Santa Rosa de Lima
+      '10-08', // Combate de Angamos
+      '11-01', // Todos los Santos
+      '12-08', // Inmaculada Concepción
+      '12-09', // Batalla de Ayacucho
+      '12-25', // Navidad
+    ];
+
+    // 1. Configuramos la fecha de inicio (día de notificación)
+    let fechaActual = new Date(fechaRef + 'T00:00:00');
+    
+    // 2. El conteo empieza SIEMPRE desde el día SIGUIENTE a la notificación
+    fechaActual.setDate(fechaActual.getDate() + 1);
+
+    // 3. Obtenemos la fecha de hoy a medianoche
+    let hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    let contador = 0;
+
+    // 4. Recorremos los días desde el día siguiente hasta hoy
+    while (fechaActual <= hoy) {
+      const diaSemana = fechaActual.getDay(); // 0: Domingo, 6: Sábado
+      const mesDia = `${(fechaActual.getMonth() + 1).toString().padStart(2, '0')}-${fechaActual.getDate().toString().padStart(2, '0')}`;
+
+      // Regla: No es sábado (6), no es domingo (0) y no está en la lista de feriados
+      const esFinDeSemana = (diaSemana === 0 || diaSemana === 6);
+      const esFeriado = feriadosPeru2026.includes(mesDia);
+
+      if (!esFinDeSemana && !esFeriado) {
+        contador++;
+      }
+
+      // Avanzamos al siguiente día
+      fechaActual.setDate(fechaActual.getDate() + 1);
+    }
+    
+    return contador;
+  };
+
 export default function SistemaSIGERED() {
   // --- ESTADOS DEL SISTEMA ---
   const [session, setSession] = useState(null);
@@ -158,184 +237,50 @@ export default function SistemaSIGERED() {
   }, [seguimientos, editingDoc]);
   
 const stats = useMemo(() => {
-    // Si no hay documentos, devolvemos datos vacíos para evitar errores en los gráficos
     if (!allDocsForStats || allDocsForStats.length === 0) {
       return { monthlyData: [], stageData: [], originData: [], sedeData: [], respData: [], alertaMensaje: "" };
     }
 
-    // 1. AVANCE DE ETAPAS POR MES (Histórico de actividad)
-    const configuracionMeses = [
-      { etiqueta: 'DICIEMBRE', filtro: '2025-12' },
-      { etiqueta: 'ENERO', filtro: '2026-01' },
-      { etiqueta: 'FEBRERO', filtro: '2026-02' },
-      { etiqueta: 'MARZO', filtro: '2026-03' },
-      { etiqueta: 'ABRIL', filtro: '2026-04' },
-      { etiqueta: 'MAYO', filtro: '2026-05' }
-    ];
+    const estaEnRango = (fecha) => {
+      if (!filters.fechaInicio || !filters.fechaFin) return true;
+      const f = formatExcelDate(fecha);
+      return f && f >= filters.fechaInicio && f <= filters.fechaFin;
+    };
 
-    const monthlyData = configuracionMeses.map((mes) => {
-      const esDelMes = (fechaStr) => {
-        if (!fechaStr) return false;
-        let f = fechaStr;
-        if (f.includes('/')) {
-          const p = f.split('/');
-          f = `${p[2]}-${p[1]}`;
-        }
-        return f.startsWith(mes.filtro);
-      };
+    // 1. RENDIMIENTO INDIVIDUAL POR RESPONSABLE (Filtrado por Rango de Fechas)
+    // Filtramos la lista para NO incluir la categoría "PENDIENTE" en las tarjetas
+    const listaSoloPersonal = LISTA_RESPONSABLES.filter(r => r !== "PENDIENTE");
 
-      return {
-        name: mes.etiqueta,
-        Verificaciones: allDocsForStats.filter(d => esDelMes(d.fecha_verificacion)).length,
-        Requerimientos: allDocsForStats.filter(d => esDelMes(d.fecha_elaboracion)).length,
-        Seguimientos: allDocsForStats.filter(d => esDelMes(d.ultimo_seguimiento)).length,
-        Cierres: allDocsForStats.filter(d => esDelMes(d.fecha_devolucion)).length
-      };
-    });
-
-    // 2. DATOS POR ETAPA, ORIGEN Y SEDE (Para los gráficos pequeños)
-    const stageData = [
-      { name: 'Verif.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'VERIFICACION').length },
-      { name: 'Req.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'REQUERIMIENTO').length },
-      { name: 'Seg.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'SEGUIMIENTO').length },
-      { name: 'Cierre', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'CIERRE').length },
-    ];
-
-    const originData = [
-      { name: 'Internos', value: allDocsForStats.filter(d => d.origen?.toUpperCase() === 'INTERNO').length },
-      { name: 'Externos', value: allDocsForStats.filter(d => d.origen?.toUpperCase() === 'EXTERNO').length },
-    ];
-
-    // 4. Sedes (Conteo total simple)
-    const sedeData = [
-      { 
-        name: 'SC', 
-        total: allDocsForStats.filter(d => d.sede === 'SC').length 
-      },
-      { 
-        name: 'OD', 
-        total: allDocsForStats.filter(d => d.sede === 'OD').length 
-      },
-    ];
-
-    // 3. RENDIMIENTO DE RESPONSABLES (Barras horizontales 100% apiladas) + ALERTA
-    let maxPromedio = 0;
-    let responsableLento = "ADMINISTRADOR";
-
-    const respData = LISTA_RESPONSABLES.map(r => {
-      const user = r.toUpperCase();
-      
-      // Cantidades Reales (vVal, reVal, sVal, cVal)
-      const v = allDocsForStats.filter(d => String(d.responsable_verificacion).toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO').length;
-      const re = allDocsForStats.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.numero_documento && d.numero_documento !== 'null').length;
-      const s = allDocsForStats.filter(d => 
-    String(d.responsable_seguimiento).toUpperCase() === user && 
-    (d.cantidad_seguimientos > 0 || d.ultimo_seguimiento)
-).length;
-      const c = allDocsForStats.filter(d => String(d.responsable_devolucion).toUpperCase() === user && d.cargado_sisged).length;
-
-      const total = v + re + s + c || 1; // Total para cálculo de porcentaje (100% stack)
-      
-      // Lógica de Alerta (Detección del más demorado)
-      const prom = parseFloat((Math.random() * 4 + 2).toFixed(1)); 
-      if (prom > maxPromedio) { maxPromedio = prom; responsableLento = r; }
-
+    const respData = listaSoloPersonal.map(r => {
+      const u = r.toUpperCase();
       return {
         name: r,
-        vVal: v, reVal: re, sVal: s, cVal: c, // Números reales para etiquetas
-        vPct: (v / total) * 100, // Porcentajes para el ancho de la barra
-        rePct: (re / total) * 100,
-        sPct: (s / total) * 100,
-        cPct: (c / total) * 100
+        verif: allDocsForStats.filter(d => (d.responsable_verificacion || '').toUpperCase() === u && d.estado_verificacion_k === 'VERIFICADO' && estaEnRango(d.fecha_verificacion)).length,
+        req: allDocsForStats.filter(d => (d.responsable_requerimiento || '').toUpperCase() === u && d.numero_documento && estaEnRango(d.fecha_elaboracion)).length,
+        seg: allDocsForStats.filter(d => ((d.responsable_seguimiento || '').toUpperCase() === u || (d.ultimo_responsable || '').toUpperCase() === u) && Number(d.cantidad_seguimientos) > 0 && estaEnRango(d.ultimo_seguimiento)).length,
+        cierre: allDocsForStats.filter(d => (d.responsable_devolucion || '').toUpperCase() === u && d.cargado_sisged && estaEnRango(d.fecha_devolucion)).length
       };
     });
 
-    const alertaMensaje = `ETAPA MÁS DEMORADA: ${responsableLento} — SEGUIMIENTO: ${maxPromedio} DÍAS AVG.`;
+    // 2. AVANCE MENSUAL (Histórico)
+    const mesesConf = [{ e: 'DICIEMBRE', f: '2025-12' }, { e: 'ENERO', f: '2026-01' }, { e: 'FEBRERO', f: '2026-02' }, { e: 'MARZO', f: '2026-03' }, { e: 'ABRIL', f: '2026-04' }, { e: 'MAYO', f: '2026-05' }];
+    const monthlyData = mesesConf.map(m => ({
+      name: m.e,
+      Verificaciones: allDocsForStats.filter(d => (formatExcelDate(d.fecha_verificacion) || '').startsWith(m.f)).length,
+      Requerimientos: allDocsForStats.filter(d => (formatExcelDate(d.fecha_elaboracion) || '').startsWith(m.f)).length,
+      Seguimientos: allDocsForStats.filter(d => (formatExcelDate(d.ultimo_seguimiento) || '').startsWith(m.f)).length,
+      Cierres: allDocsForStats.filter(d => (formatExcelDate(d.fecha_devolucion) || '').startsWith(m.f)).length
+    }));
 
-    return { monthlyData, stageData, originData, sedeData, respData, alertaMensaje };
-
-  }, [allDocsForStats, getEtapaEstado]); // El bloque termina aquí con sus dependencias
+    return { 
+      monthlyData, respData, 
+      stageData: [{ name: 'Verif.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'VERIFICACION').length }, { name: 'Req.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'REQUERIMIENTO').length }, { name: 'Seg.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'SEGUIMIENTO').length }, { name: 'Cierre', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'CIERRE').length }],
+      originData: [{ name: 'Internos', value: allDocsForStats.filter(d => (d.origen || '').toUpperCase() === 'INTERNO').length }, { name: 'Externos', value: allDocsForStats.filter(d => (d.origen || '').toUpperCase() === 'EXTERNO').length }],
+      sedeData: [{ name: 'SC', total: allDocsForStats.filter(d => d.sede === 'SC').length }, { name: 'OD', total: allDocsForStats.filter(d => d.sede === 'OD').length }]
+    };
+  }, [allDocsForStats, getEtapaEstado, filters.fechaInicio, filters.fechaFin]);
   
-  // --- 2. FUNCIONES DE APOYO ---
-  const formatExcelDate = (val) => {
-    // Si el valor no existe, es nulo o es solo un espacio en blanco, devolvemos null
-    if (!val || String(val).trim() === "" || String(val).trim() === "null") return null;
 
-    if (typeof val === 'number') {
-      return new Date((val - 25569) * 86400 * 1000).toISOString().split('T')[0];
-    }
-    
-    if (typeof val === 'string') {
-      const limpia = val.trim();
-      if (limpia.includes('/')) {
-        const parts = limpia.split('/');
-        // Soporta D/M/YYYY o DD/MM/YYYY
-        const d = parts[0].padStart(2, '0');
-        const m = parts[1].padStart(2, '0');
-        const y = parts[2];
-        return `${y}-${m}-${d}`;
-      }
-      return limpia;
-    }
-    return val;
-  };
-
-  const calcularDiasHabiles = (fechaRef) => {
-    if (!fechaRef) return 0;
-
-    // Lista de feriados nacionales en Perú (Formato MM-DD)
-    // Se incluyen los fijos y los movibles específicos para el año 2026
-    const feriadosPeru2026 = [
-      '01-01', // Año Nuevo
-      '04-02', // Jueves Santo (2026)
-      '04-03', // Viernes Santo (2026)
-      '05-01', // Día del Trabajo
-      '06-07', // Batalla de Arica / Día de la Bandera
-      '06-29', // San Pedro y San Pablo
-      '07-23', // Día de la Fuerza Aérea (Abelardo Quiñones)
-      '07-28', // Fiestas Patrias
-      '07-29', // Fiestas Patrias
-      '08-06', // Batalla de Junín
-      '08-30', // Santa Rosa de Lima
-      '10-08', // Combate de Angamos
-      '11-01', // Todos los Santos
-      '12-08', // Inmaculada Concepción
-      '12-09', // Batalla de Ayacucho
-      '12-25', // Navidad
-    ];
-
-    // 1. Configuramos la fecha de inicio (día de notificación)
-    let fechaActual = new Date(fechaRef + 'T00:00:00');
-    
-    // 2. El conteo empieza SIEMPRE desde el día SIGUIENTE a la notificación
-    fechaActual.setDate(fechaActual.getDate() + 1);
-
-    // 3. Obtenemos la fecha de hoy a medianoche
-    let hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-
-    let contador = 0;
-
-    // 4. Recorremos los días desde el día siguiente hasta hoy
-    while (fechaActual <= hoy) {
-      const diaSemana = fechaActual.getDay(); // 0: Domingo, 6: Sábado
-      const mesDia = `${(fechaActual.getMonth() + 1).toString().padStart(2, '0')}-${fechaActual.getDate().toString().padStart(2, '0')}`;
-
-      // Regla: No es sábado (6), no es domingo (0) y no está en la lista de feriados
-      const esFinDeSemana = (diaSemana === 0 || diaSemana === 6);
-      const esFeriado = feriadosPeru2026.includes(mesDia);
-
-      if (!esFinDeSemana && !esFeriado) {
-        contador++;
-      }
-
-      // Avanzamos al siguiente día
-      fechaActual.setDate(fechaActual.getDate() + 1);
-    }
-    
-    return contador;
-  };
-  
   // --- 3. GESTIÓN DE DATOS (TABLA + DASHBOARD GLOBAL) ---
   const fetchDocs = useCallback(async () => {
     setLoading(true);
@@ -1221,37 +1166,45 @@ const stats = useMemo(() => {
 </div>
     </div>
 
-    {/* SECCIÓN 4: RENDIMIENTO - FILA 4 */}
-    <div className="bg-white p-10 rounded-5xl border border-slate-100 shadow-sm shadow-slate-200 relative">
-      <div className="absolute top-10 right-10 bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center gap-3">
-        <AlertCircle size={18} className="text-amber-600"/>
-        <p className="text-[11px] font-black text-amber-800 uppercase tracking-tighter">{stats.alertaMensaje}</p>
-      </div>
-      <h4 className="text-sm font-black text-slate-700 uppercase mb-12">Rendimiento de Responsables (Barras 100%)</h4>
-      <div className="h-[450px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={stats.respData} layout="vertical" margin={{ top: 5, right: 40, left: 40, bottom: 5 }}>
-            <XAxis type="number" hide domain={[0, 100]} />
-            <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 'bold', fill: '#1e293b'}} width={120} />
-            <Tooltip formatter={(value, name, props) => [props.payload[props.dataKey.replace('Pct', 'Val')], name]} />
-            <Legend verticalAlign="bottom" height={40} iconType="circle"/>
-            <Bar name="Verificados" dataKey="vPct" stackId="a" fill="#3b82f6">
-              <LabelList dataKey="vVal" position="center" fill="#fff" fontSize={13} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
-            </Bar>
-            <Bar name="Requeridos" dataKey="rePct" stackId="a" fill="#93c5fd">
-              <LabelList dataKey="reVal" position="center" fill="#1e3a8a" fontSize={13} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
-            </Bar>
-            <Bar name="Seguimientos" dataKey="sPct" stackId="a" fill="#f97316">
-              <LabelList dataKey="sVal" position="center" fill="#fff" fontSize={13} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
-            </Bar>
-            <Bar name="Cerrados/SISGED" dataKey="cPct" stackId="a" fill="#22c55e">
-              <LabelList dataKey="cVal" position="center" fill="#fff" fontSize={13} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+    {/* SECCIÓN 4: RENDIMIENTO INDIVIDUAL - TARJETAS DE PRODUCTIVIDAD */}
+    <div className="space-y-6">
+      <h4 className="text-sm font-black text-slate-700 uppercase flex items-center gap-2">
+        <UserCheck size={20} className="text-brand-blue"/> Rendimiento por Responsable (Actividad en el Rango)
+      </h4>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {stats.respData.map((res) => (
+          <div key={res.name} className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 hover:shadow-md transition-all">
+            <div className="flex justify-between items-center mb-6 border-b pb-4 border-slate-50">
+              <h5 className="font-black text-brand-blue text-sm uppercase">{res.name}</h5>
+              <div className="bg-slate-50 px-3 py-1 rounded-full text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                Acciones: {res.verif + res.req + res.seg + res.cierre}
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-blue-50/50 p-3 rounded-2xl border border-blue-100/50">
+                <p className="text-[9px] font-bold text-blue-400 uppercase tracking-tighter">Verificados</p>
+                <p className="text-2xl font-black text-blue-600">{res.verif}</p>
+              </div>
+              <div className="bg-sky-50/50 p-3 rounded-2xl border border-sky-100/50">
+                <p className="text-[9px] font-bold text-sky-400 uppercase tracking-tighter">Requeridos</p>
+                <p className="text-2xl font-black text-sky-600">{res.req}</p>
+              </div>
+              <div className="bg-orange-50/50 p-3 rounded-2xl border border-orange-100/50">
+                <p className="text-[9px] font-bold text-orange-400 uppercase tracking-tighter">Seguimientos</p>
+                <p className="text-2xl font-black text-orange-600">{res.seg}</p>
+              </div>
+              <div className="bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100/50">
+                <p className="text-[9px] font-bold text-emerald-400 uppercase tracking-tighter">Cerrados</p>
+                <p className="text-2xl font-black text-emerald-600">{res.cierre}</p>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
-  </div> // CIERRA dashboard-view
+  </div> // CIERRA EL ID "dashboard-view"
 ) : (
             <div className="bg-white rounded-4xl shadow-sm border border-slate-100 overflow-hidden animate-in fade-in shadow-slate-100">
                <table className="w-full text-left font-sans font-bold font-sans">
