@@ -1202,8 +1202,15 @@ const s = allSegsForStats.filter(seg => {
       </h4>
       
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {stats.respData
-    .filter(res => (res.verif + res.req + res.seg + res.cierre) > 0) 
+  {stats.respData
+    .filter(res => {
+      // Condición A: Que tenga trabajo en este filtro
+      const tieneTrabajo = (res.verif + res.req + res.seg + res.cierre) > 0;
+      // Condición B: Si el usuario eligió un responsable específico arriba, SOLO mostrar a ese
+      const esElFiltrado = !filters.responsable || res.name === filters.responsable;
+      
+      return tieneTrabajo && esElFiltrado;
+    })
     .map((res) => (
           <div key={res.name} className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 hover:border-brand-blue/30 transition-all">
             <h5 className="font-black text-brand-blue text-xs uppercase mb-4 border-b pb-2">{res.name}</h5>
