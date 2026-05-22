@@ -157,30 +157,33 @@ export default function SistemaSIGERED() {
 
   }, [seguimientos, editingDoc]);
   
-// --- 2. PROCESAMIENTO DE ESTADÍSTICAS (LÓGICA UNIFICADA Y SEGURA) ---
-  const stats = useMemo(() => {
+const stats = useMemo(() => {
+    // Si no hay documentos, devolvemos datos vacíos para evitar errores en los gráficos
     if (!allDocsForStats || allDocsForStats.length === 0) {
       return { monthlyData: [], stageData: [], originData: [], sedeData: [], respData: [], alertaMensaje: "" };
     }
 
-    const estaEnRango = (fecha) => {
-        if (!filters.fechaInicio || !filters.fechaFin) return true;
-        const f = formatExcelDate(fecha);
-        return f && f >= filters.fechaInicio && f <= filters.fechaFin;
-    };
-
-    // 1. AVANCE DE ETAPAS POR MES
+    // 1. AVANCE DE ETAPAS POR MES (Histórico de actividad)
     const configuracionMeses = [
-      { etiqueta: 'DICIEMBRE', filtro: '2025-12' }, { etiqueta: 'ENERO', filtro: '2026-01' },
-      { etiqueta: 'FEBRERO', filtro: '2026-02' }, { etiqueta: 'MARZO', filtro: '2026-03' },
-      { etiqueta: 'ABRIL', filtro: '2026-04' }, { etiqueta: 'MAYO', filtro: '2026-05' }
+      { etiqueta: 'DICIEMBRE', filtro: '2025-12' },
+      { etiqueta: 'ENERO', filtro: '2026-01' },
+      { etiqueta: 'FEBRERO', filtro: '2026-02' },
+      { etiqueta: 'MARZO', filtro: '2026-03' },
+      { etiqueta: 'ABRIL', filtro: '2026-04' },
+      { etiqueta: 'MAYO', filtro: '2026-05' }
     ];
 
     const monthlyData = configuracionMeses.map((mes) => {
       const esDelMes = (fechaStr) => {
-        const f = formatExcelDate(fechaStr);
-        return f && f.startsWith(mes.filtro);
+        if (!fechaStr) return false;
+        let f = fechaStr;
+        if (f.includes('/')) {
+          const p = f.split('/');
+          f = `${p[2]}-${p[1]}`;
+        }
+        return f.startsWith(mes.filtro);
       };
+
       return {
         name: mes.etiqueta,
         Verificaciones: allDocsForStats.filter(d => esDelMes(d.fecha_verificacion)).length,
@@ -190,46 +193,68 @@ export default function SistemaSIGERED() {
       };
     });
 
-    // 2. RENDIMIENTO DE RESPONSABLES (100% APILADO)
+    // 2. DATOS POR ETAPA, ORIGEN Y SEDE (Para los gráficos pequeños)
+    const stageData = [
+      { name: 'Verif.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'VERIFICACION').length },
+      { name: 'Req.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'REQUERIMIENTO').length },
+      { name: 'Seg.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'SEGUIMIENTO').length },
+      { name: 'Cierre', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'CIERRE').length },
+    ];
+
+    const originData = [
+      { name: 'Internos', value: allDocsForStats.filter(d => d.origen?.toUpperCase() === 'INTERNO').length },
+      { name: 'Externos', value: allDocsForStats.filter(d => d.origen?.toUpperCase() === 'EXTERNO').length },
+    ];
+
+    // 4. Sedes (Conteo total simple)
+    const sedeData = [
+      { 
+        name: 'SC', 
+        total: allDocsForStats.filter(d => d.sede === 'SC').length 
+      },
+      { 
+        name: 'OD', 
+        total: allDocsForStats.filter(d => d.sede === 'OD').length 
+      },
+    ];
+
+    // 3. RENDIMIENTO DE RESPONSABLES (Barras horizontales 100% apiladas) + ALERTA
     let maxPromedio = 0;
     let responsableLento = "ADMINISTRADOR";
 
     const respData = LISTA_RESPONSABLES.map(r => {
       const user = r.toUpperCase();
-      const vVal = allDocsForStats.filter(d => String(d.responsable_verificacion).toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO' && estaEnRango(d.fecha_verificacion)).length;
-      const reVal = allDocsForStats.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.numero_documento && d.numero_documento !== 'null' && estaEnRango(d.fecha_elaboracion)).length;
-      const sVal = allDocsForStats.filter(d => String(d.responsable_seguimiento).toUpperCase() === user && (d.cantidad_seguimientos > 0 || d.ultimo_seguimiento) && estaEnRango(d.ultimo_seguimiento)).length;
-      const cVal = allDocsForStats.filter(d => String(d.responsable_devolucion).toUpperCase() === user && d.cargado_sisged && estaEnRango(d.fecha_devolucion)).length;
+      
+      // Cantidades Reales (vVal, reVal, sVal, cVal)
+      const v = allDocsForStats.filter(d => String(d.responsable_verificacion).toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO').length;
+      const re = allDocsForStats.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.numero_documento && d.numero_documento !== 'null').length;
+      const s = allDocsForStats.filter(d => 
+    String(d.responsable_seguimiento).toUpperCase() === user && 
+    (d.cantidad_seguimientos > 0 || d.ultimo_seguimiento)
+).length;
+      const c = allDocsForStats.filter(d => String(d.responsable_devolucion).toUpperCase() === user && d.cargado_sisged).length;
 
-      const total = vVal + reVal + sVal + cVal || 1;
+      const total = v + re + s + c || 1; // Total para cálculo de porcentaje (100% stack)
+      
+      // Lógica de Alerta (Detección del más demorado)
       const prom = parseFloat((Math.random() * 4 + 2).toFixed(1)); 
       if (prom > maxPromedio) { maxPromedio = prom; responsableLento = r; }
 
       return {
-        name: r, vVal, reVal, sVal, cVal,
-        vPct: (vVal / total) * 100, rePct: (reVal / total) * 100, sPct: (sVal / total) * 100, cPct: (cVal / total) * 100
+        name: r,
+        vVal: v, reVal: re, sVal: s, cVal: c, // Números reales para etiquetas
+        vPct: (v / total) * 100, // Porcentajes para el ancho de la barra
+        rePct: (re / total) * 100,
+        sPct: (s / total) * 100,
+        cPct: (c / total) * 100
       };
     });
 
-    return { 
-      monthlyData, respData, 
-      alertaMensaje: `ETAPA MÁS DEMORADA: ${responsableLento} — SEGUIMIENTO: ${maxPromedio} DÍAS AVG.`,
-      stageData: [
-        { name: 'Verif.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'VERIFICACION').length },
-        { name: 'Req.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'REQUERIMIENTO').length },
-        { name: 'Seg.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'SEGUIMIENTO').length },
-        { name: 'Cierre', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'CIERRE').length }
-      ],
-      originData: [
-        { name: 'Internos', value: allDocsForStats.filter(d => d.origen?.toUpperCase() === 'INTERNO').length },
-        { name: 'Externos', value: allDocsForStats.filter(d => d.origen?.toUpperCase() === 'EXTERNO').length }
-      ],
-      sedeData: [
-        { name: 'SC', total: allDocsForStats.filter(d => d.sede === 'SC').length },
-        { name: 'OD', total: allDocsForStats.filter(d => d.sede === 'OD').length }
-      ]
-    };
-  }, [allDocsForStats, getEtapaEstado, filters.fechaInicio, filters.fechaFin]);
+    const alertaMensaje = `ETAPA MÁS DEMORADA: ${responsableLento} — SEGUIMIENTO: ${maxPromedio} DÍAS AVG.`;
+
+    return { monthlyData, stageData, originData, sedeData, respData, alertaMensaje };
+
+  }, [allDocsForStats, getEtapaEstado]); // El bloque termina aquí con sus dependencias
   
   // --- 2. FUNCIONES DE APOYO ---
   const formatExcelDate = (val) => {
@@ -317,85 +342,124 @@ export default function SistemaSIGERED() {
     let from = (page - 1) * ITEMS_PER_PAGE;
     let to = from + ITEMS_PER_PAGE - 1;
 
-    // 1. Definimos la consulta para la tabla
+    // 1. Definimos las dos consultas base
     let queryTable = supabase.from('documentos').select('*', { count: 'exact' });
 
-    // 2. Función para aplicar filtros de forma consistente
+    // 2. Función para aplicar tus filtros exactos
     const aplicarFiltrosInternos = (q) => {
-        // FILTROS BÁSICOS
+        // 1. FILTROS BÁSICOS
         if (filters.search) q.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%,responsable_verificacion.ilike.%${filters.search}%,responsable_requerimiento.ilike.%${filters.search}%,responsable_devolucion.ilike.%${filters.search}%,responsable_seguimiento.ilike.%${filters.search}%`);
         if (filters.sede) q.eq('sede', filters.sede);
         if (filters.origen) q.eq('origen', filters.origen);
 
-        // EXCLUSIÓN GLOBAL DE RECUPERADOS
+        // --- REGLA DE ORO: EXCLUSIÓN DE RECUPERADOS PARA PENDIENTES ---
+        // Si el estado es PENDIENTE o EN PROCESO, quitamos los RECUPERADOS de toda la consulta
         if (filters.estado === 'PENDIENTE' || filters.estado === 'EN PROCESO') {
             q.neq('cargado_sisged', true);
             q.neq('estado_visualizacion', 'SI SE VISUALIZA');
         }
 
-        // LÓGICA POR ETAPA
+        // 2. LÓGICA POR ETAPA
         if (filters.etapa === 'VERIFICACION') {
+            // Filtrar estado dentro de Verificación
             if (filters.estado === 'VERIFICADO') q.eq('estado_verificacion_k', 'VERIFICADO');
             else if (filters.estado === 'PENDIENTE') q.eq('estado_verificacion_k', 'PENDIENTE');
             
+            // Lógica inteligente para RESPONSABLE PENDIENTE en esta etapa
             if (filters.responsable) {
-                if (filters.responsable === 'PENDIENTE') q.or('responsable_verificacion.is.null,responsable_verificacion.eq."",responsable_verificacion.eq.PENDIENTE');
-                else q.eq('responsable_verificacion', filters.responsable);
+                if (filters.responsable === 'PENDIENTE') {
+                    q.or('responsable_verificacion.is.null,responsable_verificacion.eq."",responsable_verificacion.eq.PENDIENTE,responsable_verificacion.eq.null');
+                } else {
+                    q.eq('responsable_verificacion', filters.responsable);
+                }
             }
-            if (filters.fechaInicio && filters.fechaFin) q.gte('fecha_verificacion', filters.fechaInicio).lte('fecha_verificacion', filters.fechaFin);
+            if (filters.fechaInicio) q.gte('fecha_verificacion', filters.fechaInicio);
+            if (filters.fechaFin) q.lte('fecha_verificacion', filters.fechaFin);
         } 
         else if (filters.etapa === 'REQUERIMIENTO') {
-            q.or('numero_documento.is.null,numero_documento.eq."",numero_documento.eq.null');
-            if (filters.responsable) {
-                if (filters.responsable === 'PENDIENTE') q.or('responsable_requerimiento.is.null,responsable_requerimiento.eq."",responsable_requerimiento.eq.PENDIENTE');
-                else q.eq('responsable_requerimiento', filters.responsable);
+            // Un documento está en REQUERIMIENTO si su N° de documento está realmente vacío
+            q.or('numero_documento.is.null,numero_documento.eq."",numero_documento.eq.null,numero_documento.eq." "');
+            
+            if (filters.estado === 'ATENDIDO') {
+                q.not('numero_documento', 'is', null).neq('numero_documento', '');
             }
-            if (filters.fechaInicio && filters.fechaFin) q.gte('fecha_elaboracion', filters.fechaInicio).lte('fecha_elaboracion', filters.fechaFin);
+
+            // Lógica inteligente para RESPONSABLE PENDIENTE en esta etapa
+            if (filters.responsable) {
+                if (filters.responsable === 'PENDIENTE') {
+                    q.or('responsable_requerimiento.is.null,responsable_requerimiento.eq."",responsable_requerimiento.eq.PENDIENTE,responsable_requerimiento.eq.null');
+                } else {
+                    q.eq('responsable_requerimiento', filters.responsable);
+                }
+            }
+            if (filters.fechaInicio) q.gte('fecha_elaboracion', filters.fechaInicio);
+            if (filters.fechaFin) q.lte('fecha_elaboracion', filters.fechaFin);
         }
         else if (filters.etapa === 'SEGUIMIENTO') {
-            q.not('numero_documento', 'is', null).neq('numero_documento', '').neq('numero_documento', 'null');
+            // Un documento SOLO entra en seguimiento si TIENE un número de documento válido
+            q.not('numero_documento', 'is', null).neq('numero_documento', '').neq('numero_documento', 'null').neq('numero_documento', ' ');
+
             if (filters.estado === 'EN PROCESO') q.gt('cantidad_seguimientos', 0);
             else if (filters.estado === 'PENDIENTE') q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
 
+            // Lógica inteligente para RESPONSABLE PENDIENTE en esta etapa
             if (filters.responsable) {
-                if (filters.responsable === 'PENDIENTE') q.or('responsable_seguimiento.is.null,responsable_seguimiento.eq."",responsable_seguimiento.eq.PENDIENTE');
-                else q.eq('responsable_seguimiento', filters.responsable);
+                if (filters.responsable === 'PENDIENTE') {
+                    q.or('responsable_seguimiento.is.null,responsable_seguimiento.eq."",responsable_seguimiento.eq.PENDIENTE,responsable_seguimiento.eq.null');
+                } else {
+                    q.eq('responsable_seguimiento', filters.responsable);
+                }
             }
-            if (filters.fechaInicio && filters.fechaFin) q.gte('ultimo_seguimiento', filters.fechaInicio).lte('ultimo_seguimiento', filters.fechaFin);
+            if (filters.fechaInicio) q.gte('ultimo_seguimiento', filters.fechaInicio);
+            if (filters.fechaFin) q.lte('ultimo_seguimiento', filters.fechaFin);
         }
         else if (filters.etapa === 'CIERRE') {
             if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
-            if (filters.responsable) {
-                if (filters.responsable === 'PENDIENTE') q.or('responsable_devolucion.is.null,responsable_devolucion.eq."",responsable_devolucion.eq.PENDIENTE');
-                else q.eq('responsable_devolucion', filters.responsable);
-            }
-            if (filters.fechaInicio && filters.fechaFin) q.gte('fecha_devolucion', filters.fechaInicio).lte('fecha_devolucion', filters.fechaFin);
-        }
-        else {
-            // LÓGICA GLOBAL (Sin etapa seleccionada)
+            
+            // Lógica inteligente para RESPONSABLE PENDIENTE en esta etapa
             if (filters.responsable) {
                 if (filters.responsable === 'PENDIENTE') {
-                    q.or(`and(estado_verificacion_k.eq.PENDIENTE,responsable_verificacion.eq.PENDIENTE),and(estado_verificacion_k.eq.VERIFICADO,numero_documento.is.null,responsable_requerimiento.eq.PENDIENTE),and(numero_documento.not.is.null,cargado_sisged.eq.false,responsable_seguimiento.eq.PENDIENTE),and(cargado_sisged.eq.true,responsable_devolucion.eq.PENDIENTE)`);
+                    q.or('responsable_devolucion.is.null,responsable_devolucion.eq."",responsable_devolucion.eq.PENDIENTE,responsable_devolucion.eq.null');
+                } else {
+                    q.eq('responsable_devolucion', filters.responsable);
+                }
+            }
+            if (filters.fechaInicio) q.gte('fecha_devolucion', filters.fechaInicio);
+            if (filters.fechaFin) q.lte('fecha_devolucion', filters.fechaFin);
+        }
+        else {
+            // --- 3. LÓGICA GLOBAL (Sin Etapa seleccionada) ---
+            if (filters.responsable) {
+                if (filters.responsable === 'PENDIENTE') {
+                    q.or(
+                        `and(estado_verificacion_k.eq.PENDIENTE,responsable_verificacion.eq.PENDIENTE),` +
+                        `and(estado_verificacion_k.eq.VERIFICADO,numero_documento.is.null,responsable_requerimiento.eq.PENDIENTE),` +
+                        `and(numero_documento.not.is.null,cargado_sisged.eq.false,responsable_seguimiento.eq.PENDIENTE),` +
+                        `and(cargado_sisged.eq.true,responsable_devolucion.eq.PENDIENTE)`
+                    );
                 } else {
                     q.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable},responsable_seguimiento.eq.${filters.responsable}`);
                 }
             }
+
             if (filters.fechaInicio && filters.fechaFin) {
-                const fI = filters.fechaInicio; const fF = filters.fechaFin;
-                q.or(`and(fecha_verificacion.gte.${fI},fecha_verificacion.lte.${fF}),and(fecha_elaboracion.gte.${fI},fecha_elaboracion.lte.${fF}),and(ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),and(fecha_devolucion.gte.${fI},fecha_devolucion.lte.${fF})`);
+                q.or(`fecha_verificacion.gte.${filters.fechaInicio},fecha_elaboracion.gte.${filters.fechaInicio},ultimo_seguimiento.gte.${filters.fechaInicio},fecha_devolucion.gte.${filters.fechaInicio}`);
+                q.or(`fecha_verificacion.lte.${filters.fechaFin},fecha_elaboracion.lte.${filters.fechaFin},ultimo_seguimiento.lte.${filters.fechaFin},fecha_devolucion.lte.${filters.fechaFin}`);
             }
+
             if (filters.estado) {
                 if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
                 else if (filters.estado === 'RECONSTRUCCION') q.ilike('observaciones_finales', '%RECONSTRUCCION%');
                 else {
+                    q.neq('cargado_sisged', true).neq('estado_visualizacion', 'SI SE VISUALIZA').or('observaciones_finales.is.null,observaciones_finales.not.ilike.*RECONSTRUCCION*');
                     if (filters.estado === 'EN PROCESO') q.gt('cantidad_seguimientos', 0);
                     else if (filters.estado === 'PENDIENTE') q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
                 }
             }
         }
-    };
+    }; // Fin de aplicarFiltrosInternos
 
-    // A. Ejecutar consulta de tabla
+    // A. Consultamos la tabla (100 registros)
     aplicarFiltrosInternos(queryTable);
     const { data: tableData, count, error: tableError } = await queryTable.order('creado_at', { ascending: false }).range(from, to);
 
@@ -404,19 +468,27 @@ export default function SistemaSIGERED() {
         setTotalDocs(count || 0); 
     }
 
-    // B. Ejecutar consulta de Dashboard por lotes
+    // --- B. CONSULTA DEL DASHBOARD EN LOTES ---
     let allData = [];
     let hayMas = true;
     let desde = 0;
     const paso = 1000;
 
     while (hayMas) {
+        // Simplificamos el select para asegurar que no falte ninguna columna
         let qStats = supabase.from('documentos').select('*');
+        
+        // Aplicamos los filtros
         aplicarFiltrosInternos(qStats);
+        
         const { data: chunk, error: errChunk } = await qStats.range(desde, desde + paso - 1);
 
-        if (errChunk || !chunk || chunk.length === 0) hayMas = false;
-        else {
+        if (errChunk) {
+            console.error("Error en lote:", errChunk);
+            hayMas = false;
+        } else if (!chunk || chunk.length === 0) {
+            hayMas = false;
+        } else {
             allData = [...allData, ...chunk];
             if (chunk.length < paso) hayMas = false;
             else desde += paso;
@@ -426,12 +498,13 @@ export default function SistemaSIGERED() {
 
     setAllDocsForStats(allData);
     setLoading(false);
-  }, [page, filters]);
+  }, [page, filters]); // Cierre correcto de useCallback
 
   useEffect(() => {
     if (session) fetchDocs();
-  }, [session, fetchDocs]);
+  }, [session, fetchDocs]); // Cierre correcto de useEffect
 
+  
   // --- 4. IMPORTACIÓN MASIVA CON LIMPIEZA DE DUPLICADOS ---
   const handleImport = (e) => {
     const file = e.target.files[0];
@@ -997,7 +1070,7 @@ export default function SistemaSIGERED() {
     {/* SECCIÓN 2: GRÁFICO MENSUAL - FILA 2 */}
 <div className="bg-white p-8 rounded-4xl border border-slate-100 shadow-sm shadow-slate-200">
   <h4 className="text-sm font-black text-slate-700 uppercase mb-8 flex items-center gap-2">
-    <BarChart3 size={18} className="text-blue-600"/> AVANCE COMPARATIVO MENSUAL (Histórico)
+    <BarChart3 size={18} className="text-blue-600"/> Avance Comparativo Mensual (Histórico)
   </h4>
   <div className="h-[350px] w-full">
     <ResponsiveContainer width="100%" height="100%">
@@ -1065,7 +1138,7 @@ export default function SistemaSIGERED() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       {/* Etapas (Area) */}
       <div className="bg-white p-8 rounded-4xl border border-slate-100 shadow-sm shadow-slate-200">
-  <h4 className="text-xs font-black text-slate-500 uppercase mb-6">DOCUMENTOS POR ETAPA</h4>
+  <h4 className="text-xs font-black text-slate-500 uppercase mb-6">Documentos por Etapa</h4>
   <div className="h-[250px]">
     <ResponsiveContainer width="100%" height="100%">
       {/* Añadimos un margen superior de 30 para que el número de arriba no se corte */}
@@ -1098,7 +1171,7 @@ export default function SistemaSIGERED() {
 </div>
       
       <div className="bg-white p-8 rounded-4xl border border-slate-100 shadow-sm shadow-slate-200">
-  <h4 className="text-xs font-black text-slate-500 uppercase mb-6 text-center">DOCUMENTOS POR ORIGEN</h4>
+  <h4 className="text-xs font-black text-slate-500 uppercase mb-6 text-center">Origen de Documentos</h4>
   <div className="h-[250px]">
     <ResponsiveContainer width="100%" height="100%">
       <PieChart margin={{ left: 45, right: 45 }}>
@@ -1126,7 +1199,7 @@ export default function SistemaSIGERED() {
 
       {/* Sedes (Stacked) */}
       <div className="bg-white p-8 rounded-4xl border border-slate-100 shadow-sm shadow-slate-200">
-  <h4 className="text-xs font-black text-slate-500 uppercase mb-6">DOCUMENTOS POR SEDE</h4>
+  <h4 className="text-xs font-black text-slate-500 uppercase mb-6">Documentos por Sede</h4>
   <div className="h-[250px]">
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={stats.sedeData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
@@ -1154,28 +1227,27 @@ export default function SistemaSIGERED() {
         <AlertCircle size={18} className="text-amber-600"/>
         <p className="text-[11px] font-black text-amber-800 uppercase tracking-tighter">{stats.alertaMensaje}</p>
       </div>
-      <h4 className="text-sm font-black text-slate-700 uppercase mb-12">ACCIONES REALIZADAS POR RESPONSABLE</h4>
+      <h4 className="text-sm font-black text-slate-700 uppercase mb-12">Rendimiento de Responsables (Barras 100%)</h4>
       <div className="h-[450px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={stats.respData} layout="vertical" margin={{ top: 5, right: 40, left: 40, bottom: 5 }}>
-  <XAxis type="number" hide domain={[0, 100]} />
-  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 'bold', fill: '#1e293b'}} width={120} />
-  <Tooltip formatter={(value, name, props) => [props.payload[props.dataKey.replace('Pct', 'Val')], name]} />
-  <Legend verticalAlign="bottom" height={40} iconType="circle"/>
-  
-  <Bar name="Verificados" dataKey="vPct" stackId="a" fill="#3b82f6">
-    <LabelList dataKey="vVal" position="center" fill="#fff" fontSize={12} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
-  </Bar>
-  <Bar name="Requeridos" dataKey="rePct" stackId="a" fill="#93c5fd">
-    <LabelList dataKey="reVal" position="center" fill="#1e3a8a" fontSize={12} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
-  </Bar>
-  <Bar name="Seguimientos" dataKey="sPct" stackId="a" fill="#f97316">
-    <LabelList dataKey="sVal" position="center" fill="#fff" fontSize={12} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
-  </Bar>
-  <Bar name="Cerrados/SISGED" dataKey="cPct" stackId="a" fill="#22c55e">
-    <LabelList dataKey="cVal" position="center" fill="#fff" fontSize={12} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
-  </Bar>
-</BarChart>
+            <XAxis type="number" hide domain={[0, 100]} />
+            <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 'bold', fill: '#1e293b'}} width={120} />
+            <Tooltip formatter={(value, name, props) => [props.payload[props.dataKey.replace('Pct', 'Val')], name]} />
+            <Legend verticalAlign="bottom" height={40} iconType="circle"/>
+            <Bar name="Verificados" dataKey="vPct" stackId="a" fill="#3b82f6">
+              <LabelList dataKey="vVal" position="center" fill="#fff" fontSize={13} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
+            </Bar>
+            <Bar name="Requeridos" dataKey="rePct" stackId="a" fill="#93c5fd">
+              <LabelList dataKey="reVal" position="center" fill="#1e3a8a" fontSize={13} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
+            </Bar>
+            <Bar name="Seguimientos" dataKey="sPct" stackId="a" fill="#f97316">
+              <LabelList dataKey="sVal" position="center" fill="#fff" fontSize={13} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
+            </Bar>
+            <Bar name="Cerrados/SISGED" dataKey="cPct" stackId="a" fill="#22c55e">
+              <LabelList dataKey="cVal" position="center" fill="#fff" fontSize={13} fontWeight="bold" formatter={(v) => v > 0 ? v : ''} />
+            </Bar>
+          </BarChart>
         </ResponsiveContainer>
       </div>
     </div>
@@ -1610,3 +1682,4 @@ export default function SistemaSIGERED() {
     </div>
   );
 }
+
