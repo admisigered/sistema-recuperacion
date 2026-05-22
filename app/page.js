@@ -1036,9 +1036,15 @@ const sVal = allDocsForStats.filter(d => {
         },
         { 
           label: 'EN SEGUIMIENTO', 
-          val: allDocsForStats.filter(d => getEtapaEstado(d).estado === 'EN PROCESO').length, 
-          color: 'border-b-orange-500', 
-          text: 'text-orange-500' 
+  val: allDocsForStats.filter(d => 
+    // Verificación ultra-segura de nulos
+    (Number(d?.cantidad_seguimientos) > 0 || d?.ultimo_seguimiento) && 
+    d?.cargado_sisged !== true && 
+    d?.cargado_sisged !== 'true' &&
+    String(d?.estado_visualizacion).toUpperCase() !== 'SI SE VISUALIZA'
+  ).length, 
+  color: 'border-b-orange-500', 
+  text: 'text-orange-500' 
         },
         { 
           label: 'RECUPERADOS', 
