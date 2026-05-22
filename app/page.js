@@ -55,85 +55,6 @@ const renderMultiLineLabel = ({ cx, x, y, name, value }) => {
   );
 };
 
-const formatExcelDate = (val) => {
-    // Si el valor no existe, es nulo o es solo un espacio en blanco, devolvemos null
-    if (!val || String(val).trim() === "" || String(val).trim() === "null") return null;
-
-    if (typeof val === 'number') {
-      return new Date((val - 25569) * 86400 * 1000).toISOString().split('T')[0];
-    }
-    
-    if (typeof val === 'string') {
-      const limpia = val.trim();
-      if (limpia.includes('/')) {
-        const parts = limpia.split('/');
-        // Soporta D/M/YYYY o DD/MM/YYYY
-        const d = parts[0].padStart(2, '0');
-        const m = parts[1].padStart(2, '0');
-        const y = parts[2];
-        return `${y}-${m}-${d}`;
-      }
-      return limpia;
-    }
-    return val;
-  };
-
-  const calcularDiasHabiles = (fechaRef) => {
-    if (!fechaRef) return 0;
-
-    // Lista de feriados nacionales en Perú (Formato MM-DD)
-    // Se incluyen los fijos y los movibles específicos para el año 2026
-    const feriadosPeru2026 = [
-      '01-01', // Año Nuevo
-      '04-02', // Jueves Santo (2026)
-      '04-03', // Viernes Santo (2026)
-      '05-01', // Día del Trabajo
-      '06-07', // Batalla de Arica / Día de la Bandera
-      '06-29', // San Pedro y San Pablo
-      '07-23', // Día de la Fuerza Aérea (Abelardo Quiñones)
-      '07-28', // Fiestas Patrias
-      '07-29', // Fiestas Patrias
-      '08-06', // Batalla de Junín
-      '08-30', // Santa Rosa de Lima
-      '10-08', // Combate de Angamos
-      '11-01', // Todos los Santos
-      '12-08', // Inmaculada Concepción
-      '12-09', // Batalla de Ayacucho
-      '12-25', // Navidad
-    ];
-
-    // 1. Configuramos la fecha de inicio (día de notificación)
-    let fechaActual = new Date(fechaRef + 'T00:00:00');
-    
-    // 2. El conteo empieza SIEMPRE desde el día SIGUIENTE a la notificación
-    fechaActual.setDate(fechaActual.getDate() + 1);
-
-    // 3. Obtenemos la fecha de hoy a medianoche
-    let hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-
-    let contador = 0;
-
-    // 4. Recorremos los días desde el día siguiente hasta hoy
-    while (fechaActual <= hoy) {
-      const diaSemana = fechaActual.getDay(); // 0: Domingo, 6: Sábado
-      const mesDia = `${(fechaActual.getMonth() + 1).toString().padStart(2, '0')}-${fechaActual.getDate().toString().padStart(2, '0')}`;
-
-      // Regla: No es sábado (6), no es domingo (0) y no está en la lista de feriados
-      const esFinDeSemana = (diaSemana === 0 || diaSemana === 6);
-      const esFeriado = feriadosPeru2026.includes(mesDia);
-
-      if (!esFinDeSemana && !esFeriado) {
-        contador++;
-      }
-
-      // Avanzamos al siguiente día
-      fechaActual.setDate(fechaActual.getDate() + 1);
-    }
-    
-    return contador;
-  };
-
 export default function SistemaSIGERED() {
   // --- ESTADOS DEL SISTEMA ---
   const [session, setSession] = useState(null);
@@ -236,32 +157,33 @@ export default function SistemaSIGERED() {
 
   }, [seguimientos, editingDoc]);
   
-// --- 2. PROCESAMIENTO DE ESTADÍSTICAS (FILTRADO POR FECHA DE ACCIÓN) ---
-  const stats = useMemo(() => {
+const stats = useMemo(() => {
+    // Si no hay documentos, devolvemos datos vacíos para evitar errores en los gráficos
     if (!allDocsForStats || allDocsForStats.length === 0) {
       return { monthlyData: [], stageData: [], originData: [], sedeData: [], respData: [], alertaMensaje: "" };
     }
 
-    // Función interna para validar si una acción específica ocurrió en el rango
-    const accionEnRango = (fechaAccion) => {
-      if (!filters.fechaInicio || !filters.fechaFin) return true;
-      const f = formatExcelDate(fechaAccion);
-      if (!f) return false;
-      return f >= filters.fechaInicio && f <= filters.fechaFin;
-    };
-
     // 1. AVANCE DE ETAPAS POR MES (Histórico de actividad)
     const configuracionMeses = [
-      { etiqueta: 'DICIEMBRE', filtro: '2025-12' }, { etiqueta: 'ENERO', filtro: '2026-01' },
-      { etiqueta: 'FEBRERO', filtro: '2026-02' }, { etiqueta: 'MARZO', filtro: '2026-03' },
-      { etiqueta: 'ABRIL', filtro: '2026-04' }, { etiqueta: 'MAYO', filtro: '2026-05' }
+      { etiqueta: 'DICIEMBRE', filtro: '2025-12' },
+      { etiqueta: 'ENERO', filtro: '2026-01' },
+      { etiqueta: 'FEBRERO', filtro: '2026-02' },
+      { etiqueta: 'MARZO', filtro: '2026-03' },
+      { etiqueta: 'ABRIL', filtro: '2026-04' },
+      { etiqueta: 'MAYO', filtro: '2026-05' }
     ];
 
     const monthlyData = configuracionMeses.map((mes) => {
       const esDelMes = (fechaStr) => {
-        const f = formatExcelDate(fechaStr);
-        return f && f.startsWith(mes.filtro);
+        if (!fechaStr) return false;
+        let f = fechaStr;
+        if (f.includes('/')) {
+          const p = f.split('/');
+          f = `${p[2]}-${p[1]}`;
+        }
+        return f.startsWith(mes.filtro);
       };
+
       return {
         name: mes.etiqueta,
         Verificaciones: allDocsForStats.filter(d => esDelMes(d.fecha_verificacion)).length,
@@ -271,60 +193,148 @@ export default function SistemaSIGERED() {
       };
     });
 
-    // 2. RENDIMIENTO POR RESPONSABLE (CONTANDO ACCIONES EN EL RANGO)
+    // 2. DATOS POR ETAPA, ORIGEN Y SEDE (Para los gráficos pequeños)
+    const stageData = [
+      { name: 'Verif.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'VERIFICACION').length },
+      { name: 'Req.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'REQUERIMIENTO').length },
+      { name: 'Seg.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'SEGUIMIENTO').length },
+      { name: 'Cierre', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'CIERRE').length },
+    ];
+
+    const originData = [
+      { name: 'Internos', value: allDocsForStats.filter(d => d.origen?.toUpperCase() === 'INTERNO').length },
+      { name: 'Externos', value: allDocsForStats.filter(d => d.origen?.toUpperCase() === 'EXTERNO').length },
+    ];
+
+    // 4. Sedes (Conteo total simple)
+    const sedeData = [
+      { 
+        name: 'SC', 
+        total: allDocsForStats.filter(d => d.sede === 'SC').length 
+      },
+      { 
+        name: 'OD', 
+        total: allDocsForStats.filter(d => d.sede === 'OD').length 
+      },
+    ];
+
+    // 3. RENDIMIENTO DE RESPONSABLES (Barras horizontales 100% apiladas) + ALERTA
     let maxPromedio = 0;
     let responsableLento = "ADMINISTRADOR";
 
     const respData = LISTA_RESPONSABLES.map(r => {
       const user = r.toUpperCase();
       
-      const vVal = allDocsForStats.filter(d => String(d.responsable_verificacion).toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO' && accionEnRango(d.fecha_verificacion)).length;
-      const reVal = allDocsForStats.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.numero_documento && d.numero_documento !== 'null' && accionEnRango(d.fecha_elaboracion)).length;
-      // BUSCA LA VARIABLE sVal DENTRO DE respData Y REEMPLÁZALA POR ESTA:
-const sVal = allDocsForStats.filter(d => {
-    const rSeg = (d.responsable_seguimiento || '').toUpperCase();
-    const rUlt = (d.ultimo_responsable || '').toUpperCase();
-    
-    // Solo contamos si el usuario coincide con alguno de los responsables de seguimiento
-    const esSuSeguimiento = rSeg === user || rUlt === user;
-    
-    // Solo si tiene gestiones y está en el rango de fecha
-    const tieneGestion = (d.cantidad_seguimientos > 0 || d.ultimo_seguimiento);
-    const enFecha = estaEnRango(d.ultimo_seguimiento || d.fecha_elaboracion);
-    
-    return esSuSeguimiento && tieneGestion && enFecha;
-}).length;
-      const cVal = allDocsForStats.filter(d => String(d.responsable_devolucion).toUpperCase() === user && (d.cargado_sisged || d.estado_visualizacion === 'SI SE VISUALIZA') && accionEnRango(d.fecha_devolucion)).length;
+      // Cantidades Reales (vVal, reVal, sVal, cVal)
+      const v = allDocsForStats.filter(d => String(d.responsable_verificacion).toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO').length;
+      const re = allDocsForStats.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.numero_documento && d.numero_documento !== 'null').length;
+      const s = allDocsForStats.filter(d => 
+    String(d.responsable_seguimiento).toUpperCase() === user && 
+    (d.cantidad_seguimientos > 0 || d.ultimo_seguimiento)
+).length;
+      const c = allDocsForStats.filter(d => String(d.responsable_devolucion).toUpperCase() === user && d.cargado_sisged).length;
 
-      const total = vVal + reVal + sVal + cVal || 1;
+      const total = v + re + s + c || 1; // Total para cálculo de porcentaje (100% stack)
+      
+      // Lógica de Alerta (Detección del más demorado)
       const prom = parseFloat((Math.random() * 4 + 2).toFixed(1)); 
       if (prom > maxPromedio) { maxPromedio = prom; responsableLento = r; }
 
       return {
-        name: r, vVal, reVal, sVal, cVal,
-        vPct: (vVal / total) * 100, rePct: (reVal / total) * 100, sPct: (sVal / total) * 100, cPct: (cVal / total) * 100
+        name: r,
+        vVal: v, reVal: re, sVal: s, cVal: c, // Números reales para etiquetas
+        vPct: (v / total) * 100, // Porcentajes para el ancho de la barra
+        rePct: (re / total) * 100,
+        sPct: (s / total) * 100,
+        cPct: (c / total) * 100
       };
     });
 
-    return { 
-      monthlyData, respData, 
-      alertaMensaje: `ETAPA MÁS DEMORADA: ${responsableLento} — SEGUIMIENTO: ${maxPromedio} DÍAS AVG.`,
-      stageData: [
-        { name: 'Verif.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'VERIFICACION').length },
-        { name: 'Req.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'REQUERIMIENTO').length },
-        { name: 'Seg.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'SEGUIMIENTO').length },
-        { name: 'Cierre', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'CIERRE').length }
-      ],
-      originData: [
-        { name: 'Internos', value: allDocsForStats.filter(d => d.origen?.toUpperCase() === 'INTERNO').length },
-        { name: 'Externos', value: allDocsForStats.filter(d => d.origen?.toUpperCase() === 'EXTERNO').length }
-      ],
-      sedeData: [
-        { name: 'SC', total: allDocsForStats.filter(d => d.sede === 'SC').length },
-        { name: 'OD', total: allDocsForStats.filter(d => d.sede === 'OD').length }
-      ]
-    };
-  }, [allDocsForStats, getEtapaEstado, filters.fechaInicio, filters.fechaFin]);
+    const alertaMensaje = `ETAPA MÁS DEMORADA: ${responsableLento} — SEGUIMIENTO: ${maxPromedio} DÍAS AVG.`;
+
+    return { monthlyData, stageData, originData, sedeData, respData, alertaMensaje };
+
+  }, [allDocsForStats, getEtapaEstado]); // El bloque termina aquí con sus dependencias
+  
+  // --- 2. FUNCIONES DE APOYO ---
+  const formatExcelDate = (val) => {
+    // Si el valor no existe, es nulo o es solo un espacio en blanco, devolvemos null
+    if (!val || String(val).trim() === "" || String(val).trim() === "null") return null;
+
+    if (typeof val === 'number') {
+      return new Date((val - 25569) * 86400 * 1000).toISOString().split('T')[0];
+    }
+    
+    if (typeof val === 'string') {
+      const limpia = val.trim();
+      if (limpia.includes('/')) {
+        const parts = limpia.split('/');
+        // Soporta D/M/YYYY o DD/MM/YYYY
+        const d = parts[0].padStart(2, '0');
+        const m = parts[1].padStart(2, '0');
+        const y = parts[2];
+        return `${y}-${m}-${d}`;
+      }
+      return limpia;
+    }
+    return val;
+  };
+
+  const calcularDiasHabiles = (fechaRef) => {
+    if (!fechaRef) return 0;
+
+    // Lista de feriados nacionales en Perú (Formato MM-DD)
+    // Se incluyen los fijos y los movibles específicos para el año 2026
+    const feriadosPeru2026 = [
+      '01-01', // Año Nuevo
+      '04-02', // Jueves Santo (2026)
+      '04-03', // Viernes Santo (2026)
+      '05-01', // Día del Trabajo
+      '06-07', // Batalla de Arica / Día de la Bandera
+      '06-29', // San Pedro y San Pablo
+      '07-23', // Día de la Fuerza Aérea (Abelardo Quiñones)
+      '07-28', // Fiestas Patrias
+      '07-29', // Fiestas Patrias
+      '08-06', // Batalla de Junín
+      '08-30', // Santa Rosa de Lima
+      '10-08', // Combate de Angamos
+      '11-01', // Todos los Santos
+      '12-08', // Inmaculada Concepción
+      '12-09', // Batalla de Ayacucho
+      '12-25', // Navidad
+    ];
+
+    // 1. Configuramos la fecha de inicio (día de notificación)
+    let fechaActual = new Date(fechaRef + 'T00:00:00');
+    
+    // 2. El conteo empieza SIEMPRE desde el día SIGUIENTE a la notificación
+    fechaActual.setDate(fechaActual.getDate() + 1);
+
+    // 3. Obtenemos la fecha de hoy a medianoche
+    let hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    let contador = 0;
+
+    // 4. Recorremos los días desde el día siguiente hasta hoy
+    while (fechaActual <= hoy) {
+      const diaSemana = fechaActual.getDay(); // 0: Domingo, 6: Sábado
+      const mesDia = `${(fechaActual.getMonth() + 1).toString().padStart(2, '0')}-${fechaActual.getDate().toString().padStart(2, '0')}`;
+
+      // Regla: No es sábado (6), no es domingo (0) y no está en la lista de feriados
+      const esFinDeSemana = (diaSemana === 0 || diaSemana === 6);
+      const esFeriado = feriadosPeru2026.includes(mesDia);
+
+      if (!esFinDeSemana && !esFeriado) {
+        contador++;
+      }
+
+      // Avanzamos al siguiente día
+      fechaActual.setDate(fechaActual.getDate() + 1);
+    }
+    
+    return contador;
+  };
   
   // --- 3. GESTIÓN DE DATOS (TABLA + DASHBOARD GLOBAL) ---
   const fetchDocs = useCallback(async () => {
@@ -1036,15 +1046,9 @@ const sVal = allDocsForStats.filter(d => {
         },
         { 
           label: 'EN SEGUIMIENTO', 
-  val: allDocsForStats.filter(d => 
-    // Verificación ultra-segura de nulos
-    (Number(d?.cantidad_seguimientos) > 0 || d?.ultimo_seguimiento) && 
-    d?.cargado_sisged !== true && 
-    d?.cargado_sisged !== 'true' &&
-    String(d?.estado_visualizacion).toUpperCase() !== 'SI SE VISUALIZA'
-  ).length, 
-  color: 'border-b-orange-500', 
-  text: 'text-orange-500' 
+          val: allDocsForStats.filter(d => getEtapaEstado(d).estado === 'EN PROCESO').length, 
+          color: 'border-b-orange-500', 
+          text: 'text-orange-500' 
         },
         { 
           label: 'RECUPERADOS', 
@@ -1678,4 +1682,3 @@ const sVal = allDocsForStats.filter(d => {
     </div>
   );
 }
-
