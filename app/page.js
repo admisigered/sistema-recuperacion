@@ -248,19 +248,31 @@ const stats = useMemo(() => {
       return f && f >= filters.fechaInicio && f <= filters.fechaFin;
     };
 
-    // 1. RENDIMIENTO INDIVIDUAL POR RESPONSABLE (Filtrado por Rango de Fechas)
-    // Filtramos la lista para NO incluir la categoría "PENDIENTE" en las tarjetas
+    // 2. RENDIMIENTO POR RESPONSABLE (CONTANDO ACCIONES REALES)
     const listaSoloPersonal = LISTA_RESPONSABLES.filter(r => r !== "PENDIENTE");
 
     const respData = listaSoloPersonal.map(r => {
-      const u = r.toUpperCase();
-      return {
-        name: r,
-        verif: allDocsForStats.filter(d => (d.responsable_verificacion || '').toUpperCase() === u && d.estado_verificacion_k === 'VERIFICADO' && estaEnRango(d.fecha_verificacion)).length,
-        req: allDocsForStats.filter(d => (d.responsable_requerimiento || '').toUpperCase() === u && d.numero_documento && estaEnRango(d.fecha_elaboracion)).length,
-        seg: allDocsForStats.filter(d => ((d.responsable_seguimiento || '').toUpperCase() === u || (d.ultimo_responsable || '').toUpperCase() === u) && Number(d.cantidad_seguimientos) > 0 && estaEnRango(d.ultimo_seguimiento)).length,
-        cierre: allDocsForStats.filter(d => (d.responsable_devolucion || '').toUpperCase() === u && d.cargado_sisged && estaEnRango(d.fecha_devolucion)).length
+      const user = r.toUpperCase();
+      
+      // Función para validar rango de fecha
+      const enRango = (f) => {
+        if (!filters.fechaInicio || !filters.fechaFin) return true;
+        const fecha = formatExcelDate(f);
+        return fecha && fecha >= filters.fechaInicio && fecha <= filters.fechaFin;
       };
+
+      // Filtramos documentos donde el usuario hizo Verif, Req o Cierre en el rango
+      const v = allDocsForStats.filter(d => (d.responsable_verificacion || '').toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO' && enRango(d.fecha_verificacion)).length;
+      const re = allDocsForStats.filter(d => (d.responsable_requerimiento || '').toUpperCase() === user && d.numero_documento && enRango(d.fecha_elaboracion)).length;
+      const c = allDocsForStats.filter(d => (d.responsable_devolucion || '').toUpperCase() === user && d.cargado_sisged && enRango(d.fecha_devolucion)).length;
+
+      // --- CAMBIO CLAVE: Contamos TODOS los seguimientos de la tabla histórica ---
+      // Filtramos la tabla de seguimientos por responsable y fecha
+      const s = allSegsForStats.filter(seg => 
+        (seg.responsable || '').toUpperCase() === user && enRango(seg.fecha)
+      ).length;
+
+      return { name: r, verif: v, req: re, seg: s, cierre: c };
     });
 
     // 2. AVANCE MENSUAL (Histórico)
