@@ -269,8 +269,9 @@ const stats = useMemo(() => {
       // --- CAMBIO CLAVE: Contamos TODOS los seguimientos de la tabla histórica ---
       // Filtramos la tabla de seguimientos por responsable y fecha
       const s = allSegsForStats.filter(seg => 
-        (seg.responsable || '').toUpperCase() === user && enRango(seg.fecha)
-      ).length;
+  (seg.responsable || '').toUpperCase() === user && 
+  estaEnRango(seg.fecha)
+).length;
 
       return { name: r, verif: v, req: re, seg: s, cierre: c };
     });
