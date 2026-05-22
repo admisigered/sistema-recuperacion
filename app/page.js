@@ -281,26 +281,31 @@ const stats = useMemo(() => {
   
   // --- 2. FUNCIONES DE APOYO ---
   const formatExcelDate = (val) => {
-    // Si el valor no existe, es nulo o es solo un espacio en blanco, devolvemos null
     if (!val || String(val).trim() === "" || String(val).trim() === "null") return null;
 
-    if (typeof val === 'number') {
-      return new Date((val - 25569) * 86400 * 1000).toISOString().split('T')[0];
-    }
-    
-    if (typeof val === 'string') {
-      const limpia = val.trim();
-      if (limpia.includes('/')) {
-        const parts = limpia.split('/');
-        // Soporta D/M/YYYY o DD/MM/YYYY
-        const d = parts[0].padStart(2, '0');
-        const m = parts[1].padStart(2, '0');
-        const y = parts[2];
-        return `${y}-${m}-${d}`;
+    try {
+      // Si ya es formato ISO (YYYY-MM-DD), lo devolvemos limpio
+      if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val)) {
+        return val.split('T')[0];
       }
-      return limpia;
-    }
-    return val;
+      
+      // Si viene de Excel como número
+      if (typeof val === 'number') {
+        return new Date((val - 25569) * 86400 * 1000).toISOString().split('T')[0];
+      }
+      
+      // Si viene como DD/MM/YYYY
+      if (typeof val === 'string' && val.includes('/')) {
+        const parts = val.trim().split('/');
+        if (parts.length === 3) {
+            const d = parts[0].padStart(2, '0');
+            const m = parts[1].padStart(2, '0');
+            const y = parts[2];
+            return `${y}-${m}-${d}`;
+        }
+      }
+    } catch (e) { return null; }
+    return null;
   };
 
   const calcularDiasHabiles = (fechaRef) => {
