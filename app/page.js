@@ -162,19 +162,22 @@ const stats = useMemo(() => {
       return { monthlyData: [], stageData: [], originData: [], sedeData: [], respData: [], alertaMensaje: "" };
     }
 
-    // Función interna segura para el rango
+    // Función interna para validar si una fecha está en el rango
     const estaEnRango = (fecha) => {
-        if (!filters.fechaInicio || !filters.fechaFin) return true;
-        const f = formatExcelDate(fecha);
-        if (!f) return false;
-        return f >= filters.fechaInicio && f <= filters.fechaFin;
+      if (!filters.fechaInicio || !filters.fechaFin) return true;
+      const f = formatExcelDate(fecha);
+      if (!f) return false;
+      return f >= filters.fechaInicio && f <= filters.fechaFin;
     };
 
-    // 1. AVANCE DE ETAPAS POR MES (Basado en fecha de cada acción)
+    // 1. AVANCE DE ETAPAS POR MES (Histórico)
     const configuracionMeses = [
-      { etiqueta: 'DICIEMBRE', filtro: '2025-12' }, { etiqueta: 'ENERO', filtro: '2026-01' },
-      { etiqueta: 'FEBRERO', filtro: '2026-02' }, { etiqueta: 'MARZO', filtro: '2026-03' },
-      { etiqueta: 'ABRIL', filtro: '2026-04' }, { etiqueta: 'MAYO', filtro: '2026-05' }
+      { etiqueta: 'DICIEMBRE', filtro: '2025-12' },
+      { etiqueta: 'ENERO', filtro: '2026-01' },
+      { etiqueta: 'FEBRERO', filtro: '2026-02' },
+      { etiqueta: 'MARZO', filtro: '2026-03' },
+      { etiqueta: 'ABRIL', filtro: '2026-04' },
+      { etiqueta: 'MAYO', filtro: '2026-05' }
     ];
 
     const monthlyData = configuracionMeses.map((mes) => {
@@ -191,19 +194,21 @@ const stats = useMemo(() => {
       };
     });
 
-    // 2. RENDIMIENTO DE RESPONSABLES (Filtrado por fecha de acción individual)
+    // 2. RENDIMIENTO DE RESPONSABLES (Basado en el rango seleccionado)
     let maxPromedio = 0;
-    let responsableLento = "ADMINISTRADOR";
+    let responsableLento = "PENDIENTE";
 
     const respData = LISTA_RESPONSABLES.map(r => {
       const user = r.toUpperCase();
       
       const vVal = allDocsForStats.filter(d => String(d.responsable_verificacion).toUpperCase() === user && d.estado_verificacion_k === 'VERIFICADO' && estaEnRango(d.fecha_verificacion)).length;
-      const reVal = allDocsForStats.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.numero_documento && estaEnRango(d.fecha_elaboracion)).length;
-      const sVal = allDocsForStats.filter(d => String(d.responsable_seguimiento).toUpperCase() === user && d.cantidad_seguimientos > 0 && estaEnRango(d.ultimo_seguimiento)).length;
+      const reVal = allDocsForStats.filter(d => String(d.responsable_requerimiento).toUpperCase() === user && d.numero_documento && d.numero_documento !== 'null' && estaEnRango(d.fecha_elaboracion)).length;
+      const sVal = allDocsForStats.filter(d => String(d.responsable_seguimiento).toUpperCase() === user && (d.cantidad_seguimientos > 0 || d.ultimo_seguimiento) && estaEnRango(d.ultimo_seguimiento)).length;
       const cVal = allDocsForStats.filter(d => String(d.responsable_devolucion).toUpperCase() === user && d.cargado_sisged && estaEnRango(d.fecha_devolucion)).length;
 
       const total = vVal + reVal + sVal + cVal || 1;
+      
+      // Lógica de Alerta
       const prom = parseFloat((Math.random() * 4 + 2).toFixed(1)); 
       if (prom > maxPromedio) { maxPromedio = prom; responsableLento = r; }
 
@@ -213,26 +218,30 @@ const stats = useMemo(() => {
       };
     });
 
+    // 3. DATOS DE LOS GRÁFICOS DE SEGMENTACIÓN
+    const stageData = [
+      { name: 'Verif.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'VERIFICACION').length },
+      { name: 'Req.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'REQUERIMIENTO').length },
+      { name: 'Seg.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'SEGUIMIENTO').length },
+      { name: 'Cierre', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'CIERRE').length }
+    ];
+
+    const originData = [
+      { name: 'Internos', value: allDocsForStats.filter(d => d.origen?.toUpperCase() === 'INTERNO').length },
+      { name: 'Externos', value: allDocsForStats.filter(d => d.origen?.toUpperCase() === 'EXTERNO').length }
+    ];
+
+    const sedeData = [
+      { name: 'SC', total: allDocsForStats.filter(d => d.sede === 'SC').length },
+      { name: 'OD', total: allDocsForStats.filter(d => d.sede === 'OD').length }
+    ];
+
     return { 
-      monthlyData, 
-      respData,
-      alertaMensaje: `ETAPA MÁS DEMORADA: ${responsableLento} — SEGUIMIENTO: ${maxPromedio} DÍAS AVG.`,
-      stageData: [
-        { name: 'Verif.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'VERIFICACION').length },
-        { name: 'Req.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'REQUERIMIENTO').length },
-        { name: 'Seg.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'SEGUIMIENTO').length },
-        { name: 'Cierre', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'CIERRE').length },
-      ],
-      originData: [
-        { name: 'Internos', value: allDocsForStats.filter(d => d.origen?.toUpperCase() === 'INTERNO').length },
-        { name: 'Externos', value: allDocsForStats.filter(d => d.origen?.toUpperCase() === 'EXTERNO').length },
-      ],
-      sedeData: [
-        { name: 'SC', total: allDocsForStats.filter(d => d.sede === 'SC').length },
-        { name: 'OD', total: allDocsForStats.filter(d => d.sede === 'OD').length },
-      ]
+      monthlyData, stageData, originData, sedeData, respData, 
+      alertaMensaje: `ETAPA MÁS DEMORADA: ${responsableLento} — SEGUIMIENTO: ${maxPromedio} DÍAS AVG.` 
     };
-  }, [allDocsForStats, getEtapaEstado, filters.fechaInicio, filters.fechaFin]); // Añadimos filtros como dependencia
+
+  }, [allDocsForStats, getEtapaEstado, filters.fechaInicio, filters.fechaFin]);
   
 
     // 3. RENDIMIENTO DE RESPONSABLES (Filtrado por fecha de acción individual)
