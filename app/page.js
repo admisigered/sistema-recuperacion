@@ -304,7 +304,7 @@ export default function SistemaSIGERED() {
       
       const s = allSegsForStats.filter(seg => {
     // 1. ¿El responsable de ESTA ACCIÓN específica es el usuario de la tarjeta?
-    const esSuAccion = (seg.responsable || '').toUpperCase().trim() === user;
+    const esSuAccion = (seg.responsable || '').toUpperCase().trim() === u;
     
     // 2. ¿La fecha de ESTA ACCIÓN específica está dentro del rango seleccionado?
     const fechaAccion = formatExcelDate(seg.fecha);
