@@ -1210,28 +1210,41 @@ export default function SistemaSIGERED() {
       const status = getEtapaEstado(doc);
       const isSelected = selectedIds.includes(doc.id);
 
-      // Lógica de Responsable Dinámico (Normal vs Auditoría)
+      // --- LÓGICA PARA DETERMINAR EL RESPONSABLE (CON PRIORIDAD EN EL FILTRO SELECCIONADO) ---
       let asignadoCalculado = 'PENDIENTE';
       
-      if (filters.responsable && filters.fechaInicio && filters.fechaFin) {
+      // 1. PRIORIDAD MÁXIMA: Si el usuario seleccionó una ETAPA en el filtro de arriba,
+      // mostramos obligatoriamente el responsable de ESA etapa, sin importar dónde esté el documento hoy.
+      if (filters.etapa === 'VERIFICACION') {
+          asignadoCalculado = doc.responsable_verificacion;
+      } else if (filters.etapa === 'REQUERIMIENTO') {
+          asignadoCalculado = doc.responsable_requerimiento;
+      } else if (filters.etapa === 'SEGUIMIENTO') {
+          asignadoCalculado = doc.responsable_seguimiento || doc.ultimo_responsable;
+      } else if (filters.etapa === 'CIERRE') {
+          asignadoCalculado = doc.responsable_devolucion;
+      } 
+      // 2. PRIORIDAD SECUNDARIA: Si hay filtro de AUDITORÍA (Responsable + Fecha) pero NO de etapa
+      else if (filters.responsable && filters.fechaInicio && filters.fechaFin) {
           const resBusqueda = filters.responsable.toUpperCase();
           const fI = filters.fechaInicio;
           const fF = filters.fechaFin;
 
-          // Mostramos quién hizo la tarea en el rango de auditoría seleccionado
           if (formatExcelDate(doc.fecha_verificacion) >= fI && formatExcelDate(doc.fecha_verificacion) <= fF && (doc.responsable_verificacion || '').toUpperCase() === resBusqueda) asignadoCalculado = doc.responsable_verificacion;
           else if (formatExcelDate(doc.fecha_elaboracion) >= fI && formatExcelDate(doc.fecha_elaboracion) <= fF && (doc.responsable_requerimiento || '').toUpperCase() === resBusqueda) asignadoCalculado = doc.responsable_requerimiento;
-          else if (formatExcelDate(doc.ultimo_seguimiento) >= fI && formatExcelDate(doc.ultimo_seguimiento) <= fF && (doc.ultimo_responsable || '').toUpperCase() === resBusqueda) asignadoCalculado = doc.ultimo_responsable;
+          else if (formatExcelDate(doc.ultimo_seguimiento) >= fI && formatExcelDate(doc.ultimo_seguimiento) <= fF && ((doc.responsable_seguimiento || '').toUpperCase() === resBusqueda || (doc.ultimo_responsable || '').toUpperCase() === resBusqueda)) asignadoCalculado = resBusqueda;
           else if (formatExcelDate(doc.fecha_devolucion) >= fI && formatExcelDate(doc.fecha_devolucion) <= fF && (doc.responsable_devolucion || '').toUpperCase() === resBusqueda) asignadoCalculado = doc.responsable_devolucion;
-          else asignadoCalculado = doc.ultimo_responsable || 'PENDIENTE';
-      } else {
-          // Lógica Normal: Responsable de la Etapa donde está el documento HOY
+          else asignadoCalculado = 'PENDIENTE';
+      } 
+      // 3. CASO POR DEFECTO: Si no hay filtros de etapa ni auditoría, mostrar el de la etapa ACTUAL (hoy)
+      else {
           if (status.etapa === 'VERIFICACION') asignadoCalculado = doc.responsable_verificacion;
           else if (status.etapa === 'REQUERIMIENTO') asignadoCalculado = doc.responsable_requerimiento;
           else if (status.etapa === 'SEGUIMIENTO') asignadoCalculado = doc.responsable_seguimiento || doc.ultimo_responsable;
           else if (status.etapa === 'CIERRE') asignadoCalculado = doc.responsable_devolucion;
       }
 
+      // Normalización final para el selector
       const mostrarAsignado = (!asignadoCalculado || asignadoCalculado === 'null' || asignadoCalculado === '') ? 'PENDIENTE' : asignadoCalculado;
       const esPendiente = mostrarAsignado === 'PENDIENTE';
 
