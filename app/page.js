@@ -365,14 +365,15 @@ export default function SistemaSIGERED() {
             const fF = filters.fechaFin;
 
             if (res && fI && fF) {
-                // EXCLUSIÓN CRÍTICA: Solo documentos donde este responsable hizo algo EN ESA FECHA
+                // Vínculo irrompible: La persona DEBE coincidir con la fecha de la MISMA etapa
                 q.or(
                     `and(responsable_verificacion.eq.${res},fecha_verificacion.gte.${fI},fecha_verificacion.lte.${fF}),` +
                     `and(responsable_requerimiento.eq.${res},fecha_elaboracion.gte.${fI},fecha_elaboracion.lte.${fF}),` +
+                    `and(responsable_seguimiento.eq.${res},ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),` +
                     `and(ultimo_responsable.eq.${res},ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),` +
                     `and(responsable_devolucion.eq.${res},fecha_devolucion.gte.${fI},fecha_devolucion.lte.${fF})`
                 );
-            } 
+            }
             else if (res) {
                 if (res === 'PENDIENTE') {
                     q.or(`and(estado_verificacion_k.eq.PENDIENTE,responsable_verificacion.eq.PENDIENTE),and(estado_verificacion_k.eq.VERIFICADO,origen.eq.Externo,numero_documento.is.null,responsable_requerimiento.eq.PENDIENTE),and(numero_documento.not.is.null,cargado_sisged.eq.false,responsable_seguimiento.eq.PENDIENTE)`);
