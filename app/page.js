@@ -248,33 +248,59 @@ const stats = useMemo(() => {
       return f && f >= filters.fechaInicio && f <= filters.fechaFin;
     };
 
-    // 2. RENDIMIENTO POR RESPONSABLE (CONTANDO ACCIONES EXACTAS USUARIO + FECHA)
+    // 2. RENDIMIENTO POR RESPONSABLE (Basado en ACCIONES REALES en el rango)
     const listaSoloPersonal = LISTA_RESPONSABLES.filter(r => r !== "PENDIENTE");
 
     const respData = listaSoloPersonal.map(r => {
       const user = r.toUpperCase().trim();
       
+      // Función interna para validar si la fecha de la acción está en el rango seleccionado
       const enRango = (f) => {
         if (!filters.fechaInicio || !filters.fechaFin) return true;
         const fecha = formatExcelDate(f);
         return fecha && fecha >= filters.fechaInicio && fecha <= filters.fechaFin;
       };
 
-      return {
-        name: r,
-        // Verificación: ¿Él verificó en este rango?
-        verif: allDocsForStats.filter(d => (d.responsable_verificacion || '').toUpperCase().trim() === user && d.estado_verificacion_k === 'VERIFICADO' && enRango(d.fecha_verificacion)).length,
-        
-        // Requerimiento: ¿Él hizo el oficio en este rango?
-        req: allDocsForStats.filter(d => (d.responsable_requerimiento || '').toUpperCase().trim() === user && d.numero_documento && enRango(d.fecha_elaboracion)).length,
-        
-        // SEGUIMIENTO: Aquí está la clave. Contamos los registros de la tabla de HISTORIAL
-        // Si Xina registró el 21, sumará 1 a Xina el 21. Si Yanina registró el 22, sumará 1 a Yanina el 22.
-        seg: allSegsForStats.filter(seg => (seg.responsable || '').toUpperCase().trim() === user && enRango(seg.fecha)).length,
+      // --- CONTEO DE ACCIONES INDIVIDUALES ---
 
-        // CIERRE: ¿Él cerró el documento en este rango?
-        cierre: allDocsForStats.filter(d => (d.responsable_devolucion || '').toUpperCase().trim() === user && (d.cargado_sisged || d.estado_visualizacion === 'SI SE VISUALIZA') && enRango(d.fecha_devolucion)).length
-      };
+      // 1. Verificaciones: Documentos donde este usuario fue el verificador Y la fecha está en rango
+      const v = allDocsForStats.filter(d => 
+        (d.responsable_verificacion || '').toUpperCase().trim() === user && 
+        d.estado_verificacion_k === 'VERIFICADO' && 
+        enRango(d.fecha_verificacion)
+      ).length;
+
+      // 2. Requerimientos: Oficios generados por este usuario en este rango
+      const re = allDocsForStats.filter(d => 
+        (d.responsable_requerimiento || '').toUpperCase().trim() === user && 
+        d.numero_documento && 
+        enRango(d.fecha_elaboracion)
+      ).length;
+
+      // 3. SEGUIMIENTOS (Lo más importante): Contamos cada registro de la tabla historial
+      // Esto hará que si Yanina hizo 21 llamadas el 21/05, aparezca el número 21
+      // BUSCA LA VARIABLE 's' DENTRO DE respData Y REEMPLÁZALA POR ESTA:
+const s = allSegsForStats.filter(seg => {
+    // 1. ¿El responsable del seguimiento es el usuario de la tarjeta?
+    const esSuResponsabilidad = (seg.responsable || '').toUpperCase().trim() === user;
+    
+    // 2. ¿La fecha del seguimiento está en el rango?
+    const estaEnFecha = enRango(seg.fecha);
+    
+    // 3. ¡EL FILTRO CRUCIAL!: ¿Este seguimiento pertenece a uno de los documentos que estoy filtrando arriba?
+    const perteneceADocsFiltrados = allDocsForStats.some(d => d.id === seg.documento_id);
+
+    return esSuResponsabilidad && estaEnFecha && perteneceADocsFiltrados;
+}).length;
+
+      // 4. Cierres: Documentos que este usuario marcó como recuperados en este rango
+      const c = allDocsForStats.filter(d => 
+        (d.responsable_devolucion || '').toUpperCase().trim() === user && 
+        (d.cargado_sisged || d.estado_visualizacion === 'SI SE VISUALIZA') && 
+        enRango(d.fecha_devolucion || d.fecha_verificacion)
+      ).length;
+
+      return { name: r, verif: v, req: re, seg: s, cierre: c };
     });
 
     // 2. AVANCE MENSUAL (Histórico)
@@ -352,30 +378,35 @@ const stats = useMemo(() => {
             if (filters.fechaFin) q.lte('fecha_devolucion', filters.fechaFin);
         }
         else {
-            // --- 3. LÓGICA GLOBAL (Auditoría por acción responsable/fecha) ---
+            // --- 3. LÓGICA GLOBAL (Sin Etapa seleccionada) ---
             const res = filters.responsable;
             const fI = filters.fechaInicio;
             const fF = filters.fechaFin;
 
+            // CASO A: Filtrando por RESPONSABLE Y FECHA (Vinculación Directa)
             if (res && fI && fF) {
-                // SINTAXIS ATÓMICA: Obliga a que la persona y la fecha sean de la misma etapa
+                // Solo mostramos el registro si la PERSONA hizo la ACCIÓN en ese RANGO
                 q.or(
                     `and(responsable_verificacion.eq.${res},fecha_verificacion.gte.${fI},fecha_verificacion.lte.${fF}),` +
                     `and(responsable_requerimiento.eq.${res},fecha_elaboracion.gte.${fI},fecha_elaboracion.lte.${fF}),` +
-                    `and(ultimo_responsable.eq.${res},ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),` +
+                    `and(responsable_seguimiento.eq.${res},ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),` +
                     `and(responsable_devolucion.eq.${res},fecha_devolucion.gte.${fI},fecha_devolucion.lte.${fF})`
                 );
-            } 
-            else if (res) {
-                // Filtro solo por nombre (lo busca en todas las etapas)
-                q.or(`responsable_verificacion.eq.${res},responsable_requerimiento.eq.${res},responsable_devolucion.eq.${res},responsable_seguimiento.eq.${res},ultimo_responsable.eq.${res}`);
             }
+            // CASO B: Solo Responsable
+            else if (res) {
+                if (res === 'PENDIENTE') {
+                    q.or(`and(estado_verificacion_k.eq.PENDIENTE,responsable_verificacion.eq.PENDIENTE),and(estado_verificacion_k.eq.VERIFICADO,origen.eq.Externo,numero_documento.is.null,responsable_requerimiento.eq.PENDIENTE),and(numero_documento.not.is.null,cargado_sisged.eq.false,responsable_seguimiento.eq.PENDIENTE),and(cargado_sisged.eq.true,responsable_devolucion.eq.PENDIENTE)`);
+                } else {
+                    q.or(`responsable_verificacion.eq.${res},responsable_requerimiento.eq.${res},responsable_devolucion.eq.${res},responsable_seguimiento.eq.${res}`);
+                }
+            }
+            // CASO C: Solo Fecha
             else if (fI && fF) {
-                // Filtro solo por fecha (actividad en cualquier etapa)
                 q.or(`and(fecha_verificacion.gte.${fI},fecha_verificacion.lte.${fF}),and(fecha_elaboracion.gte.${fI},fecha_elaboracion.lte.${fF}),and(ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),and(fecha_devolucion.gte.${fI},fecha_devolucion.lte.${fF})`);
             }
 
-            // Filtro de Estado Global (Tu lógica actual se mantiene)
+            // Filtro de Estado Global
             if (filters.estado) {
                 if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
                 else if (filters.estado === 'RECONSTRUCCION') q.ilike('observaciones_finales', '%RECONSTRUCCION%');
@@ -1213,52 +1244,21 @@ const stats = useMemo(() => {
       const status = getEtapaEstado(doc);
       const isSelected = selectedIds.includes(doc.id);
 
-      // --- LÓGICA PARA DETERMINAR EL RESPONSABLE (NORMAL VS AUDITORÍA) ---
+      // Lógica para determinar el responsable según la etapa (Filtro vs Actual)
       let asignadoCalculado = 'PENDIENTE';
-
-      // CASO A: SI HAY FILTRO DE AUDITORÍA (Responsable + Rango de Fechas)
-      if (filters.responsable && filters.fechaInicio && filters.fechaFin) {
-          const fI = filters.fechaInicio;
-          const fF = filters.fechaFin;
-          const resBusqueda = filters.responsable.toUpperCase();
-
-          // 1. ¿Cesar (o el filtrado) hizo la Verificación en este rango?
-          if (formatExcelDate(doc.fecha_verificacion) >= fI && formatExcelDate(doc.fecha_verificacion) <= fF && (doc.responsable_verificacion || '').toUpperCase() === resBusqueda) {
-              asignadoCalculado = doc.responsable_verificacion;
-          } 
-          // 2. ¿Lo hizo en Requerimiento?
-          else if (formatExcelDate(doc.fecha_elaboracion) >= fI && formatExcelDate(doc.fecha_elaboracion) <= fF && (doc.responsable_requerimiento || '').toUpperCase() === resBusqueda) {
-              asignadoCalculado = doc.responsable_requerimiento;
-          } 
-          // 3. ¿Lo hizo en Seguimiento? (Usamos ultimo_responsable para capturar la acción real)
-          else if (formatExcelDate(doc.ultimo_seguimiento) >= fI && formatExcelDate(doc.ultimo_seguimiento) <= fF && (doc.ultimo_responsable || '').toUpperCase() === resBusqueda) {
-              asignadoCalculado = doc.ultimo_responsable;
-          } 
-          // 4. ¿Lo hizo en Cierre/Devolución?
-          else if (formatExcelDate(doc.fecha_devolucion) >= fI && formatExcelDate(doc.fecha_devolucion) <= fF && (doc.responsable_devolucion || '').toUpperCase() === resBusqueda) {
-              asignadoCalculado = doc.responsable_devolucion;
-          } 
-          else {
-              asignadoCalculado = 'PENDIENTE';
-          }
-      } 
-      // CASO B: LÓGICA NORMAL (Sin auditoría de fecha, se basa en Etapa filtrada o Etapa actual)
-      else {
-          if (filters.etapa === 'VERIFICACION') {
-              asignadoCalculado = doc.responsable_verificacion;
-          } else if (filters.etapa === 'REQUERIMIENTO') {
-              asignadoCalculado = doc.responsable_requerimiento;
-          } else if (filters.etapa === 'SEGUIMIENTO') {
-              asignadoCalculado = doc.responsable_seguimiento || doc.ultimo_responsable;
-          } else if (filters.etapa === 'CIERRE') {
-              asignadoCalculado = doc.responsable_devolucion;
-          } else {
-              // Si no hay ningún filtro de etapa, mostrar el de la etapa donde se encuentra HOY el documento
-              if (status.etapa === 'VERIFICACION') asignadoCalculado = doc.responsable_verificacion;
-              else if (status.etapa === 'REQUERIMIENTO') asignadoCalculado = doc.responsable_requerimiento;
-              else if (status.etapa === 'SEGUIMIENTO') asignadoCalculado = doc.responsable_seguimiento || doc.ultimo_responsable;
-              else if (status.etapa === 'CIERRE') asignadoCalculado = doc.responsable_devolucion;
-          }
+      if (filters.etapa === 'VERIFICACION') {
+          asignadoCalculado = doc.responsable_verificacion;
+      } else if (filters.etapa === 'REQUERIMIENTO') {
+          asignadoCalculado = doc.responsable_requerimiento;
+      } else if (filters.etapa === 'SEGUIMIENTO') {
+          asignadoCalculado = doc.responsable_seguimiento;
+      } else if (filters.etapa === 'CIERRE') {
+          asignadoCalculado = doc.responsable_devolucion;
+      } else {
+          if (status.etapa === 'VERIFICACION') asignadoCalculado = doc.responsable_verificacion;
+          else if (status.etapa === 'REQUERIMIENTO') asignadoCalculado = doc.responsable_requerimiento;
+          else if (status.etapa === 'SEGUIMIENTO') asignadoCalculado = doc.responsable_seguimiento;
+          else if (status.etapa === 'CIERRE') asignadoCalculado = doc.responsable_devolucion;
       }
 
       const mostrarAsignado = (!asignadoCalculado || asignadoCalculado === 'null' || asignadoCalculado === '') ? 'PENDIENTE' : asignadoCalculado;
