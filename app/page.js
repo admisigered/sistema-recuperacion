@@ -263,14 +263,35 @@ export default function SistemaSIGERED() {
       return terminosBasicos.some(f => t.includes(f)) || tieneNumero;
     };
 
-    // 1. AVANCE MENSUAL (Histórico de eventos)
-    const mesesConf = [{ e: 'DICIEMBRE', f: '2025-12' }, { e: 'ENERO', f: '2026-01' }, { e: 'FEBRERO', f: '2026-02' }, { e: 'MARZO', f: '2026-03' }, { e: 'ABRIL', f: '2026-04' }, { e: 'MAYO', f: '2026-05' }];
+    // 1. AVANCE DE ETAPAS POR MES (Histórico de eventos filtrado por calidad de dato)
+    const mesesConf = [
+      { e: 'DICIEMBRE', f: '2025-12' }, 
+      { e: 'ENERO', f: '2026-01' }, 
+      { e: 'FEBRERO', f: '2026-02' }, 
+      { e: 'MARZO', f: '2026-03' }, 
+      { e: 'ABRIL', f: '2026-04' }, 
+      { e: 'MAYO', f: '2026-05' }
+    ];
+
     const monthlyData = mesesConf.map(m => ({
       name: m.e,
+      // Verificaciones: Se cuentan todas las que tienen fecha en el mes
       Verificaciones: allDocsForStats.filter(d => (formatExcelDate(d.fecha_verificacion) || '').startsWith(m.f)).length,
-      Requerimientos: allDocsForStats.filter(d => (formatExcelDate(d.fecha_elaboracion) || '').startsWith(m.f)).length,
+      
+      // REQUERIMIENTOS: Solo si la fecha es del mes Y el N° de documento es válido (CARTA, OFICIO o Número)
+      Requerimientos: allDocsForStats.filter(d => 
+        (formatExcelDate(d.fecha_elaboracion) || '').startsWith(m.f) && 
+        esDocumentoValido(d.numero_documento, false)
+      ).length,
+      
+      // Seguimientos: Se cuentan todas las acciones del historial en el mes
       Seguimientos: allSegsForStats.filter(s => (formatExcelDate(s.fecha) || '').startsWith(m.f)).length,
-      Cierres: allDocsForStats.filter(d => (formatExcelDate(d.fecha_devolucion) || '').startsWith(m.f)).length
+      
+      // CIERRES: Solo si la fecha es del mes Y el Documento de Cierre es válido (CARTA, OFICIO, NOTA ENVIO, PROVEIDO o Número)
+      Cierres: allDocsForStats.filter(d => 
+        (formatExcelDate(d.fecha_devolucion) || '').startsWith(m.f) && 
+        esDocumentoValido(d.documento_cierre, true)
+      ).length
     }));
 
     // 2. RENDIMIENTO POR RESPONSABLE (Vinculación Directa Responsable-Fecha)
