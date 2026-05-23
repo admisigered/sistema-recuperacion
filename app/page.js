@@ -248,57 +248,32 @@ const stats = useMemo(() => {
       return f && f >= filters.fechaInicio && f <= filters.fechaFin;
     };
 
-    // 2. RENDIMIENTO POR RESPONSABLE (Basado en ACCIONES REALES en el rango)
+    // 2. RENDIMIENTO POR RESPONSABLE (CONTANDO ACCIONES EXACTAS USUARIO + FECHA)
     const listaSoloPersonal = LISTA_RESPONSABLES.filter(r => r !== "PENDIENTE");
 
     const respData = listaSoloPersonal.map(r => {
       const user = r.toUpperCase().trim();
       
-      // Función interna para validar si la fecha de la acción está en el rango seleccionado
       const enRango = (f) => {
         if (!filters.fechaInicio || !filters.fechaFin) return true;
         const fecha = formatExcelDate(f);
         return fecha && fecha >= filters.fechaInicio && fecha <= filters.fechaFin;
       };
 
-      // --- CONTEO DE ACCIONES INDIVIDUALES ---
+      return {
+        name: r,
+        // Verificación: ¿Él verificó en este rango?
+        verif: allDocsForStats.filter(d => (d.responsable_verificacion || '').toUpperCase().trim() === user && d.estado_verificacion_k === 'VERIFICADO' && enRango(d.fecha_verificacion)).length,
+        
+        // Requerimiento: ¿Él hizo el oficio en este rango?
+        req: allDocsForStats.filter(d => (d.responsable_requerimiento || '').toUpperCase().trim() === user && d.numero_documento && enRango(d.fecha_elaboracion)).length,
+        
+        // SEGUIMIENTO: Aquí está la clave. Contamos los registros de la tabla de HISTORIAL
+        // Si Xina registró el 21, sumará 1 a Xina el 21. Si Yanina registró el 22, sumará 1 a Yanina el 22.
+        seg: allSegsForStats.filter(seg => (seg.responsable || '').toUpperCase().trim() === user && enRango(seg.fecha)).length,
 
-      // 1. Verificaciones: Documentos donde este usuario fue el verificador Y la fecha está en rango
-      const v = allDocsForStats.filter(d => 
-        (d.responsable_verificacion || '').toUpperCase().trim() === user && 
-        d.estado_verificacion_k === 'VERIFICADO' && 
-        enRango(d.fecha_verificacion)
-      ).length;
-
-      // 2. Requerimientos: Oficios generados por este usuario en este rango
-      const re = allDocsForStats.filter(d => 
-        (d.responsable_requerimiento || '').toUpperCase().trim() === user && 
-        d.numero_documento && 
-        enRango(d.fecha_elaboracion)
-      ).length;
-
-      // 3. SEGUIMIENTOS (Lo más importante): Contamos cada registro de la tabla historial
-      // Esto hará que si Yanina hizo 21 llamadas el 21/05, aparezca el número 21
-      // BUSCA LA VARIABLE 's' DENTRO DE respData Y REEMPLÁZALA POR ESTA:
-const s = allSegsForStats.filter(seg => {
-    // 1. ¿El responsable del seguimiento es el usuario de la tarjeta?
-    const esSuResponsabilidad = (seg.responsable || '').toUpperCase().trim() === user;
-    
-    // 2. ¿La fecha del seguimiento está en el rango?
-    const estaEnFecha = enRango(seg.fecha);
-    
-    // 3. ¡EL FILTRO CRUCIAL!: ¿Este seguimiento pertenece a uno de los documentos que estoy filtrando arriba?
-    const perteneceADocsFiltrados = allDocsForStats.some(d => d.id === seg.documento_id);
-
-    return esSuResponsabilidad && estaEnFecha && perteneceADocsFiltrados;
-}).length;
-
-      // 4. Cierres: Documentos que este usuario marcó como recuperados en este rango
-      const c = allDocsForStats.filter(d => 
-        (d.responsable_devolucion || '').toUpperCase().trim() === user && 
-        (d.cargado_sisged || d.estado_visualizacion === 'SI SE VISUALIZA') && 
-        enRango(d.fecha_devolucion || d.fecha_verificacion)
-      ).length;
+        // CIERRE: ¿Él cerró el documento en este rango?
+        cierre: allDocsForStats.filter(d => (d.responsable_devolucion || '').toUpperCase().trim() === user && (d.cargado_sisged || d.estado_visualizacion === 'SI SE VISUALIZA') && enRango(d.fecha_devolucion)).length;
 
       return { name: r, verif: v, req: re, seg: s, cierre: c };
     });
@@ -378,14 +353,13 @@ const s = allSegsForStats.filter(seg => {
             if (filters.fechaFin) q.lte('fecha_devolucion', filters.fechaFin);
         }
         else {
-            // --- 3. LÓGICA GLOBAL (Sin Etapa seleccionada) ---
+            // --- 3. LÓGICA GLOBAL (Auditoría por acción responsable/fecha) ---
             const res = filters.responsable;
             const fI = filters.fechaInicio;
             const fF = filters.fechaFin;
 
             if (res && fI && fF) {
-                // CORRECCIÓN CRÍTICA: El responsable y la fecha deben coincidir EN LA MISMA ETAPA
-                // Para seguimiento usamos 'ultimo_responsable' que es quien grabó la acción en esa fecha
+                // SINTAXIS ATÓMICA: Obliga a que la persona y la fecha sean de la misma etapa
                 q.or(
                     `and(responsable_verificacion.eq.${res},fecha_verificacion.gte.${fI},fecha_verificacion.lte.${fF}),` +
                     `and(responsable_requerimiento.eq.${res},fecha_elaboracion.gte.${fI},fecha_elaboracion.lte.${fF}),` +
@@ -394,13 +368,11 @@ const s = allSegsForStats.filter(seg => {
                 );
             } 
             else if (res) {
-                if (res === 'PENDIENTE') {
-                    q.or(`and(estado_verificacion_k.eq.PENDIENTE,responsable_verificacion.eq.PENDIENTE),and(estado_verificacion_k.eq.VERIFICADO,origen.eq.Externo,numero_documento.is.null,responsable_requerimiento.eq.PENDIENTE),and(numero_documento.not.is.null,cargado_sisged.eq.false,responsable_seguimiento.eq.PENDIENTE)`);
-                } else {
-                    q.or(`responsable_verificacion.eq.${res},responsable_requerimiento.eq.${res},responsable_devolucion.eq.${res},responsable_seguimiento.eq.${res},ultimo_responsable.eq.${res}`);
-                }
+                // Filtro solo por nombre (lo busca en todas las etapas)
+                q.or(`responsable_verificacion.eq.${res},responsable_requerimiento.eq.${res},responsable_devolucion.eq.${res},responsable_seguimiento.eq.${res},ultimo_responsable.eq.${res}`);
             }
             else if (fI && fF) {
+                // Filtro solo por fecha (actividad en cualquier etapa)
                 q.or(`and(fecha_verificacion.gte.${fI},fecha_verificacion.lte.${fF}),and(fecha_elaboracion.gte.${fI},fecha_elaboracion.lte.${fF}),and(ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),and(fecha_devolucion.gte.${fI},fecha_devolucion.lte.${fF})`);
             }
 
