@@ -269,23 +269,57 @@ export default function SistemaSIGERED() {
     };
 
     // 1. AVANCE MENSUAL (Histórico con validación de documentos)
-    const mesesConf = [
-      { e: 'DICIEMBRE', f: '2025-12' }, { e: 'ENERO', f: '2026-01' },
-      { e: 'FEBRERO', f: '2026-02' }, { e: 'MARZO', f: '2026-03' },
-      { e: 'ABRIL', f: '2026-04' }, { e: 'MAYO', f: '2026-05' }
-    ];
+    // --- 1. PRE-FILTRADO DE SEGUIMIENTOS PARA EL CONTEXTO ACTUAL ---
+    // Esto asegura que si filtras por "Sede SC", las barras de seguimiento solo cuenten acciones de esa sede.
+    const segsFiltradosPorContexto = allSegsForStats.filter(seg => {
+      // A. Filtro por Responsable
+      const coincideResp = !filters.responsable || 
+                          (seg.responsable || '').toUpperCase().trim() === filters.responsable.toUpperCase().trim();
+      
+      // B. Filtro por Sede/Origen (Vinculación con el documento)
+      // Como la tabla seguimientos no tiene 'sede', buscamos el documento en la lista ya filtrada por fetchDocs
+      const docAsociado = allDocsForStats.find(d => d.id === seg.documento_id);
+      
+      return coincideResp && !!docAsociado; // Si el doc no existe en allDocsForStats, es porque no pasó los filtros globales
+    });
 
     const monthlyData = mesesConf.map(m => {
-      const docsMes = allDocsForStats.filter(d => (formatExcelDate(d.fecha_verificacion) || formatExcelDate(d.fecha_registro) || '').startsWith(m.f));
-      
+      // Documentos que tuvieron actividad en este mes
+      const docsMes = allDocsForStats.filter(d => 
+        (formatExcelDate(d.fecha_verificacion) || 
+         formatExcelDate(d.fecha_elaboracion) || 
+         formatExcelDate(d.fecha_devolucion) || 
+         formatExcelDate(d.fecha_registro) || '').startsWith(m.f)
+      );
+
       return {
         name: m.e,
-        Verificaciones: docsMes.filter(d => d.estado_verificacion_k === 'VERIFICADO').length,
-        // REQUERIMIENTOS: Solo si el texto es válido
-        Requerimientos: docsMes.filter(d => esDocumentoValido(d.numero_documento, false)).length,
-        Seguimientos: allSegsForStats.filter(s => (formatExcelDate(s.fecha) || '').startsWith(m.f)).length,
-        // CIERRES: Solo si el texto es válido
-        Cierres: docsMes.filter(d => d.cargado_sisged && esDocumentoValido(d.documento_cierre, true)).length
+        // VERIFICACIONES: Coincide mes + Estado Verificado + Filtro Responsable Etapa 1
+        Verificaciones: docsMes.filter(d => 
+          d.estado_verificacion_k === 'VERIFICADO' &&
+          (formatExcelDate(d.fecha_verificacion) || '').startsWith(m.f) &&
+          (!filters.responsable || (d.responsable_verificacion || '').toUpperCase().trim() === filters.responsable.toUpperCase().trim())
+        ).length,
+
+        // REQUERIMIENTOS: Coincide mes + Texto Válido + Filtro Responsable Etapa 2
+        Requerimientos: docsMes.filter(d => 
+          esDocumentoValido(d.numero_documento, false) &&
+          (formatExcelDate(d.fecha_elaboracion) || '').startsWith(m.f) &&
+          (!filters.responsable || (d.responsable_requerimiento || '').toUpperCase().trim() === filters.responsable.toUpperCase().trim())
+        ).length,
+
+        // SEGUIMIENTOS: Usamos la lista pre-filtrada por Responsable, Sede y Origen
+        Seguimientos: segsFiltradosPorContexto.filter(s => 
+          (formatExcelDate(s.fecha) || '').startsWith(m.f)
+        ).length,
+
+        // CIERRES: Coincide mes + SISGED + Texto Válido + Filtro Responsable Etapa 4
+        Cierres: docsMes.filter(d => 
+          d.cargado_sisged && 
+          esDocumentoValido(d.documento_cierre, true) &&
+          (formatExcelDate(d.fecha_devolucion) || '').startsWith(m.f) &&
+          (!filters.responsable || (d.responsable_devolucion || '').toUpperCase().trim() === filters.responsable.toUpperCase().trim())
+        ).length
       };
     });
 
