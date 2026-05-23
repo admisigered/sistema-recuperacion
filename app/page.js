@@ -41,6 +41,25 @@ const formatDMA = (fecha) => {
   return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : fecha;
 };
 
+// --- FUNCION GLOBAL DE VALIDACION DE DOCUMENTOS ---
+const esDocumentoValido = (val, esCierre = false) => {
+  if (!val || val === 'null' || String(val).trim() === "") return false;
+  const t = String(val).toUpperCase().trim();
+  
+  // Lista de palabras prohibidas que NO cuentan como documento
+  const prohibidas = ["PENDIENTE", "NO APLICA", "POR GENERAR", "SE UBICA EN TRAZA", "S/N", "SIN NUMERO"];
+  if (prohibidas.some(p => t === p)) return false;
+
+  const terminosBasicos = ["CARTA", "OFICIO"];
+  const terminosCierre = ["NOTA DE ENVIO", "PROVEIDO", "NOTA"];
+  const tieneNumeros = /\d+/.test(t); // Verifica si tiene al menos un número (ej: 001-2026)
+
+  if (esCierre) {
+    return terminosBasicos.some(term => t.includes(term)) || terminosCierre.some(term => t.includes(term)) || tieneNumeros;
+  }
+  return terminosBasicos.some(term => t.includes(term)) || tieneNumeros;
+};
+
 const renderMultiLineLabel = ({ cx, x, y, name, value }) => {
   const anchor = x > cx ? 'start' : 'end';
   return (
@@ -247,20 +266,6 @@ export default function SistemaSIGERED() {
       if (!filters.fechaInicio || !filters.fechaFin) return true;
       const f = formatExcelDate(fecha);
       return f && f >= filters.fechaInicio && f <= filters.fechaFin;
-    };
-
-    // --- FUNCIÓN INTERNA: Validador de Formato de Documento ---
-    const esFormatoValido = (texto, esCierre = false) => {
-      if (!texto || texto === 'null' || texto.trim() === "") return false;
-      const t = texto.toUpperCase().trim();
-      const terminosBasicos = ["CARTA", "OFICIO"];
-      const terminosCierre = ["NOTA DE ENVIO", "PROVEIDO"];
-      const tieneNumero = /\d+/.test(t); // Verifica si contiene algún número (ej: 001-2026)
-
-      if (esCierre) {
-        return terminosBasicos.some(f => t.includes(f)) || terminosCierre.some(e => t.includes(e)) || tieneNumero;
-      }
-      return terminosBasicos.some(f => t.includes(f)) || tieneNumero;
     };
 
     // 1. AVANCE DE ETAPAS POR MES (Histórico de eventos filtrado por calidad de dato)
