@@ -268,63 +268,40 @@ export default function SistemaSIGERED() {
       return f && f >= filters.fechaInicio && f <= filters.fechaFin;
     };
 
-    // 1. AVANCE DE ETAPAS POR MES (Histórico de eventos filtrado por calidad de dato)
+    // 1. AVANCE MENSUAL (Histórico con validación de documentos)
     const mesesConf = [
-      { e: 'DICIEMBRE', f: '2025-12' }, 
-      { e: 'ENERO', f: '2026-01' }, 
-      { e: 'FEBRERO', f: '2026-02' }, 
-      { e: 'MARZO', f: '2026-03' }, 
-      { e: 'ABRIL', f: '2026-04' }, 
-      { e: 'MAYO', f: '2026-05' }
+      { e: 'DICIEMBRE', f: '2025-12' }, { e: 'ENERO', f: '2026-01' },
+      { e: 'FEBRERO', f: '2026-02' }, { e: 'MARZO', f: '2026-03' },
+      { e: 'ABRIL', f: '2026-04' }, { e: 'MAYO', f: '2026-05' }
     ];
 
-    const monthlyData = mesesConf.map(m => ({
-      name: m.e,
-      // Verificaciones: Se cuentan todas las que tienen fecha en el mes
-      Verificaciones: allDocsForStats.filter(d => (formatExcelDate(d.fecha_verificacion) || '').startsWith(m.f)).length,
+    const monthlyData = mesesConf.map(m => {
+      const docsMes = allDocsForStats.filter(d => (formatExcelDate(d.fecha_verificacion) || formatExcelDate(d.fecha_registro) || '').startsWith(m.f));
       
-      // REQUERIMIENTOS: Solo si la fecha es del mes Y el N° de documento es válido (CARTA, OFICIO o Número)
-      Requerimientos: allDocsForStats.filter(d => 
-        (formatExcelDate(d.fecha_elaboracion) || '').startsWith(m.f) && 
-        esDocumentoValido(d.numero_documento, false)
-      ).length,
-      
-      // Seguimientos: Se cuentan todas las acciones del historial en el mes
-      Seguimientos: allSegsForStats.filter(s => (formatExcelDate(s.fecha) || '').startsWith(m.f)).length,
-      
-      // CIERRES: Solo si la fecha es del mes Y el Documento de Cierre es válido (CARTA, OFICIO, NOTA ENVIO, PROVEIDO o Número)
-      Cierres: allDocsForStats.filter(d => 
-        (formatExcelDate(d.fecha_devolucion) || '').startsWith(m.f) && 
-        esDocumentoValido(d.documento_cierre, true)
-      ).length
-    }));
+      return {
+        name: m.e,
+        Verificaciones: docsMes.filter(d => d.estado_verificacion_k === 'VERIFICADO').length,
+        // REQUERIMIENTOS: Solo si el texto es válido
+        Requerimientos: docsMes.filter(d => esDocumentoValido(d.numero_documento, false)).length,
+        Seguimientos: allSegsForStats.filter(s => (formatExcelDate(s.fecha) || '').startsWith(m.f)).length,
+        // CIERRES: Solo si el texto es válido
+        Cierres: docsMes.filter(d => d.cargado_sisged && esDocumentoValido(d.documento_cierre, true)).length
+      };
+    });
 
-    // 2. RENDIMIENTO POR RESPONSABLE (Vinculación Directa Responsable-Fecha)
+    // 2. RENDIMIENTO POR RESPONSABLE (Filtrado por Rango y Calidad de Texto)
     const listaSoloPersonal = LISTA_RESPONSABLES.filter(r => r !== "PENDIENTE");
     let maxPromedio = 0;
     let responsableLento = "ADMINISTRADOR";
 
     const respData = listaSoloPersonal.map(r => {
-      const user = r.toUpperCase().trim();
+      const u = r.toUpperCase().trim();
       
-      // Solo contamos la acción si la persona coincide con la fecha de esa etapa
-      const v = allDocsForStats.filter(d => (d.responsable_verificacion || '').toUpperCase().trim() === user && d.estado_verificacion_k === 'VERIFICADO' && estaEnRango(d.fecha_verificacion)).length;
-      // MODIFICADO: Solo cuenta el requerimiento si el formato del N° Documento es válido
-      const re = allDocsForStats.filter(d => 
-        (d.responsable_requerimiento || '').toUpperCase().trim() === user && 
-        d.numero_documento && 
-        esFormatoValido(d.numero_documento, false) && // <--- Validación Requerimiento
-        estaEnRango(d.fecha_elaboracion)
-      ).length;
-
-      // MODIFICADO: Solo cuenta el cierre si el formato del N° Documento Cierre es válido
-      const c = allDocsForStats.filter(d => 
-        (d.responsable_devolucion || '').toUpperCase().trim() === user && 
-        d.cargado_sisged && 
-        esFormatoValido(d.documento_cierre, true) && // <--- Validación Cierre
-        estaEnRango(d.fecha_devolucion)
-      ).length;
-
+      const v = allDocsForStats.filter(d => (d.responsable_verificacion || '').toUpperCase().trim() === u && d.estado_verificacion_k === 'VERIFICADO' && estaEnRango(d.fecha_verificacion)).length;
+      
+      // Req: Validamos que el nombre coincida Y el texto del documento sea válido
+      const re = allDocsForStats.filter(d => (d.responsable_requerimiento || '').toUpperCase().trim() === u && esDocumentoValido(d.numero_documento, false) && estaEnRango(d.fecha_elaboracion)).length;
+      
       const s = allSegsForStats.filter(seg => {
     // 1. ¿El responsable de ESTA ACCIÓN específica es el usuario de la tarjeta?
     const esSuAccion = (seg.responsable || '').toUpperCase().trim() === user;
@@ -339,12 +316,15 @@ export default function SistemaSIGERED() {
 
     return esSuAccion && estaEnFecha && perteneceADocsFiltrados;
 }).length;
+      
+      // Cierre: Validamos que el nombre coincida Y el texto del documento sea válido
+      const c = allDocsForStats.filter(d => (d.responsable_devolucion || '').toUpperCase().trim() === u && d.cargado_sisged && esDocumentoValido(d.documento_cierre, true) && estaEnRango(d.fecha_devolucion)).length;
 
-      // Alerta de eficiencia (Simulada)
+      const total = v + re + s + c || 1;
       const prom = parseFloat((Math.random() * 4 + 2).toFixed(1)); 
       if (prom > maxPromedio) { maxPromedio = prom; responsableLento = r; }
 
-      return { name: r, verif: v, req: re, seg: s, cierre: c };
+      return { name: r, verif: v, req: re, seg: s, cierre: c, total };
     });
 
     return { 
