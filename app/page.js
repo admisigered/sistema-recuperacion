@@ -657,6 +657,24 @@ export default function SistemaSIGERED() {
       const infoActual = getEtapaEstado(doc);
       const dias = doc.fecha_notificacion ? calcularDiasHabiles(doc.fecha_notificacion) : 0;
 
+      // --- NUEVA LÓGICA DE CONTEO ATÓMICO PARA EXCEL ---
+      // Filtramos el historial total de acciones para este documento específico
+      const segsEnRango = allSegsForStats.filter(seg => {
+          const coincideDoc = seg.documento_id === doc.id;
+          
+          // Validamos fecha de la acción
+          const fAccion = formatExcelDate(seg.fecha);
+          const estaEnRango = (!filters.fechaInicio || !filters.fechaFin) || 
+                             (fAccion >= filters.fechaInicio && fAccion <= filters.fechaFin);
+          
+          // Validamos si el responsable coincide con el filtro (si existe filtro)
+          const coincideResp = !filters.responsable || 
+                              (seg.responsable || '').toUpperCase().trim() === filters.responsable.toUpperCase().trim();
+          
+          return coincideDoc && estaEnRango && coincideResp;
+      }).length;
+      // --------------------------------------------------
+
       return {
         'SEDE': doc.sede || '',
         'CUT': doc.cut || '',
@@ -677,9 +695,12 @@ export default function SistemaSIGERED() {
         'MEDIO NOTIFICACION': doc.medio_notificacion || '',
         'DIAS HABILES': dias,
         'RESP. SEGUIMIENTO': doc.responsable_seguimiento || '',
-        'ULTIMO CONTACTO': doc.ultimo_responsable || '', // El que grabó la última nota
-        'CANT. SEGUIMIENTOS': doc.cantidad_seguimientos || 0,
-        '¿CARGADO AL SISGED?': doc.cargado_sisged ? 'SI' : 'NO',
+        'ULTIMO CONTACTO': doc.ultimo_responsable || '',
+        
+        // --- CAMBIO AQUÍ: Ahora usa la variable calculada en lugar del total de la base de datos ---
+        'CANT. SEGUIMIENTOS POR RESPONSABLE': segsEnRango, 
+        'TOTAL HISTÓRICO': doc.cantidad_seguimientos || 0,
+        'CARGADO AL SISGED': doc.cargado_sisged ? 'SI' : 'NO',
         'FECHA DE REMISION': formatDMA(doc.fecha_remision),
         'RESP. DEVOLUCION': doc.responsable_devolucion || '',
         'FECHA DEVOLUCION': formatDMA(doc.fecha_devolucion),
