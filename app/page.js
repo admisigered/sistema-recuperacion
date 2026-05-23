@@ -283,8 +283,21 @@ export default function SistemaSIGERED() {
       
       // Solo contamos la acción si la persona coincide con la fecha de esa etapa
       const v = allDocsForStats.filter(d => (d.responsable_verificacion || '').toUpperCase().trim() === user && d.estado_verificacion_k === 'VERIFICADO' && estaEnRango(d.fecha_verificacion)).length;
-      const re = allDocsForStats.filter(d => (d.responsable_requerimiento || '').toUpperCase().trim() === user && d.numero_documento && d.numero_documento !== 'null' && estaEnRango(d.fecha_elaboracion)).length;
-      const c = allDocsForStats.filter(d => (d.responsable_devolucion || '').toUpperCase().trim() === user && (d.cargado_sisged || d.estado_visualizacion === 'SI SE VISUALIZA') && estaEnRango(d.fecha_devolucion)).length;
+      // MODIFICADO: Solo cuenta el requerimiento si el formato del N° Documento es válido
+      const re = allDocsForStats.filter(d => 
+        (d.responsable_requerimiento || '').toUpperCase().trim() === user && 
+        d.numero_documento && 
+        esFormatoValido(d.numero_documento, false) && // <--- Validación Requerimiento
+        estaEnRango(d.fecha_elaboracion)
+      ).length;
+
+      // MODIFICADO: Solo cuenta el cierre si el formato del N° Documento Cierre es válido
+      const c = allDocsForStats.filter(d => 
+        (d.responsable_devolucion || '').toUpperCase().trim() === user && 
+        d.cargado_sisged && 
+        esFormatoValido(d.documento_cierre, true) && // <--- Validación Cierre
+        estaEnRango(d.fecha_devolucion)
+      ).length;
 
       const s = allSegsForStats.filter(seg => {
     // 1. ¿El responsable de ESTA ACCIÓN específica es el usuario de la tarjeta?
