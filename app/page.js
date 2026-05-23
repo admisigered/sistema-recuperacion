@@ -339,100 +339,74 @@ const s = allSegsForStats.filter(seg => {
         if (filters.origen) q.eq('origen', filters.origen);
 
         // --- REGLA DE ORO: EXCLUSIÓN DE RECUPERADOS PARA PENDIENTES ---
-        // Si el estado es PENDIENTE o EN PROCESO, quitamos los RECUPERADOS de toda la consulta
         if (filters.estado === 'PENDIENTE' || filters.estado === 'EN PROCESO') {
             q.neq('cargado_sisged', true);
             q.neq('estado_visualizacion', 'SI SE VISUALIZA');
         }
 
-        // 2. LÓGICA POR ETAPA
+        // 2. LÓGICA POR ETAPA (Cuando se selecciona una etapa específica)
         if (filters.etapa === 'VERIFICACION') {
-            // Filtrar estado dentro de Verificación
             if (filters.estado === 'VERIFICADO') q.eq('estado_verificacion_k', 'VERIFICADO');
             else if (filters.estado === 'PENDIENTE') q.eq('estado_verificacion_k', 'PENDIENTE');
             
-            // Lógica inteligente para RESPONSABLE PENDIENTE en esta etapa
-            if (filters.responsable) {
-                if (filters.responsable === 'PENDIENTE') {
-                    q.or('responsable_verificacion.is.null,responsable_verificacion.eq."",responsable_verificacion.eq.PENDIENTE,responsable_verificacion.eq.null');
-                } else {
-                    q.eq('responsable_verificacion', filters.responsable);
-                }
-            }
+            if (filters.responsable) q.eq('responsable_verificacion', filters.responsable);
             if (filters.fechaInicio) q.gte('fecha_verificacion', filters.fechaInicio);
             if (filters.fechaFin) q.lte('fecha_verificacion', filters.fechaFin);
         } 
         else if (filters.etapa === 'REQUERIMIENTO') {
-            // Un documento está en REQUERIMIENTO si su N° de documento está realmente vacío
             q.or('numero_documento.is.null,numero_documento.eq."",numero_documento.eq.null,numero_documento.eq." "');
-            
-            if (filters.estado === 'ATENDIDO') {
-                q.not('numero_documento', 'is', null).neq('numero_documento', '');
-            }
+            if (filters.estado === 'ATENDIDO') q.not('numero_documento', 'is', null).neq('numero_documento', '');
 
-            // Lógica inteligente para RESPONSABLE PENDIENTE en esta etapa
-            if (filters.responsable) {
-                if (filters.responsable === 'PENDIENTE') {
-                    q.or('responsable_requerimiento.is.null,responsable_requerimiento.eq."",responsable_requerimiento.eq.PENDIENTE,responsable_requerimiento.eq.null');
-                } else {
-                    q.eq('responsable_requerimiento', filters.responsable);
-                }
-            }
+            if (filters.responsable) q.eq('responsable_requerimiento', filters.responsable);
             if (filters.fechaInicio) q.gte('fecha_elaboracion', filters.fechaInicio);
             if (filters.fechaFin) q.lte('fecha_elaboracion', filters.fechaFin);
         }
         else if (filters.etapa === 'SEGUIMIENTO') {
-            // Un documento SOLO entra en seguimiento si TIENE un número de documento válido
             q.not('numero_documento', 'is', null).neq('numero_documento', '').neq('numero_documento', 'null').neq('numero_documento', ' ');
-
             if (filters.estado === 'EN PROCESO') q.gt('cantidad_seguimientos', 0);
             else if (filters.estado === 'PENDIENTE') q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
 
-            // Lógica inteligente para RESPONSABLE PENDIENTE en esta etapa
-            if (filters.responsable) {
-                if (filters.responsable === 'PENDIENTE') {
-                    q.or('responsable_seguimiento.is.null,responsable_seguimiento.eq."",responsable_seguimiento.eq.PENDIENTE,responsable_seguimiento.eq.null');
-                } else {
-                    q.eq('responsable_seguimiento', filters.responsable);
-                }
-            }
+            if (filters.responsable) q.eq('responsable_seguimiento', filters.responsable);
             if (filters.fechaInicio) q.gte('ultimo_seguimiento', filters.fechaInicio);
             if (filters.fechaFin) q.lte('ultimo_seguimiento', filters.fechaFin);
         }
         else if (filters.etapa === 'CIERRE') {
             if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
             
-            // Lógica inteligente para RESPONSABLE PENDIENTE en esta etapa
-            if (filters.responsable) {
-                if (filters.responsable === 'PENDIENTE') {
-                    q.or('responsable_devolucion.is.null,responsable_devolucion.eq."",responsable_devolucion.eq.PENDIENTE,responsable_devolucion.eq.null');
-                } else {
-                    q.eq('responsable_devolucion', filters.responsable);
-                }
-            }
+            if (filters.responsable) q.eq('responsable_devolucion', filters.responsable);
             if (filters.fechaInicio) q.gte('fecha_devolucion', filters.fechaInicio);
             if (filters.fechaFin) q.lte('fecha_devolucion', filters.fechaFin);
         }
         else {
             // --- 3. LÓGICA GLOBAL (Sin Etapa seleccionada) ---
-            if (filters.responsable) {
-                if (filters.responsable === 'PENDIENTE') {
-                    q.or(
-                        `and(estado_verificacion_k.eq.PENDIENTE,responsable_verificacion.eq.PENDIENTE),` +
-                        `and(estado_verificacion_k.eq.VERIFICADO,numero_documento.is.null,responsable_requerimiento.eq.PENDIENTE),` +
-                        `and(numero_documento.not.is.null,cargado_sisged.eq.false,responsable_seguimiento.eq.PENDIENTE),` +
-                        `and(cargado_sisged.eq.true,responsable_devolucion.eq.PENDIENTE)`
-                    );
+            const res = filters.responsable;
+            const fI = filters.fechaInicio;
+            const fF = filters.fechaFin;
+
+            // CASO A: Filtrando por RESPONSABLE Y FECHA (Vinculación Directa)
+            if (res && fI && fF) {
+                // Solo mostramos el registro si la PERSONA hizo la ACCIÓN en ese RANGO
+                q.or(
+                    `and(responsable_verificacion.eq.${res},fecha_verificacion.gte.${fI},fecha_verificacion.lte.${fF}),` +
+                    `and(responsable_requerimiento.eq.${res},fecha_elaboracion.gte.${fI},fecha_elaboracion.lte.${fF}),` +
+                    `and(responsable_seguimiento.eq.${res},ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),` +
+                    `and(responsable_devolucion.eq.${res},fecha_devolucion.gte.${fI},fecha_devolucion.lte.${fF})`
+                );
+            }
+            // CASO B: Solo Responsable
+            else if (res) {
+                if (res === 'PENDIENTE') {
+                    q.or(`and(estado_verificacion_k.eq.PENDIENTE,responsable_verificacion.eq.PENDIENTE),and(estado_verificacion_k.eq.VERIFICADO,origen.eq.Externo,numero_documento.is.null,responsable_requerimiento.eq.PENDIENTE),and(numero_documento.not.is.null,cargado_sisged.eq.false,responsable_seguimiento.eq.PENDIENTE),and(cargado_sisged.eq.true,responsable_devolucion.eq.PENDIENTE)`);
                 } else {
-                    q.or(`responsable_verificacion.eq.${filters.responsable},responsable_requerimiento.eq.${filters.responsable},responsable_devolucion.eq.${filters.responsable},responsable_seguimiento.eq.${filters.responsable}`);
+                    q.or(`responsable_verificacion.eq.${res},responsable_requerimiento.eq.${res},responsable_devolucion.eq.${res},responsable_seguimiento.eq.${res}`);
                 }
             }
-
-            if (filters.fechaInicio && filters.fechaFin) {
-                q.or(`fecha_verificacion.gte.${filters.fechaInicio},fecha_elaboracion.gte.${filters.fechaInicio},ultimo_seguimiento.gte.${filters.fechaInicio},fecha_devolucion.gte.${filters.fechaInicio}`);
-                q.or(`fecha_verificacion.lte.${filters.fechaFin},fecha_elaboracion.lte.${filters.fechaFin},ultimo_seguimiento.lte.${filters.fechaFin},fecha_devolucion.lte.${filters.fechaFin}`);
+            // CASO C: Solo Fecha
+            else if (fI && fF) {
+                q.or(`and(fecha_verificacion.gte.${fI},fecha_verificacion.lte.${fF}),and(fecha_elaboracion.gte.${fI},fecha_elaboracion.lte.${fF}),and(ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),and(fecha_devolucion.gte.${fI},fecha_devolucion.lte.${fF})`);
             }
 
+            // Filtro de Estado Global
             if (filters.estado) {
                 if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
                 else if (filters.estado === 'RECONSTRUCCION') q.ilike('observaciones_finales', '%RECONSTRUCCION%');
@@ -443,7 +417,7 @@ const s = allSegsForStats.filter(seg => {
                 }
             }
         }
-    }; // Fin de aplicarFiltrosInternos
+    };
 
     // A. Carga de los 100 registros de la tabla
     aplicarFiltrosInternos(queryTable);
