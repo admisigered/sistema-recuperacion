@@ -272,8 +272,20 @@ export default function SistemaSIGERED() {
       const re = allDocsForStats.filter(d => (d.responsable_requerimiento || '').toUpperCase().trim() === user && d.numero_documento && d.numero_documento !== 'null' && estaEnRango(d.fecha_elaboracion)).length;
       const c = allDocsForStats.filter(d => (d.responsable_devolucion || '').toUpperCase().trim() === user && (d.cargado_sisged || d.estado_visualizacion === 'SI SE VISUALIZA') && estaEnRango(d.fecha_devolucion)).length;
 
-      // Seguimiento: Buscamos en la tabla de acciones histórica (allSegsForStats) para contar 1 x 1
-      const s = allSegsForStats.filter(seg => (seg.responsable || '').toUpperCase().trim() === user && estaEnRango(seg.fecha)).length;
+      const s = allSegsForStats.filter(seg => {
+    // 1. ¿El responsable de ESTA ACCIÓN específica es el usuario de la tarjeta?
+    const esSuAccion = (seg.responsable || '').toUpperCase().trim() === user;
+    
+    // 2. ¿La fecha de ESTA ACCIÓN específica está dentro del rango seleccionado?
+    const fechaAccion = formatExcelDate(seg.fecha);
+    const estaEnFecha = !filters.fechaInicio || !filters.fechaFin || 
+                       (fechaAccion >= filters.fechaInicio && fechaAccion <= filters.fechaFin);
+    
+    // 3. (Opcional pero recomendado) ¿El seguimiento pertenece a los documentos que pasan el filtro actual?
+    const perteneceADocsFiltrados = allDocsForStats.some(d => d.id === seg.documento_id);
+
+    return esSuAccion && estaEnFecha && perteneceADocsFiltrados;
+}).length;
 
       // Alerta de eficiencia (Simulada)
       const prom = parseFloat((Math.random() * 4 + 2).toFixed(1)); 
