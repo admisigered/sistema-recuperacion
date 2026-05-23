@@ -249,6 +249,20 @@ export default function SistemaSIGERED() {
       return f && f >= filters.fechaInicio && f <= filters.fechaFin;
     };
 
+    // --- FUNCIÓN INTERNA: Validador de Formato de Documento ---
+    const esFormatoValido = (texto, esCierre = false) => {
+      if (!texto || texto === 'null' || texto.trim() === "") return false;
+      const t = texto.toUpperCase().trim();
+      const terminosBasicos = ["CARTA", "OFICIO"];
+      const terminosCierre = ["NOTA DE ENVIO", "PROVEIDO"];
+      const tieneNumero = /\d+/.test(t); // Verifica si contiene algún número (ej: 001-2026)
+
+      if (esCierre) {
+        return terminosBasicos.some(f => t.includes(f)) || terminosCierre.some(e => t.includes(e)) || tieneNumero;
+      }
+      return terminosBasicos.some(f => t.includes(f)) || tieneNumero;
+    };
+
     // 1. AVANCE MENSUAL (Histórico de eventos)
     const mesesConf = [{ e: 'DICIEMBRE', f: '2025-12' }, { e: 'ENERO', f: '2026-01' }, { e: 'FEBRERO', f: '2026-02' }, { e: 'MARZO', f: '2026-03' }, { e: 'ABRIL', f: '2026-04' }, { e: 'MAYO', f: '2026-05' }];
     const monthlyData = mesesConf.map(m => ({
