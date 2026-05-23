@@ -273,9 +273,8 @@ const stats = useMemo(() => {
         seg: allSegsForStats.filter(seg => (seg.responsable || '').toUpperCase().trim() === user && enRango(seg.fecha)).length,
 
         // CIERRE: ¿Él cerró el documento en este rango?
-        cierre: allDocsForStats.filter(d => (d.responsable_devolucion || '').toUpperCase().trim() === user && (d.cargado_sisged || d.estado_visualizacion === 'SI SE VISUALIZA') && enRango(d.fecha_devolucion)).length;
-
-      return { name: r, verif: v, req: re, seg: s, cierre: c };
+        cierre: allDocsForStats.filter(d => (d.responsable_devolucion || '').toUpperCase().trim() === user && (d.cargado_sisged || d.estado_visualizacion === 'SI SE VISUALIZA') && enRango(d.fecha_devolucion)).length
+      };
     });
 
     // 2. AVANCE MENSUAL (Histórico)
