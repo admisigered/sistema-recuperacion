@@ -29,7 +29,7 @@ const USUARIOS = [
   { user: 'LISBETH', pass: '123456' },
   { user: 'ADMINISTRADOR', pass: 'admin123' },
   { user: 'FERNANDO', pass: '123456' },
-  { user: 'ALYSON', pass: '134679' },
+  { user: 'ALYSON', pass: '134679' }
 ];
 
 const LISTA_RESPONSABLES = ["PENDIENTE", "YANINA", "XINA", "CESAR", "MILI", "LISBETH", "AMERICO", "ADMINISTRADOR", "FERNANDO"];
