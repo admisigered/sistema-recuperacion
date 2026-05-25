@@ -1116,18 +1116,20 @@ export default function SistemaSIGERED() {
   ))}
 </div>
 
-    {/* SECCIÓN 2: GRÁFICO MENSUAL - FILA 2 */}
+    {/* SECCIÓN 2: GRÁFICO MENSUAL */}
 <div className="bg-white p-8 rounded-4xl border border-slate-100 shadow-sm shadow-slate-200">
   <h4 className="text-sm font-black text-slate-700 uppercase mb-8 flex items-center gap-2">
-    <BarChart3 size={18} className="text-blue-600"/> Avance Comparativo Mensual (Histórico)
+    <BarChart3 size={18} className="text-blue-600"/> Avance Comparativo Mensual
   </h4>
   <div className="h-[350px] w-full">
     <ResponsiveContainer width="100%" height="100%">
       <BarChart 
         data={stats.monthlyData} 
         margin={{ top: 30, right: 30, left: 0, bottom: 0 }}
-        barGap={10}
-        barCategoryGap="20%"
+        // CAMBIO: Reducimos el espacio entre categorías (meses) para que las barras sean más anchas
+        barCategoryGap="15%" 
+        // CAMBIO: Espacio pequeño entre las 4 barras de un mismo mes
+        barGap={5} 
       >
         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
         <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 'bold'}} />
@@ -1140,7 +1142,8 @@ export default function SistemaSIGERED() {
           dataKey="Verificaciones" 
           fill="#3b82f6" 
           radius={[4, 4, 0, 0]} 
-          barSize={15} 
+          // CAMBIO: Quitamos barSize={15} y ponemos maxBarSize para que sea responsivo
+          maxBarSize={60} 
           style={{ cursor: 'pointer' }}
           onClick={(data) => handleChartClick(data.name, 'Verificaciones')}
           label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#3b82f6', dy: -5 }} 
@@ -1151,7 +1154,7 @@ export default function SistemaSIGERED() {
           dataKey="Requerimientos" 
           fill="#93c5fd" 
           radius={[4, 4, 0, 0]} 
-          barSize={15} 
+          maxBarSize={60} // Responsivo
           style={{ cursor: 'pointer' }}
           onClick={(data) => handleChartClick(data.name, 'Requerimientos')}
           label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#60a5fa', dy: -5 }} 
@@ -1162,7 +1165,7 @@ export default function SistemaSIGERED() {
           dataKey="Seguimientos" 
           fill="#f97316" 
           radius={[4, 4, 0, 0]} 
-          barSize={15} 
+          maxBarSize={60} // Responsivo
           style={{ cursor: 'pointer' }}
           onClick={(data) => handleChartClick(data.name, 'Seguimientos')}
           label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#f97316', dy: -5 }} 
@@ -1173,7 +1176,7 @@ export default function SistemaSIGERED() {
           dataKey="Cierres" 
           fill="#22c55e" 
           radius={[4, 4, 0, 0]} 
-          barSize={15} 
+          maxBarSize={60} // Responsivo
           style={{ cursor: 'pointer' }}
           onClick={(data) => handleChartClick(data.name, 'Cierres')}
           label={{ position: 'top', fontSize: 11, fontWeight: 'bold', fill: '#22c55e', dy: -5 }} 
