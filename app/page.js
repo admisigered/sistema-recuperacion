@@ -728,7 +728,6 @@ export default function SistemaSIGERED() {
   const toggleSelectDoc = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
 
   const handleExport = () => {
-    // CAMBIO CRUCIAL: Usamos allDocsForStats para tener los 14,000 registros
     if (!allDocsForStats || allDocsForStats.length === 0) {
       alert("Aún se están cargando los datos. Espere un momento...");
       return;
@@ -737,24 +736,19 @@ export default function SistemaSIGERED() {
     const datosReporte = allDocsForStats.map(doc => {
       const infoActual = getEtapaEstado(doc);
       const dias = doc.fecha_notificacion ? calcularDiasHabiles(doc.fecha_notificacion) : 0;
+      
+      // --- LÓGICA DE EXCLUSIÓN PARA DOCUMENTOS INTERNOS ---
+      const esInterno = String(doc.origen || '').toUpperCase() === 'INTERNO';
 
-      // --- NUEVA LÓGICA DE CONTEO ATÓMICO PARA EXCEL ---
-      // Filtramos el historial total de acciones para este documento específico
       const segsEnRango = allSegsForStats.filter(seg => {
           const coincideDoc = seg.documento_id === doc.id;
-          
-          // Validamos fecha de la acción
           const fAccion = formatExcelDate(seg.fecha);
           const estaEnRango = (!filters.fechaInicio || !filters.fechaFin) || 
                              (fAccion >= filters.fechaInicio && fAccion <= filters.fechaFin);
-          
-          // Validamos si el responsable coincide con el filtro (si existe filtro)
           const coincideResp = !filters.responsable || 
                               (seg.responsable || '').toUpperCase().trim() === filters.responsable.toUpperCase().trim();
-          
           return coincideDoc && estaEnRango && coincideResp;
       }).length;
-      // --------------------------------------------------
 
       return {
         'SEDE': doc.sede || '',
@@ -769,18 +763,22 @@ export default function SistemaSIGERED() {
         'FECHA VERIFICACIÓN': formatDMA(doc.fecha_verificacion),
         'ESTADO DEL DOCUMENTO': doc.estado_visualizacion || '',
         'OBSERVACIONES': doc.observaciones || '',
-        'RESP. REQUERIMIENTO': doc.responsable_requerimiento || '',
-        'FECHA REQUERIMIENTO': formatDMA(doc.fecha_elaboracion),
-        'N° DOCUMENTO': doc.numero_documento || '',
-        'FECHA NOTIFICACION': formatDMA(doc.fecha_notificacion),
-        'MEDIO NOTIFICACION': doc.medio_notificacion || '',
-        'DIAS HABILES': dias,
-        'RESP. SEGUIMIENTO': doc.responsable_seguimiento || '',
-        'ULTIMO CONTACTO': doc.ultimo_responsable || '',
         
-        // --- CAMBIO AQUÍ: Ahora usa la variable calculada en lugar del total de la base de datos ---
-        'CANT. SEGUIMIENTOS POR RESPONSABLE': segsEnRango, 
-        'TOTAL HISTÓRICO': doc.cantidad_seguimientos || 0,
+        // --- ETAPA 2: REQUERIMIENTO (Vacío si es Interno) ---
+        'RESP. REQUERIMIENTO': esInterno ? '' : (doc.responsable_requerimiento || ''),
+        'FECHA REQUERIMIENTO': esInterno ? '' : formatDMA(doc.fecha_elaboracion),
+        'N° DOCUMENTO': esInterno ? '' : (doc.numero_documento || ''),
+        'FECHA NOTIFICACION': esInterno ? '' : formatDMA(doc.fecha_notificacion),
+        'MEDIO NOTIFICACION': esInterno ? '' : (doc.medio_notificacion || ''),
+        'DIAS HABILES': esInterno ? 0 : dias,
+        
+        // --- ETAPA 3: SEGUIMIENTO (Vacío si es Interno) ---
+        'RESP. SEGUIMIENTO': esInterno ? '' : (doc.responsable_seguimiento || ''),
+        'ULTIMO CONTACTO': esInterno ? '' : (doc.ultimo_responsable || ''),
+        'CANT. SEGUIMIENTOS POR RESPONSABLE': esInterno ? 0 : segsEnRango, 
+        'TOTAL HISTÓRICO': esInterno ? 0 : (doc.cantidad_seguimientos || 0),
+        
+        // --- ETAPA 4: CIERRE (Siempre visible para ambos) ---
         'CARGADO AL SISGED': doc.cargado_sisged ? 'SI' : 'NO',
         'FECHA DE REMISION': formatDMA(doc.fecha_remision),
         'RESP. DEVOLUCION': doc.responsable_devolucion || '',
@@ -796,8 +794,6 @@ export default function SistemaSIGERED() {
     const ws = XLSX.utils.json_to_sheet(datosReporte);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "REPORTE_TOTAL");
-    
-    // Genera el archivo con el total de registros (13k+)
     XLSX.writeFile(wb, `Reporte_SIGERED_Total_${new Date().getTime()}.xlsx`);
   };
 
