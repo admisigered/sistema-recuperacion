@@ -268,7 +268,7 @@ export default function SistemaSIGERED() {
       return f && f >= filters.fechaInicio && f <= filters.fechaFin;
     };
 
-    // --- NUEVA LÓGICA DINÁMICA DE GRÁFICO 1 ---
+    // --- NUEVA LÓGICA DINÁMICA DE GRÁFICO 1 (CON CENTRADO AUTOMÁTICO) ---
     
     // 1. Identificamos qué documentos pasan los filtros de Sede/Origen (Contexto)
     const idsContexto = new Set(allDocsForStats.map(d => d.id));
@@ -288,7 +288,8 @@ export default function SistemaSIGERED() {
       { e: 'ABRIL', f: '2026-04' }, { e: 'MAYO', f: '2026-05' }
     ];
 
-    const monthlyData = mesesConf.map(m => {
+    // 3. Calculamos los datos para todos los meses (Lógica de auditoría)
+    const rawMonthlyData = mesesConf.map(m => {
       // Filtramos documentos que tienen alguna fecha de actividad en este mes específico
       const docsDelMes = allDocsForStats.filter(d => 
         (formatExcelDate(d.fecha_verificacion) || '').startsWith(m.f) ||
@@ -321,7 +322,7 @@ export default function SistemaSIGERED() {
           const esMes = (fSeg || '').startsWith(m.f);
           const enRango = fechaEnRangoUsuario(s.fecha);
           const esResp = !filters.responsable || (s.responsable || '').toUpperCase().trim() === filters.responsable.toUpperCase().trim();
-          const esDocValido = idsContexto.has(s.documento_id); // Que el doc pertenezca a la Sede/Origen filtrada
+          const esDocValido = idsContexto.has(s.documento_id); 
           return esMes && enRango && esResp && esDocValido;
         }).length,
 
@@ -336,6 +337,18 @@ export default function SistemaSIGERED() {
       };
     });
 
+    // 4. FILTRO DE DISEÑO: Si hay fechas filtradas, solo mostramos los meses involucrados para centrar el gráfico
+    const monthlyData = (filters.fechaInicio && filters.fechaFin)
+      ? rawMonthlyData.filter(m => {
+          const startMonthPrefix = filters.fechaInicio.substring(0, 7); // "YYYY-MM"
+          const endMonthPrefix = filters.fechaFin.substring(0, 7);
+          
+          // Buscamos el código de mes (ej: '2026-05') en la configuración original
+          const config = mesesConf.find(c => c.e === m.name);
+          return config && config.f >= startMonthPrefix && config.f <= endMonthPrefix;
+        })
+      : rawMonthlyData; // Si no hay filtro, muestra el histórico de 6 meses
+    
     // 2. RENDIMIENTO POR RESPONSABLE (Filtrado por Rango y Calidad de Texto)
     const listaSoloPersonal = LISTA_RESPONSABLES.filter(r => r !== "PENDIENTE");
     let maxPromedio = 0;
