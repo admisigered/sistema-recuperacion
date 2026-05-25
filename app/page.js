@@ -22,17 +22,17 @@ import jsPDF from 'jspdf';
 
 // --- CONFIGURACIÓN DE USUARIOS AUTORIZADOS ---
 const USUARIOS = [
-  { user: 'ADMINISTRADOR', pass: 'admin123' },
   { user: 'YANINA', pass: '123adfg' },
-  { user: 'CESAR', pass: '123456' },
   { user: 'XINA', pass: '147afgh' },
+  { user: 'CESAR', pass: '123456' },
   { user: 'MILI', pass: '369aghj' },
   { user: 'LISBETH', pass: '123456' },
-  { user: 'ALYSON', pass: '134679' },
+  { user: 'ADMINISTRADOR', pass: 'admin123' },
   { user: 'FERNANDO', pass: '123456' }
+  { user: 'ALYSON', pass: '134679' },
 ];
 
-const LISTA_RESPONSABLES = ["PENDIENTE", "ADMINISTRADOR", "YANINA", "CESAR", "XINA", "MILI", "LISBETH", "AMERICO", "FERNANDO"];
+const LISTA_RESPONSABLES = ["PENDIENTE", "YANINA", "XINA", "CESAR", "MILI", "LISBETH", "AMERICO", "ADMINISTRADOR", "FERNANDO"];
 
 const formatDMA = (fecha) => {
   if (!fecha) return '-';
