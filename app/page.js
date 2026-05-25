@@ -1059,41 +1059,53 @@ export default function SistemaSIGERED() {
   <div id="dashboard-view" className="space-y-8 animate-in fade-in duration-500 bg-[#F8FAFC] p-6">
     
     {/* SECCIÓN 1: KPIs - FILA 1 */}
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      {[
-        { 
-          label: 'TOTAL REGISTROS', 
-          val: totalDocs, 
-          color: 'border-b-blue-600', 
-          text: 'text-slate-800' 
-        },
-        { 
-          label: 'PENDIENTES', 
-          val: allDocsForStats.filter(d => getEtapaEstado(d).estado === 'PENDIENTE').length, 
-          color: 'border-b-red-500', 
-          text: 'text-red-600' 
-        },
-        { 
-          label: 'EN SEGUIMIENTO', 
-          val: allDocsForStats.filter(d => getEtapaEstado(d).estado === 'EN PROCESO').length, 
-          color: 'border-b-orange-500', 
-          text: 'text-orange-500' 
-        },
-        { 
-          label: 'RECUPERADOS', 
-          val: allDocsForStats.filter(d => getEtapaEstado(d).estado === 'RECUPERADO').length, 
-          color: 'border-b-green-500', 
-          text: 'text-green-600' 
-        }
-      ].map((kpi, i) => (
-        <div key={i} className={`bg-white p-6 rounded-3xl shadow-sm border-b-4 ${kpi.color} flex flex-col justify-center min-h-[140px] shadow-slate-200`}>
-          <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase">{kpi.label}</p>
-          <h3 className="text-5xl font-black transition-all">
-            {loading ? "..." : kpi.val}
-          </h3>
-        </div>
-      ))}
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+  {[
+    { 
+      label: 'TOTAL REGISTROS', 
+      // Usamos totalDocs porque es el conteo exacto de la base de datos (lo mismo que ves en Gestión)
+      val: totalDocs, 
+      color: 'border-b-blue-600', 
+      text: 'text-slate-800' 
+    },
+    { 
+      label: 'PENDIENTES', 
+      // Filtramos sobre el universo total descargado para el dashboard
+      val: allDocsForStats.filter(d => {
+        const info = getEtapaEstado(d);
+        return info.estado === 'PENDIENTE';
+      }).length, 
+      color: 'border-b-red-500', 
+      text: 'text-red-600' 
+    },
+    { 
+      label: 'EN SEGUIMIENTO', 
+      val: allDocsForStats.filter(d => {
+        const info = getEtapaEstado(d);
+        return info.estado === 'EN PROCESO';
+      }).length, 
+      color: 'border-b-orange-500', 
+      text: 'text-orange-500' 
+    },
+    { 
+      label: 'RECUPERADOS', 
+      // Sumamos Recuperados + Reconstrucción ya que ambos son estados de "Cierre"
+      val: allDocsForStats.filter(d => {
+        const info = getEtapaEstado(d);
+        return info.estado === 'RECUPERADO' || info.estado === 'RECONSTRUCCION';
+      }).length, 
+      color: 'border-b-green-500', 
+      text: 'text-green-600' 
+    }
+  ].map((kpi, i) => (
+    <div key={i} className={`bg-white p-6 rounded-3xl shadow-sm border-b-4 ${kpi.color} flex flex-col justify-center min-h-[140px] shadow-slate-200`}>
+      <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase">{kpi.label}</p>
+      <h3 className="text-5xl font-black transition-all">
+        {loading ? "..." : kpi.val.toLocaleString()}
+      </h3>
     </div>
+  ))}
+</div>
 
     {/* SECCIÓN 2: GRÁFICO MENSUAL - FILA 2 */}
 <div className="bg-white p-8 rounded-4xl border border-slate-100 shadow-sm shadow-slate-200">
