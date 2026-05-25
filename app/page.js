@@ -268,7 +268,20 @@ export default function SistemaSIGERED() {
       return f && f >= filters.fechaInicio && f <= filters.fechaFin;
     };
 
-    // 1. AVANCE MENSUAL (Histórico con validación de documentos)
+    // --- NUEVA LÓGICA DINÁMICA DE GRÁFICO 1 ---
+    
+    // 1. Identificamos qué documentos pasan los filtros de Sede/Origen (Contexto)
+    const idsContexto = new Set(allDocsForStats.map(d => d.id));
+
+    // 2. Función auxiliar para validar si una fecha está dentro del rango seleccionado por el usuario
+    const fechaEnRangoUsuario = (fechaStr) => {
+      const f = formatExcelDate(fechaStr);
+      if (!f) return false;
+      if (filters.fechaInicio && f < filters.fechaInicio) return false;
+      if (filters.fechaFin && f > filters.fechaFin) return false;
+      return true;
+    };
+
     const mesesConf = [
       { e: 'DICIEMBRE', f: '2025-12' }, { e: 'ENERO', f: '2026-01' },
       { e: 'FEBRERO', f: '2026-02' }, { e: 'MARZO', f: '2026-03' },
@@ -276,19 +289,52 @@ export default function SistemaSIGERED() {
     ];
 
     const monthlyData = mesesConf.map(m => {
-      const docsMes = allDocsForStats.filter(d => (formatExcelDate(d.fecha_verificacion) || formatExcelDate(d.fecha_registro) || '').startsWith(m.f));
-      
+      // Filtramos documentos que tienen alguna fecha de actividad en este mes específico
+      const docsDelMes = allDocsForStats.filter(d => 
+        (formatExcelDate(d.fecha_verificacion) || '').startsWith(m.f) ||
+        (formatExcelDate(d.fecha_elaboracion) || '').startsWith(m.f) ||
+        (formatExcelDate(d.fecha_devolucion) || '').startsWith(m.f)
+      );
+
       return {
         name: m.e,
-        Verificaciones: docsMes.filter(d => d.estado_verificacion_k === 'VERIFICADO').length,
-        // REQUERIMIENTOS: Solo si el texto es válido
-        Requerimientos: docsMes.filter(d => esDocumentoValido(d.numero_documento, false)).length,
-        Seguimientos: allSegsForStats.filter(s => (formatExcelDate(s.fecha) || '').startsWith(m.f)).length,
-        // CIERRES: Solo si el texto es válido
-        Cierres: docsMes.filter(d => d.cargado_sisged && esDocumentoValido(d.documento_cierre, true)).length
+        
+        // VERIFICACIONES: Acción realizada en el mes + rango de fecha + responsable verif.
+        Verificaciones: docsDelMes.filter(d => 
+          d.estado_verificacion_k === 'VERIFICADO' &&
+          (formatExcelDate(d.fecha_verificacion) || '').startsWith(m.f) &&
+          fechaEnRangoUsuario(d.fecha_verificacion) &&
+          (!filters.responsable || (d.responsable_verificacion || '').toUpperCase().trim() === filters.responsable.toUpperCase().trim())
+        ).length,
+
+        // REQUERIMIENTOS: Acción en el mes + documento válido + rango de fecha + responsable req.
+        Requerimientos: docsDelMes.filter(d => 
+          esDocumentoValido(d.numero_documento, false) &&
+          (formatExcelDate(d.fecha_elaboracion) || '').startsWith(m.f) &&
+          fechaEnRangoUsuario(d.fecha_elaboracion) &&
+          (!filters.responsable || (d.responsable_requerimiento || '').toUpperCase().trim() === filters.responsable.toUpperCase().trim())
+        ).length,
+
+        // SEGUIMIENTOS: Conteo de acciones individuales en la tabla de seguimientos
+        Seguimientos: allSegsForStats.filter(s => {
+          const fSeg = formatExcelDate(s.fecha);
+          const esMes = (fSeg || '').startsWith(m.f);
+          const enRango = fechaEnRangoUsuario(s.fecha);
+          const esResp = !filters.responsable || (s.responsable || '').toUpperCase().trim() === filters.responsable.toUpperCase().trim();
+          const esDocValido = idsContexto.has(s.documento_id); // Que el doc pertenezca a la Sede/Origen filtrada
+          return esMes && enRango && esResp && esDocValido;
+        }).length,
+
+        // CIERRES: SISGED + Acción en el mes + documento cierre válido + rango fecha + responsable dev.
+        Cierres: docsDelMes.filter(d => 
+          d.cargado_sisged && 
+          esDocumentoValido(d.documento_cierre, true) &&
+          (formatExcelDate(d.fecha_devolucion) || '').startsWith(m.f) &&
+          fechaEnRangoUsuario(d.fecha_devolucion) &&
+          (!filters.responsable || (d.responsable_devolucion || '').toUpperCase().trim() === filters.responsable.toUpperCase().trim())
+        ).length
       };
     });
-
 
     // 2. RENDIMIENTO POR RESPONSABLE (Filtrado por Rango y Calidad de Texto)
     const listaSoloPersonal = LISTA_RESPONSABLES.filter(r => r !== "PENDIENTE");
