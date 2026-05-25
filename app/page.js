@@ -1276,7 +1276,7 @@ export default function SistemaSIGERED() {
     {/* SECCIÓN 4: RENDIMIENTO INDIVIDUAL */}
     <div className="space-y-6">
       <h4 className="text-sm font-black text-slate-700 uppercase flex items-center gap-2">
-        <UserCheck size={20} className="text-brand-blue"/> Productividad por Responsable (Acciones en Rango)
+        <UserCheck size={20} className="text-brand-blue"/> Acciones realizadas por responsable
       </h4>
       
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
