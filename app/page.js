@@ -514,7 +514,7 @@ export default function SistemaSIGERED() {
     }
 
     // C. CARGA DE TODOS LOS SEGUIMIENTOS (Para contar acciones individuales)
-    const { data: segsData } = await supabase.from('seguimientos').select('responsable, fecha, observaciones, documento_id');
+    const { data: segsData } = await supabase.from('seguimientos').select('responsable, fecha, observaciones, documento_id, medio');
 
     setAllDocsForStats(allData);
     setAllSegsForStats(segsData || []);
