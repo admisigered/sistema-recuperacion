@@ -753,6 +753,14 @@ export default function SistemaSIGERED() {
       // --- LÓGICA DE EXCLUSIÓN PARA DOCUMENTOS INTERNOS ---
       const esInterno = String(doc.origen || '').toUpperCase() === 'INTERNO';
 
+      // 1. Lógica para obtener el ÚLTIMO seguimiento y su MEDIO
+      const historialDoc = allSegsForStats
+        .filter(s => s.documento_id === doc.id)
+        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha)); // Ordenamos por fecha (el más reciente primero)
+      
+      const ultimoSeg = historialDoc[0]; // El primero tras ordenar es el último realizado
+
+      // 2. Conteo atómico para la columna de productividad en Excel
       const segsEnRango = allSegsForStats.filter(seg => {
           const coincideDoc = seg.documento_id === doc.id;
           const fAccion = formatExcelDate(seg.fecha);
@@ -784,10 +792,12 @@ export default function SistemaSIGERED() {
         'FECHA NOTIFICACION': esInterno ? '' : formatDMA(doc.fecha_notificacion),
         'MEDIO NOTIFICACION': esInterno ? '' : (doc.medio_notificacion || ''),
         'DIAS HABILES': esInterno ? 0 : dias,
+        'OBSERVACIONES REQUERIMIENTO': esInterno ? '' : (doc.observaciones_requerimiento || ''), // <--- NUEVO CAMPO ADICIONADO
         
         // --- ETAPA 3: SEGUIMIENTO (Vacío si es Interno) ---
         'RESP. SEGUIMIENTO': esInterno ? '' : (doc.responsable_seguimiento || ''),
         'ULTIMO CONTACTO': esInterno ? '' : (doc.ultimo_responsable || ''),
+        'MEDIO ULTIMO CONTACTO': esInterno ? '' : (ultimoSeg ? ultimoSeg.medio : 'SIN CONTACTO'), // <--- NUEVO CAMPO ADICIONADO
         'CANT. SEGUIMIENTOS POR RESPONSABLE': esInterno ? 0 : segsEnRango, 
         'TOTAL HISTÓRICO': esInterno ? 0 : (doc.cantidad_seguimientos || 0),
         
@@ -807,6 +817,7 @@ export default function SistemaSIGERED() {
     const ws = XLSX.utils.json_to_sheet(datosReporte);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "REPORTE_TOTAL");
+    
     XLSX.writeFile(wb, `Reporte_SIGERED_Total_${new Date().getTime()}.xlsx`);
   };
 
