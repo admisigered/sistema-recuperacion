@@ -1009,6 +1009,14 @@ export default function SistemaSIGERED() {
   <Download size={14}/> Reporte Excel
 </button>
 
+{/* --- NUEVO BOTÓN ADICIONADO --- */}
+<button 
+  onClick={handleExportSeguimientos} 
+  className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-emerald-100 shadow-sm cursor-pointer uppercase"
+>
+  <FileText size={14}/> Reporte Seguimientos
+</button>
+
 {/* Botón de Dashboard PDF (Solo se ve cuando estás en la vista dashboard) */}
 {view === 'dashboard' && (
   <button 
