@@ -821,6 +821,48 @@ export default function SistemaSIGERED() {
     XLSX.writeFile(wb, `Reporte_SIGERED_Total_${new Date().getTime()}.xlsx`);
   };
 
+// --- NUEVA FUNCIÓN PARA EXPORTAR HISTORIAL DE SEGUIMIENTOS ---
+  const handleExportSeguimientos = () => {
+    if (!allSegsForStats || allSegsForStats.length === 0) {
+      alert("Aún se están cargando los seguimientos o no existen registros.");
+      return;
+    }
+
+    // 1. Definir responsables permitidos para el filtro
+    const responsablesPermitidos = ["YANINA", "CESAR", "XINA"];
+    const filtroActual = (filters.responsable || '').toUpperCase().trim();
+
+    // 2. Aplicar lógica de filtrado restringida
+    let seguimientosFiltrados = allSegsForStats;
+
+    // Solo filtramos si el responsable seleccionado es uno de los 3 permitidos
+    if (responsablesPermitidos.includes(filtroActual)) {
+      seguimientosFiltrados = allSegsForStats.filter(s => 
+        (s.responsable || '').toUpperCase().trim() === filtroActual
+      );
+    }
+
+    // 3. Ordenar cronológicamente (opcional, para que sea un historial lógico)
+    const seguimientosOrdenados = [...seguimientosFiltrados].sort((a, b) => 
+      new Date(a.fecha) - new Date(b.fecha)
+    );
+
+    // 4. Mapear los datos a las columnas solicitadas
+    const datosReporte = seguimientosOrdenados.map((s, index) => ({
+      'N°': index + 1,
+      'RESPONSABLE': s.responsable || '',
+      'FECHA DEL SEGUIMIENTO': formatDMA(s.fecha),
+      'MEDIO': s.medio || ''
+    }));
+
+    // 5. Generar el archivo Excel
+    const ws = XLSX.utils.json_to_sheet(datosReporte);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "HISTORICO_SEGUIMIENTOS");
+    
+    XLSX.writeFile(wb, `Reporte_Seguimientos_Historico_${new Date().getTime()}.xlsx`);
+  };
+  
 // --- FUNCIÓN PARA EXPORTAR EL DASHBOARD A PDF ---
   const handleExportDashboard = async () => {
     const dashboard = document.getElementById('dashboard-view');
