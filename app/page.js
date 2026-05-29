@@ -821,7 +821,7 @@ export default function SistemaSIGERED() {
     XLSX.writeFile(wb, `Reporte_SIGERED_Total_${new Date().getTime()}.xlsx`);
   };
 
-// --- NUEVA FUNCIÓN PARA EXPORTAR HISTORIAL DE SEGUIMIENTOS ---
+// --- NUEVA FUNCIÓN PARA EXPORTAR HISTORIAL DE SEGUIMIENTOS CON CUT ---
   const handleExportSeguimientos = () => {
     if (!allSegsForStats || allSegsForStats.length === 0) {
       alert("Aún se están cargando los seguimientos o no existen registros.");
@@ -842,20 +842,25 @@ export default function SistemaSIGERED() {
       );
     }
 
-    // 3. Ordenar cronológicamente (opcional, para que sea un historial lógico)
+    // 3. Crear un mapa de búsqueda rápida para traer el CUT desde la lista de documentos
+    // Usamos allDocsForStats porque contiene el universo total de expedientes
+    const mapaCuts = new Map(allDocsForStats.map(d => [d.id, d.cut]));
+
+    // 4. Ordenar cronológicamente (opcional, para historial lógico)
     const seguimientosOrdenados = [...seguimientosFiltrados].sort((a, b) => 
       new Date(a.fecha) - new Date(b.fecha)
     );
 
-    // 4. Mapear los datos a las columnas solicitadas
+    // 5. Mapear los datos a las columnas solicitadas incluyendo el CUT
     const datosReporte = seguimientosOrdenados.map((s, index) => ({
       'N°': index + 1,
+      'CUT': mapaCuts.get(s.documento_id) || 'SIN CUT', // Busca el CUT usando el ID vinculado
       'RESPONSABLE': s.responsable || '',
       'FECHA DEL SEGUIMIENTO': formatDMA(s.fecha),
       'MEDIO': s.medio || ''
     }));
 
-    // 5. Generar el archivo Excel
+    // 6. Generar el archivo Excel
     const ws = XLSX.utils.json_to_sheet(datosReporte);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "HISTORICO_SEGUIMIENTOS");
