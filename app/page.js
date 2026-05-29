@@ -169,6 +169,8 @@ export default function SistemaSIGERED() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [allDocsForStats, setAllDocsForStats] = useState([]); // Nuevo: para el Dashboard total
   const [allSegsForStats, setAllSegsForStats] = useState([]);
+  // --- NUEVO ESTADO PARA CONTROLAR LA VISTA DE RESPONSABLES ---
+  const [soloEquipoPrincipal, setSoloEquipoPrincipal] = useState(false);
   
   // --- FILTROS GLOBALES (CONECTADOS) ---
   const [filters, setFilters] = useState({ 
@@ -1339,45 +1341,67 @@ export default function SistemaSIGERED() {
 </div>
     </div>
 
-    {/* SECCIÓN 4: RENDIMIENTO INDIVIDUAL */}
+    {/* SECCIÓN 4: RENDIMIENTO INDIVIDUAL (CON INTERRUPTOR) */}
     <div className="space-y-6">
-      <h4 className="text-sm font-black text-slate-700 uppercase flex items-center gap-2">
-        <UserCheck size={20} className="text-brand-blue"/> Acciones realizadas por responsable
-      </h4>
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-black text-slate-700 uppercase flex items-center gap-2">
+          <UserCheck size={20} className="text-brand-blue"/> Acciones realizadas por responsable
+        </h4>
+
+        {/* BOTÓN INTERRUPTOR */}
+        <button 
+          onClick={() => setSoloEquipoPrincipal(!soloEquipoPrincipal)}
+          className={`px-5 py-2.5 rounded-2xl text-[10px] font-black transition-all flex items-center gap-2 border shadow-sm ${
+            soloEquipoPrincipal 
+              ? 'bg-blue-600 text-white border-blue-600 shadow-blue-200' 
+              : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          {soloEquipoPrincipal ? 'MOSTRAR TODO EL EQUIPO' : 'VER SOLO EQUIPO PRINCIPAL'}
+        </button>
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-  {stats.respData
-    .filter(res => {
-      // Condición A: Que tenga trabajo en este filtro
-      const tieneTrabajo = (res.verif + res.req + res.seg + res.cierre) > 0;
-      // Condición B: Si el usuario eligió un responsable específico arriba, SOLO mostrar a ese
-      const esElFiltrado = !filters.responsable || res.name === filters.responsable;
-      
-      return tieneTrabajo && esElFiltrado;
-    })
-    .map((res) => (
-          <div key={res.name} className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 hover:border-brand-blue/30 transition-all">
-            <h5 className="font-black text-brand-blue text-xs uppercase mb-4 border-b pb-2">{res.name}</h5>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center bg-blue-50/50 p-2 px-3 rounded-xl">
-                <span className="text-[10px] font-bold text-blue-500 uppercase">Verif.</span>
-                <span className="text-sm font-black text-blue-700">{res.verif}</span>
-              </div>
-              <div className="flex justify-between items-center bg-sky-50/50 p-2 px-3 rounded-xl">
-                <span className="text-[10px] font-bold text-sky-500 uppercase">Req.</span>
-                <span className="text-sm font-black text-sky-700">{res.req}</span>
-              </div>
-              <div className="flex justify-between items-center bg-orange-50/50 p-2 px-3 rounded-xl border border-orange-100">
-                <span className="text-[10px] font-bold text-orange-500 uppercase">Seguimientos</span>
-                <span className="text-sm font-black text-orange-700">{res.seg}</span>
-              </div>
-              <div className="flex justify-between items-center bg-emerald-50/50 p-2 px-3 rounded-xl">
-                <span className="text-[10px] font-bold text-emerald-500 uppercase">Cierres</span>
-                <span className="text-sm font-black text-emerald-700">{res.cierre}</span>
+        {stats.respData
+          .filter(res => {
+            const equipoTop = ["YANINA", "XINA", "CESAR"];
+            
+            // 1. Si el usuario filtró un responsable específico arriba, ese manda sobre todo
+            if (filters.responsable) {
+              return res.name === filters.responsable;
+            }
+
+            // 2. Lógica del botón: Si está activo, solo pasan los del equipoTop
+            const cumpleVista = !soloEquipoPrincipal || equipoTop.includes(res.name.toUpperCase());
+
+            // 3. Condición: Que tenga trabajo realizado en el rango
+            const tieneTrabajo = (res.verif + res.req + res.seg + res.cierre) > 0;
+            
+            return cumpleVista && tieneTrabajo;
+          })
+          .map((res) => (
+            <div key={res.name} className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 hover:border-brand-blue/30 transition-all">
+              <h5 className="font-black text-brand-blue text-xs uppercase mb-4 border-b pb-2">{res.name}</h5>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center bg-blue-50/50 p-2 px-3 rounded-xl">
+                  <span className="text-[10px] font-bold text-blue-500 uppercase">Verif.</span>
+                  <span className="text-sm font-black text-blue-700">{res.verif}</span>
+                </div>
+                <div className="flex justify-between items-center bg-sky-50/50 p-2 px-3 rounded-xl">
+                  <span className="text-[10px] font-bold text-sky-500 uppercase">Req.</span>
+                  <span className="text-sm font-black text-sky-700">{res.req}</span>
+                </div>
+                <div className="flex justify-between items-center bg-orange-50/50 p-2 px-3 rounded-xl border border-orange-100">
+                  <span className="text-[10px] font-bold text-orange-500 uppercase">Seguimientos</span>
+                  <span className="text-sm font-black text-orange-700">{res.seg}</span>
+                </div>
+                <div className="flex justify-between items-center bg-emerald-50/50 p-2 px-3 rounded-xl">
+                  <span className="text-[10px] font-bold text-emerald-500 uppercase">Cierres</span>
+                  <span className="text-sm font-black text-emerald-700">{res.cierre}</span>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
       </div>
     </div>
   </div> // CIERRA EL ID "dashboard-view"
