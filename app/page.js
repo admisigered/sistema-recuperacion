@@ -495,14 +495,22 @@ export default function SistemaSIGERED() {
             }
         }
     
-    if (filters.asignadoActual) {
+    // --- NUEVA LÓGICA DE FILTRO POR ASIGNACIÓN ACTUAL ESTRICTA ---
+        if (filters.asignadoActual) {
             const res = filters.asignadoActual;
+            
             q.or(
-                `responsable_verificacion.eq.${res},` +
-                `responsable_requerimiento.eq.${res},` +
-                `responsable_seguimiento.eq.${res},` +
-                `ultimo_responsable.eq.${res},` +
-                `responsable_devolucion.eq.${res}`
+                // Caso A: Documento en CIERRE (Recuperado o Interno Verificado) -> Manda responsable_devolucion
+                `and(or(cargado_sisged.eq.true,estado_visualizacion.eq."SI SE VISUALIZA",and(estado_verificacion_k.eq.VERIFICADO,origen.eq.Interno)),responsable_devolucion.eq.${res}),` +
+                
+                // Caso B: Documento en SEGUIMIENTO (Tiene N° de documento, no está cerrado) -> Manda responsable_seguimiento
+                `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",numero_documento.not.is.null,numero_documento.neq."",or(responsable_seguimiento.eq.${res},ultimo_responsable.eq.${res})),` +
+                
+                // Caso C: Documento en REQUERIMIENTO (Externo, Verificado, sin N°) -> Manda responsable_requerimiento
+                `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",or(numero_documento.is.null,numero_documento.eq.""),estado_verificacion_k.eq.VERIFICADO,origen.eq.Externo,responsable_requerimiento.eq.${res}),` +
+                
+                // Caso D: Documento en VERIFICACION (No verificado aún) -> Manda responsable_verificacion
+                `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",estado_verificacion_k.neq.VERIFICADO,responsable_verificacion.eq.${res})`
             );
         }
     };
