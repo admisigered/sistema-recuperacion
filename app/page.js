@@ -833,7 +833,7 @@ export default function SistemaSIGERED() {
     }
 
     // 1. Definir responsables permitidos para el filtro
-    const responsablesPermitidos = ["YANINA", "CESAR", "XINA"];
+    const responsablesPermitidos = ["YANINA", "CESAR", "XINA", "KEVIN", "FABRICIO"];
     const filtroActual = (filters.responsable || '').toUpperCase().trim();
 
     // 2. Aplicar lógica de filtrado restringida
