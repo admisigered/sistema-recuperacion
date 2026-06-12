@@ -1366,7 +1366,7 @@ export default function SistemaSIGERED() {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {stats.respData
           .filter(res => {
-            const equipoTop = ["YANINA", "XINA", "CESAR"];
+            const equipoTop = ["YANINA", "XINA", "CESAR", "KEVIN", "FABRICIO"];
             
             // 1. Si el usuario filtró un responsable específico arriba, ese manda sobre todo
             if (filters.responsable) {
