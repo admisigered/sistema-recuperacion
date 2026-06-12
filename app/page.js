@@ -494,6 +494,17 @@ export default function SistemaSIGERED() {
                 }
             }
         }
+    
+    if (filters.asignadoActual) {
+            const res = filters.asignadoActual;
+            q.or(
+                `responsable_verificacion.eq.${res},` +
+                `responsable_requerimiento.eq.${res},` +
+                `responsable_seguimiento.eq.${res},` +
+                `ultimo_responsable.eq.${res},` +
+                `responsable_devolucion.eq.${res}`
+            );
+        }
     };
 
     // A. Carga de los 100 registros de la tabla
