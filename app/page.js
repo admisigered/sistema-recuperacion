@@ -1053,7 +1053,7 @@ export default function SistemaSIGERED() {
                         }
                       }}
                     >
-                      <option value="">SELECCIONAR TÉCNICO...</option>
+                      <option value="">SELECCIONAR PROFESIONAL...</option>
                       {LISTA_RESPONSABLES.filter(r => r !== 'PENDIENTE').map(r => (
                         <option key={r} value={r}>{r}</option>
                       ))}
