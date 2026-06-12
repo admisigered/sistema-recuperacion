@@ -645,16 +645,19 @@ export default function SistemaSIGERED() {
     }
   };
 
-  const handleBulkAssign = async () => {
+  const handleBulkAssign = async (usuarioDestino = null) => {
     if (selectedIds.length === 0) return;
     
+    // Si no se pasa un usuario (Admin), usamos el usuario de la sesión (Técnico)
+    const responsableFinal = usuarioDestino || session.user.toUpperCase();
+
     // Identificamos el campo destino según la etapa filtrada
     let campoResponsable = 'responsable_verificacion'; 
     
     if (filters.etapa === 'REQUERIMIENTO') {
         campoResponsable = 'responsable_requerimiento';
     } else if (filters.etapa === 'SEGUIMIENTO') {
-        campoResponsable = 'responsable_seguimiento'; // <--- NUEVO CAMPO
+        campoResponsable = 'responsable_seguimiento'; 
     } else if (filters.etapa === 'CIERRE') {
         campoResponsable = 'responsable_devolucion';
     }
@@ -663,12 +666,12 @@ export default function SistemaSIGERED() {
       setLoading(true);
       const { error } = await supabase
         .from('documentos')
-        .update({ [campoResponsable]: session.user.toUpperCase() })
+        .update({ [campoResponsable]: responsableFinal })
         .in('id', selectedIds);
 
       if (error) throw error;
 
-      alert(`Asignado como responsable de ${filters.etapa || 'VERIFICACIÓN'} en ${selectedIds.length} registro(s).`);
+      alert(`Se asignaron ${selectedIds.length} registros a ${responsableFinal} en la etapa ${filters.etapa || 'VERIFICACIÓN'}.`);
       setSelectedIds([]);
       await fetchDocs();
     } catch (err) {
@@ -1036,24 +1039,48 @@ export default function SistemaSIGERED() {
   </button>
 )}
             {selectedIds.length > 0 && (
-  <div className="flex gap-2">
-    <button 
-      onClick={handleBulkAssign} 
-      className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black flex items-center gap-2 hover:bg-emerald-700 shadow-lg transition-all uppercase cursor-pointer"
-    >
-      <UserCheck size={14}/> Asignarme ({selectedIds.length})
-    </button>
-    
-    {session.user === 'ADMINISTRADOR' && (
-      <button 
-        onClick={handleBulkDelete} 
-        className="bg-red-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black flex items-center gap-2 shadow-lg hover:bg-red-700 transition-all uppercase cursor-pointer"
-      >
-        <Trash2 size={14}/> Eliminar
-      </button>
-    )}
-  </div>
-)}
+              <div className="flex items-center gap-2">
+                {/* Lógica Condicional para ADMINISTRADOR */}
+                {session.user.toUpperCase() === 'ADMINISTRADOR' ? (
+                  <div className="flex items-center gap-2 bg-emerald-50 p-1.5 rounded-xl border border-emerald-200 shadow-sm">
+                    <span className="text-[9px] font-black text-emerald-700 ml-2 uppercase">Asignar seleccionados a:</span>
+                    <select 
+                      className="bg-white border border-emerald-300 rounded-lg p-1.5 text-[10px] font-black text-emerald-700 outline-none cursor-pointer hover:border-emerald-500 transition-colors"
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          handleBulkAssign(e.target.value);
+                          e.target.value = ""; // Reseteamos el select
+                        }
+                      }}
+                    >
+                      <option value="">SELECCIONAR TÉCNICO...</option>
+                      {LISTA_RESPONSABLES.filter(r => r !== 'PENDIENTE').map(r => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  // Botón normal para los demás usuarios (Asignarse a sí mismo)
+                  <button 
+                    onClick={() => handleBulkAssign()} 
+                    className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black flex items-center gap-2 hover:bg-emerald-700 shadow-lg transition-all uppercase cursor-pointer"
+                  >
+                    <UserCheck size={14}/> Asignarme ({selectedIds.length})
+                  </button>
+                )}
+                
+                {/* Botón Eliminar solo para Administrador */}
+                {session.user.toUpperCase() === 'ADMINISTRADOR' && (
+                  <button 
+                    onClick={handleBulkDelete} 
+                    className="bg-red-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black flex items-center gap-2 shadow-lg hover:bg-red-700 transition-all uppercase cursor-pointer"
+                  >
+                    <Trash2 size={14}/> Eliminar
+                  </button>
+                )}
+              </div>
+            )}
+
           </div>
           <div className="flex flex-wrap items-center gap-2 ml-auto font-bold uppercase">
             <div className="relative"><Search size={14} className="absolute left-3 top-3 text-slate-400"/><input type="text" placeholder="Buscar CUT..." className="bg-slate-50 border-none rounded-xl pl-9 pr-4 py-2.5 text-xs focus:w-80 outline-none focus:ring-2 focus:ring-blue-500 shadow-inner" onChange={e => setFilters({...filters, search: e.target.value})}/></div>
