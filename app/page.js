@@ -1096,6 +1096,21 @@ export default function SistemaSIGERED() {
           </div>
           <div className="flex flex-wrap items-center gap-2 ml-auto font-bold uppercase">
             <div className="relative"><Search size={14} className="absolute left-3 top-3 text-slate-400"/><input type="text" placeholder="Buscar CUT..." className="bg-slate-50 border-none rounded-xl pl-9 pr-4 py-2.5 text-xs focus:w-80 outline-none focus:ring-2 focus:ring-blue-500 shadow-inner" onChange={e => setFilters({...filters, search: e.target.value})}/></div>
+            {/* NUEVO SELECTOR DE ASIGNACIÓN ACTUAL */}
+            <select 
+              className={`border-2 rounded-xl p-2.5 text-[10px] font-black cursor-pointer shadow-sm outline-none transition-all ${
+                filters.asignadoActual ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
+              }`}
+              value={filters.asignadoActual}
+              onChange={e => setFilters({...filters, responsable: '', asignadoActual: e.target.value})}
+            >
+              <option value="">FILTRAR POR ASIGNACIÓN ACTUAL</option>
+              {LISTA_RESPONSABLES.filter(r => r !== 'PENDIENTE').map(r => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+
+            <select className="border rounded-xl p-2.5 text-[10px] font-black bg-white cursor-pointer shadow-sm outline-none" onChange={e => setFilters({...filters, sede: e.target.value})}><option value="">SEDES</option><option value="SC">SC</option><option value="OD">OD</option></select>
             <select className="border rounded-xl p-2.5 text-[10px] font-black bg-white cursor-pointer shadow-sm outline-none" onChange={e => setFilters({...filters, sede: e.target.value})}><option value="">SEDES</option><option value="SC">SC</option><option value="OD">OD</option></select>
             <select className="border rounded-xl p-2.5 text-[10px] font-black bg-white cursor-pointer shadow-sm outline-none" onChange={e => setFilters({...filters, origen: e.target.value})}><option value="">ORIGEN</option><option value="Interno">Interno</option><option value="Externo">Externo</option></select>
             <select className="border rounded-xl p-2.5 text-[10px] font-black bg-white cursor-pointer shadow-sm outline-none" onChange={e => setFilters({...filters, etapa: e.target.value})}><option value="">ETAPAS</option><option value="VERIFICACION">Verificación</option><option value="REQUERIMIENTO">Requerimiento</option><option value="SEGUIMIENTO">Seguimiento</option><option value="CIERRE">Cierre</option></select>
