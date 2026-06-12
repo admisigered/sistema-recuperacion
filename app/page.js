@@ -182,6 +182,7 @@ export default function SistemaSIGERED() {
     estado: '', 
     etapa: '', 
     responsable: '', 
+    asignadoActual: '',
     fechaInicio: '', 
     fechaFin: '' 
   });
