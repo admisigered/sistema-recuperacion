@@ -1608,26 +1608,72 @@ export default function SistemaSIGERED() {
       {editingDoc && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md flex items-center justify-center z-[100] p-10 font-sans font-sans font-sans">
           <div className="bg-white rounded-5xl w-full max-w-6xl h-[88vh] flex flex-col overflow-hidden shadow-2xl border border-white/20">
-            {/* CABECERA MODIFICADA AQUÍ */}
-      <div className="p-10 bg-[#1E293B] text-white flex justify-between items-start shrink-0">
-        <div className="space-y-2">
-          <h3 className="text-2xl font-black tracking-tight leading-tight">
-            {editingDoc.cut} • {editingDoc.documento}
-          </h3>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <span className="text-[10px] text-blue-400 font-bold uppercase tracking-widest">
-              {editingDoc.origen} • {editingDoc.sede}
-            </span>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest border-l border-slate-700 pl-4">
-              REMITENTE: <span className="text-white">{editingDoc.remitente}</span>
-            </span>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest border-l border-slate-700 pl-4">
-              F. REGISTRO: <span className="text-white">{formatDMA(editingDoc.fecha_registro)}</span>
-            </span>
-          </div>
-        </div>
-        <button onClick={() => setEditingDoc(null)} className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 flex items-center justify-center font-bold transition-transform hover:rotate-90 cursor-pointer">✕</button>
+            {/* --- REEMPLAZA EL BLOQUE DE LA CABECERA DEL MODAL (Línea 1152 a 1171 aprox.) POR ESTE --- */}
+<div className="p-10 bg-[#1E293B] text-white flex justify-between items-start shrink-0">
+  <div className="space-y-4 w-full mr-10">
+    {/* EDICIÓN DE TÍTULO (CUT Y DOCUMENTO) */}
+    {session.user.toUpperCase() === 'ADMINISTRADOR' ? (
+      <div className="flex gap-4 items-center">
+        <input 
+          type="text" 
+          className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-xl font-black focus:ring-2 focus:ring-blue-500 outline-none w-1/3"
+          value={editingDoc.cut || ''}
+          onChange={e => setEditingDoc({...editingDoc, cut: e.target.value})}
+          placeholder="CUT"
+        />
+        <span className="text-2xl opacity-50">•</span>
+        <input 
+          type="text" 
+          className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-xl font-black focus:ring-2 focus:ring-blue-500 outline-none flex-1"
+          value={editingDoc.documento || ''}
+          onChange={e => setEditingDoc({...editingDoc, documento: e.target.value})}
+          placeholder="Nombre del Documento"
+        />
       </div>
+    ) : (
+      <h3 className="text-2xl font-black tracking-tight leading-tight">
+        {editingDoc.cut} • {editingDoc.documento}
+      </h3>
+    )}
+
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <span className="text-[10px] text-blue-400 font-bold uppercase tracking-widest">
+        {editingDoc.origen} • {editingDoc.sede}
+      </span>
+      
+      {/* EDICIÓN DE REMITENTE */}
+      <div className="flex items-center gap-2 border-l border-slate-700 pl-4">
+        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">REMITENTE:</span>
+        {session.user.toUpperCase() === 'ADMINISTRADOR' ? (
+          <input 
+            type="text" 
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1 text-[11px] font-bold text-white outline-none focus:border-blue-500 w-80"
+            value={editingDoc.remitente || ''}
+            onChange={e => setEditingDoc({...editingDoc, remitente: e.target.value})}
+          />
+        ) : (
+          <span className="text-[11px] text-white font-bold">{editingDoc.remitente}</span>
+        )}
+      </div>
+
+      {/* EDICIÓN DE FECHA DE REGISTRO */}
+      <div className="flex items-center gap-2 border-l border-slate-700 pl-4">
+        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">F. REGISTRO:</span>
+        {session.user.toUpperCase() === 'ADMINISTRADOR' ? (
+          <input 
+            type="date" 
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1 text-[11px] font-bold text-white outline-none focus:border-blue-500"
+            value={editingDoc.fecha_registro || ''}
+            onChange={e => setEditingDoc({...editingDoc, fecha_registro: e.target.value})}
+          />
+        ) : (
+          <span className="text-[11px] text-white font-bold">{formatDMA(editingDoc.fecha_registro)}</span>
+        )}
+      </div>
+    </div>
+  </div>
+  <button onClick={() => setEditingDoc(null)} className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 flex items-center justify-center font-bold transition-transform hover:rotate-90 cursor-pointer">✕</button>
+</div>
             <div className="flex flex-1 overflow-hidden font-sans font-sans font-sans font-sans">
              <div className="w-80 bg-slate-50 border-r p-10 space-y-4 shrink-0 font-sans font-bold">
   {/* Etapa 1: Siempre visible */}
