@@ -1608,11 +1608,11 @@ export default function SistemaSIGERED() {
       {editingDoc && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md flex items-center justify-center z-[100] p-10 font-sans font-sans font-sans">
           <div className="bg-white rounded-5xl w-full max-w-6xl h-[88vh] flex flex-col overflow-hidden shadow-2xl border border-white/20">
-            {/* --- REEMPLAZA EL BLOQUE DE LA CABECERA DEL MODAL (Línea 1152 a 1171 aprox.) POR ESTE --- */}
+            {/* --- REEMPLAZA EL BLOQUE DE LA CABECERA DEL MODAL (Línea 1152 aprox.) POR ESTE --- */}
 <div className="p-10 bg-[#1E293B] text-white flex justify-between items-start shrink-0">
   <div className="space-y-4 w-full mr-10">
-    {/* EDICIÓN DE TÍTULO (CUT Y DOCUMENTO) */}
-    {session.user.toUpperCase() === 'ADMINISTRADOR' ? (
+    {/* EDICIÓN DE TÍTULO (AUTORIZADO PARA ADMIN Y YANINA) */}
+    {['ADMINISTRADOR', 'YANINA'].includes(session.user.toUpperCase()) ? (
       <div className="flex gap-4 items-center">
         <input 
           type="text" 
@@ -1641,10 +1641,10 @@ export default function SistemaSIGERED() {
         {editingDoc.origen} • {editingDoc.sede}
       </span>
       
-      {/* EDICIÓN DE REMITENTE */}
+      {/* EDICIÓN DE REMITENTE (AUTORIZADO PARA ADMIN Y YANINA) */}
       <div className="flex items-center gap-2 border-l border-slate-700 pl-4">
         <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">REMITENTE:</span>
-        {session.user.toUpperCase() === 'ADMINISTRADOR' ? (
+        {['ADMINISTRADOR', 'YANINA'].includes(session.user.toUpperCase()) ? (
           <input 
             type="text" 
             className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1 text-[11px] font-bold text-white outline-none focus:border-blue-500 w-80"
@@ -1656,10 +1656,10 @@ export default function SistemaSIGERED() {
         )}
       </div>
 
-      {/* EDICIÓN DE FECHA DE REGISTRO */}
+      {/* EDICIÓN DE FECHA DE REGISTRO (AUTORIZADO PARA ADMIN Y YANINA) */}
       <div className="flex items-center gap-2 border-l border-slate-700 pl-4">
         <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">F. REGISTRO:</span>
-        {session.user.toUpperCase() === 'ADMINISTRADOR' ? (
+        {['ADMINISTRADOR', 'YANINA'].includes(session.user.toUpperCase()) ? (
           <input 
             type="date" 
             className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1 text-[11px] font-bold text-white outline-none focus:border-blue-500"
