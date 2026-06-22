@@ -23,14 +23,14 @@ import jsPDF from 'jspdf';
 // --- CONFIGURACIÓN DE USUARIOS AUTORIZADOS ---
 const USUARIOS = [
   { user: 'YANINA', pass: '123adfg' },
-  { user: 'XINA', pass: '147afgh' },
-  { user: 'CESAR', pass: '123456' },
+  { user: 'XINA', pass: '1234567891' },
+  { user: 'CESAR', pass: '1234567891' },
   { user: 'FABRICIO', pass: '134679' },
   { user: 'KEVIN', pass: '159357' },
   { user: 'MILI', pass: '369aghj' },
-  { user: 'LISBETH', pass: '123456' },
+  { user: 'LISBETH', pass: '1234567891' },
   { user: 'ADMINISTRADOR', pass: 'admin123' },
-  { user: 'FERNANDO', pass: '123456' },
+  { user: 'FERNANDO', pass: '1234567891' },
   { user: 'ALYSON', pass: '134679' }
 ];
 
