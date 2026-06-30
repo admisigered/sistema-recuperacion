@@ -401,153 +401,146 @@ export default function SistemaSIGERED() {
     };
   }, [allDocsForStats, allSegsForStats, getEtapaEstado, filters.fechaInicio, filters.fechaFin, filters.responsable]);
 
-  // --- 3. GESTIÓN DE DATOS (TABLA + DASHBOARD GLOBAL + ACCIONES) ---
+  // --- 3. GESTIÓN DE DATOS (REPARADO: SIN LÍMITE DE 1000 Y SIN ERRORES DE CARGA) ---
   const fetchDocs = useCallback(async () => {
-    setLoading(true);
-    let from = (page - 1) * ITEMS_PER_PAGE;
-    let to = from + ITEMS_PER_PAGE - 1;
+    try {
+      setLoading(true);
+      let from = (page - 1) * ITEMS_PER_PAGE;
+      let to = from + ITEMS_PER_PAGE - 1;
 
-    // 1. Consulta para la tabla
-    let queryTable = supabase.from('documentos').select('*', { count: 'exact' });
+      // 1. Consulta para la tabla principal
+      let queryTable = supabase.from('documentos').select('*', { count: 'exact' });
 
-    // 2. Función para aplicar tus filtros exactos
-    const aplicarFiltrosInternos = (q) => {
-        // 1. FILTROS BÁSICOS
-        if (filters.search) q.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%,responsable_verificacion.ilike.%${filters.search}%,responsable_requerimiento.ilike.%${filters.search}%,responsable_devolucion.ilike.%${filters.search}%,responsable_seguimiento.ilike.%${filters.search}%`);
-        if (filters.sede) q.eq('sede', filters.sede);
-        if (filters.origen) q.eq('origen', filters.origen);
+      // 2. Función interna de filtros (CORREGIDA CON COMILLAS PARA EVITAR ERROR 400)
+      const aplicarFiltrosInternos = (q) => {
+          if (filters.search) q.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%`);
+          if (filters.sede) q.eq('sede', filters.sede);
+          if (filters.origen) q.eq('origen', filters.origen);
 
-        // --- REGLA DE ORO: EXCLUSIÓN DE RECUPERADOS PARA PENDIENTES ---
-        if (filters.estado === 'PENDIENTE' || filters.estado === 'EN PROCESO') {
-            q.neq('cargado_sisged', true);
-            q.neq('estado_visualizacion', 'SI SE VISUALIZA');
-        }
+          if (filters.estado === 'PENDIENTE' || filters.estado === 'EN PROCESO') {
+              q.neq('cargado_sisged', true);
+              q.neq('estado_visualizacion', 'SI SE VISUALIZA');
+          }
 
-        // 2. LÓGICA POR ETAPA (Cuando se selecciona una etapa específica)
-        if (filters.etapa === 'VERIFICACION') {
-            if (filters.estado === 'VERIFICADO') q.eq('estado_verificacion_k', 'VERIFICADO');
-            else if (filters.estado === 'PENDIENTE') q.eq('estado_verificacion_k', 'PENDIENTE');
-            
-            if (filters.responsable) q.eq('responsable_verificacion', filters.responsable);
-            if (filters.fechaInicio) q.gte('fecha_verificacion', filters.fechaInicio);
-            if (filters.fechaFin) q.lte('fecha_verificacion', filters.fechaFin);
-        } 
-        else if (filters.etapa === 'REQUERIMIENTO') {
-            q.or('numero_documento.is.null,numero_documento.eq."",numero_documento.eq.null,numero_documento.eq." "');
-            if (filters.estado === 'ATENDIDO') q.not('numero_documento', 'is', null).neq('numero_documento', '');
+          if (filters.etapa === 'VERIFICACION') {
+              if (filters.estado === 'VERIFICADO') q.eq('estado_verificacion_k', 'VERIFICADO');
+              else if (filters.estado === 'PENDIENTE') q.eq('estado_verificacion_k', 'PENDIENTE');
+              if (filters.responsable) q.eq('responsable_verificacion', filters.responsable);
+              if (filters.fechaInicio) q.gte('fecha_verificacion', filters.fechaInicio);
+              if (filters.fechaFin) q.lte('fecha_verificacion', filters.fechaFin);
+          } 
+          else if (filters.etapa === 'REQUERIMIENTO') {
+              q.or('numero_documento.is.null,numero_documento.eq."",numero_documento.eq.null');
+              if (filters.estado === 'ATENDIDO') q.not('numero_documento', 'is', null).neq('numero_documento', '');
+              if (filters.responsable) q.eq('responsable_requerimiento', filters.responsable);
+              if (filters.fechaInicio) q.gte('fecha_elaboracion', filters.fechaInicio);
+              if (filters.fechaFin) q.lte('fecha_elaboracion', filters.fechaFin);
+          }
+          else if (filters.etapa === 'SEGUIMIENTO') {
+              q.not('numero_documento', 'is', null).neq('numero_documento', '').neq('numero_documento', 'null');
+              if (filters.estado === 'EN PROCESO') q.gt('cantidad_seguimientos', 0);
+              else if (filters.estado === 'PENDIENTE') q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
+              if (filters.responsable) q.eq('responsable_seguimiento', filters.responsable);
+              if (filters.fechaInicio) q.gte('ultimo_seguimiento', filters.fechaInicio);
+              if (filters.fechaFin) q.lte('ultimo_seguimiento', filters.fechaFin);
+          }
+          else if (filters.etapa === 'CIERRE') {
+              if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq."SI SE VISUALIZA"');
+              if (filters.responsable) q.eq('responsable_devolucion', filters.responsable);
+              if (filters.fechaInicio) q.gte('fecha_devolucion', filters.fechaInicio);
+              if (filters.fechaFin) q.lte('fecha_devolucion', filters.fechaFin);
+          }
+          else {
+              const res = filters.responsable;
+              const fI = filters.fechaInicio;
+              const fF = filters.fechaFin;
 
-            if (filters.responsable) q.eq('responsable_requerimiento', filters.responsable);
-            if (filters.fechaInicio) q.gte('fecha_elaboracion', filters.fechaInicio);
-            if (filters.fechaFin) q.lte('fecha_elaboracion', filters.fechaFin);
-        }
-        else if (filters.etapa === 'SEGUIMIENTO') {
-            q.not('numero_documento', 'is', null).neq('numero_documento', '').neq('numero_documento', 'null').neq('numero_documento', ' ');
-            if (filters.estado === 'EN PROCESO') q.gt('cantidad_seguimientos', 0);
-            else if (filters.estado === 'PENDIENTE') q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
+              if (res && fI && fF) {
+                  q.or(
+                      `and(responsable_verificacion.eq."${res}",fecha_verificacion.gte.${fI},fecha_verificacion.lte.${fF}),` +
+                      `and(responsable_requerimiento.eq."${res}",fecha_elaboracion.gte.${fI},fecha_elaboracion.lte.${fF}),` +
+                      `and(responsable_seguimiento.eq."${res}",ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),` +
+                      `and(ultimo_responsable.eq."${res}",ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),` +
+                      `and(responsable_devolucion.eq."${res}",fecha_devolucion.gte.${fI},fecha_devolucion.lte.${fF})`
+                  );
+              }
+              else if (res) {
+                  q.or(`responsable_verificacion.eq."${res}",responsable_requerimiento.eq."${res}",responsable_devolucion.eq."${res}",responsable_seguimiento.eq."${res}",ultimo_responsable.eq."${res}"`);
+              }
+              else if (fI && fF) {
+                  q.or(`and(fecha_verificacion.gte.${fI},fecha_verificacion.lte.${fF}),and(fecha_elaboracion.gte.${fI},fecha_elaboracion.lte.${fF}),and(ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),and(fecha_devolucion.gte.${fI},fecha_devolucion.lte.${fF})`);
+              }
 
-            if (filters.responsable) q.eq('responsable_seguimiento', filters.responsable);
-            if (filters.fechaInicio) q.gte('ultimo_seguimiento', filters.fechaInicio);
-            if (filters.fechaFin) q.lte('ultimo_seguimiento', filters.fechaFin);
-        }
-        else if (filters.etapa === 'CIERRE') {
-            if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
-            
-            if (filters.responsable) q.eq('responsable_devolucion', filters.responsable);
-            if (filters.fechaInicio) q.gte('fecha_devolucion', filters.fechaInicio);
-            if (filters.fechaFin) q.lte('fecha_devolucion', filters.fechaFin);
-        }
-        else {
-            // --- 3. LÓGICA GLOBAL (Auditoría: Responsable + Fecha en la misma acción) ---
-            const res = filters.responsable;
-            const fI = filters.fechaInicio;
-            const fF = filters.fechaFin;
+              if (filters.estado) {
+                  if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq."SI SE VISUALIZA"');
+                  else if (filters.estado === 'RECONSTRUCCION') q.ilike('observaciones_finales', '%RECONSTRUCCION%');
+                  else {
+                      q.neq('cargado_sisged', true).neq('estado_visualizacion', 'SI SE VISUALIZA');
+                      if (filters.estado === 'EN PROCESO') q.gt('cantidad_seguimientos', 0);
+                      else if (filters.estado === 'PENDIENTE') q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
+                  }
+              }
+          }
+      
+          if (filters.asignadoActual) {
+              const resAsig = filters.asignadoActual;
+              q.or(
+                  `and(or(cargado_sisged.eq.true,estado_visualizacion.eq."SI SE VISUALIZA",and(estado_verificacion_k.eq.VERIFICADO,origen.eq.Interno)),responsable_devolucion.eq."${resAsig}"),` +
+                  `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",numero_documento.not.is.null,numero_documento.neq."",or(responsable_seguimiento.eq."${resAsig}",ultimo_responsable.eq."${resAsig}")),` +
+                  `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",or(numero_documento.is.null,numero_documento.eq.""),estado_verificacion_k.eq.VERIFICADO,origen.eq.Externo,responsable_requerimiento.eq."${resAsig}"),` +
+                  `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",estado_verificacion_k.neq.VERIFICADO,responsable_verificacion.eq."${resAsig}")`
+              );
+          }
+      };
 
-            if (res && fI && fF) {
-                // Vínculo irrompible: La persona DEBE coincidir con la fecha de la MISMA etapa
-                q.or(
-                    `and(responsable_verificacion.eq.${res},fecha_verificacion.gte.${fI},fecha_verificacion.lte.${fF}),` +
-                    `and(responsable_requerimiento.eq.${res},fecha_elaboracion.gte.${fI},fecha_elaboracion.lte.${fF}),` +
-                    `and(responsable_seguimiento.eq.${res},ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),` +
-                    `and(ultimo_responsable.eq.${res},ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),` +
-                    `and(responsable_devolucion.eq.${res},fecha_devolucion.gte.${fI},fecha_devolucion.lte.${fF})`
-                );
-            }
-            else if (res) {
-                if (res === 'PENDIENTE') {
-                    q.or(`and(estado_verificacion_k.eq.PENDIENTE,responsable_verificacion.eq.PENDIENTE),and(estado_verificacion_k.eq.VERIFICADO,origen.eq.Externo,numero_documento.is.null,responsable_requerimiento.eq.PENDIENTE),and(numero_documento.not.is.null,cargado_sisged.eq.false,responsable_seguimiento.eq.PENDIENTE)`);
-                } else {
-                    q.or(`responsable_verificacion.eq.${res},responsable_requerimiento.eq.${res},responsable_devolucion.eq.${res},responsable_seguimiento.eq.${res},ultimo_responsable.eq.${res}`);
-                }
-            }
-            else if (fI && fF) {
-                q.or(`and(fecha_verificacion.gte.${fI},fecha_verificacion.lte.${fF}),and(fecha_elaboracion.gte.${fI},fecha_elaboracion.lte.${fF}),and(ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),and(fecha_devolucion.gte.${fI},fecha_devolucion.lte.${fF})`);
-            }
+      // A. Carga registros de la tabla
+      aplicarFiltrosInternos(queryTable);
+      const { data: tableData, count } = await queryTable.order('creado_at', { ascending: false }).range(from, to);
+      if (tableData) { setDocs(tableData); setTotalDocs(count || 0); }
 
-            // Filtro de Estado Global
-            if (filters.estado) {
-                if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq.SI SE VISUALIZA');
-                else if (filters.estado === 'RECONSTRUCCION') q.ilike('observaciones_finales', '%RECONSTRUCCION%');
-                else {
-                    q.neq('cargado_sisged', true).neq('estado_visualizacion', 'SI SE VISUALIZA').or('observaciones_finales.is.null,observaciones_finales.not.ilike.*RECONSTRUCCION*');
-                    if (filters.estado === 'EN PROCESO') q.gt('cantidad_seguimientos', 0);
-                    else if (filters.estado === 'PENDIENTE') q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
-                }
-            }
-        }
-    
-    // --- NUEVA LÓGICA DE FILTRO POR ASIGNACIÓN ACTUAL ESTRICTA ---
-        if (filters.asignadoActual) {
-            const res = filters.asignadoActual;
-            
-            q.or(
-                // Caso A: Documento en CIERRE (Recuperado o Interno Verificado) -> Manda responsable_devolucion
-                `and(or(cargado_sisged.eq.true,estado_visualizacion.eq."SI SE VISUALIZA",and(estado_verificacion_k.eq.VERIFICADO,origen.eq.Interno)),responsable_devolucion.eq.${res}),` +
-                
-                // Caso B: Documento en SEGUIMIENTO (Tiene N° de documento, no está cerrado) -> Manda responsable_seguimiento
-                `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",numero_documento.not.is.null,numero_documento.neq."",or(responsable_seguimiento.eq.${res},ultimo_responsable.eq.${res})),` +
-                
-                // Caso C: Documento en REQUERIMIENTO (Externo, Verificado, sin N°) -> Manda responsable_requerimiento
-                `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",or(numero_documento.is.null,numero_documento.eq.""),estado_verificacion_k.eq.VERIFICADO,origen.eq.Externo,responsable_requerimiento.eq.${res}),` +
-                
-                // Caso D: Documento en VERIFICACION (No verificado aún) -> Manda responsable_verificacion
-                `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",estado_verificacion_k.neq.VERIFICADO,responsable_verificacion.eq.${res})`
-            );
-        }
-    };
+      // B. Carga masiva documentos (Bucle para el Dashboard)
+      let allData = [];
+      let hayMasDocs = true;
+      let desdeDocs = 0;
+      while (hayMasDocs) {
+          let qStats = supabase.from('documentos').select('*');
+          aplicarFiltrosInternos(qStats);
+          const { data: chunk } = await qStats.range(desdeDocs, desdeDocs + 999);
+          if (!chunk || chunk.length === 0) hayMasDocs = false;
+          else {
+              allData = [...allData, ...chunk];
+              if (chunk.length < 1000) hayMasDocs = false; else desdeDocs += 1000;
+          }
+          if (desdeDocs > 20000) hayMasDocs = false; 
+      }
 
-    // A. Carga de los 100 registros de la tabla
-    aplicarFiltrosInternos(queryTable);
-    const { data: tableData, count, error: tableError } = await queryTable.order('creado_at', { ascending: false }).range(from, to);
-    if (!tableError) { setDocs(tableData || []); setTotalDocs(count || 0); }
+      // C. CARGA MASIVA DE TODOS LOS SEGUIMIENTOS (FIX: SIN LÍMITE DE 1000)
+      let allSegsData = [];
+      let hayMasSegs = true;
+      let desdeSegs = 0;
+      while (hayMasSegs) {
+          const { data: chunkSegs, error: errSegs } = await supabase
+              .from('seguimientos')
+              .select('responsable, fecha, observaciones, documento_id, medio')
+              .range(desdeSegs, desdeSegs + 999);
+          
+          if (errSegs || !chunkSegs || chunkSegs.length === 0) hayMasSegs = false;
+          else {
+              allSegsData = [...allSegsData, ...chunkSegs];
+              if (chunkSegs.length < 1000) hayMasSegs = false; else desdeSegs += 1000;
+          }
+          if (desdeSegs > 60000) hayMasSegs = false; 
+      }
 
-    // B. Carga masiva de los 13,000 para el Dashboard (en lotes)
-    let allData = [];
-    let hayMas = true;
-    let desde = 0;
-    while (hayMas) {
-        let qStats = supabase.from('documentos').select('*');
-        aplicarFiltrosInternos(qStats);
-        const { data: chunk, error: errChunk } = await qStats.range(desde, desde + 999);
-        if (errChunk || !chunk || chunk.length === 0) hayMas = false;
-        else {
-            allData = [...allData, ...chunk];
-            if (chunk.length < 1000) hayMas = false;
-            else desde += 1000;
-        }
-        if (desde > 20000) hayMas = false; 
+      setAllDocsForStats(allData);
+      setAllSegsForStats(allSegsData);
+
+    } catch (err) {
+      console.error("Error en fetchDocs:", err);
+    } finally {
+      setLoading(false); // ESTO QUITA LOS PUNTOS SUSPENSIVOS SIEMPRE AL FINAL
     }
-
-    // C. CARGA DE TODOS LOS SEGUIMIENTOS (Para contar acciones individuales)
-    const { data: segsData } = await supabase.from('seguimientos').select('responsable, fecha, observaciones, documento_id, medio');
-
-    setAllDocsForStats(allData);
-    setAllSegsForStats(segsData || []);
-    setLoading(false);
   }, [page, filters]);
-
-  useEffect(() => {
-    if (session) fetchDocs();
-  }, [session, fetchDocs]);
 
   
   // --- 4. IMPORTACIÓN MASIVA CON LIMPIEZA DE DUPLICADOS ---
