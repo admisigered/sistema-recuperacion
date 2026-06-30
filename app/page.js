@@ -561,7 +561,7 @@ export default function SistemaSIGERED() {
     } catch (err) {
       console.error("Fallo de carga:", err);
     } finally {
-      setLoading(false); // ESTO QUITA EL "..." SIEMPRE
+      setLoading(false);
     }
   }, [page, filters]);
   
