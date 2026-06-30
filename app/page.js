@@ -364,120 +364,128 @@ export default function SistemaSIGERED() {
     };
   }, [allDocsForStats, allSegsForStats, getEtapaEstado, filters]);
 
-  // --- 3. GESTIÓN DE DATOS (TABLA + DASHBOARD GLOBAL + ACCIONES) ---
-  const fetchDocs = useCallback(async () => {
-    setLoading(true);
-    let from = (page - 1) * ITEMS_PER_PAGE;
-    let to = from + ITEMS_PER_PAGE - 1;
+  // --- 3. GESTIÓN DE DATOS (LÓGICA OPTIMIZADA Y CORREGIDA) ---
 
-    // 1. Consulta para la tabla
-    let queryTable = supabase.from('documentos').select('*', { count: 'exact' });
+  // 3.1. Función auxiliar de filtros (Sin useCallback para evitar dependencias circulares)
+  const aplicarFiltrosInternos = (q) => {
+    const { search, sede, origen, estado, etapa, responsable, fechaInicio: fI, fechaFin: fF, asignadoActual: asig } = filters;
 
-    // 2. Función para aplicar tus filtros exactos
-    const aplicarFiltrosInternos = (q) => {
-        const { search, sede, origen, estado, etapa, responsable, fechaInicio: fI, fechaFin: fF, asignadoActual: asig } = filters;
+    // A. Filtros básicos
+    if (search) q.or(`cut.ilike.%${search}%,documento.ilike.%${search}%,remitente.ilike.%${search}%,responsable_verificacion.ilike.%${search}%,responsable_requerimiento.ilike.%${search}%,responsable_devolucion.ilike.%${search}%,responsable_seguimiento.ilike.%${search}%`);
+    if (sede) q.eq('sede', sede);
+    if (origen) q.eq('origen', origen);
 
-        // 1. FILTROS BÁSICOS
-        if (search) q.or(`cut.ilike.%${search}%,documento.ilike.%${search}%,remitente.ilike.%${search}%,responsable_verificacion.ilike.%${search}%,responsable_requerimiento.ilike.%${search}%,responsable_devolucion.ilike.%${search}%,responsable_seguimiento.ilike.%${search}%`);
-        if (sede) q.eq('sede', sede);
-        if (origen) q.eq('origen', origen);
+    // B. Regla de exclusión para Pendientes/En Proceso
+    if (estado === 'PENDIENTE' || estado === 'EN PROCESO') {
+      q.neq('cargado_sisged', true).neq('estado_visualizacion', 'SI SE VISUALIZA');
+    }
 
-        // 2. REGLA DE EXCLUSIÓN PARA PENDIENTES
-        if (estado === 'PENDIENTE' || estado === 'EN PROCESO') {
-            q.neq('cargado_sisged', true).neq('estado_visualizacion', 'SI SE VISUALIZA');
-        }
+    // C. Lógica por Etapa o Auditoría Global
+    if (etapa && CONFIG_CAMPOS[etapa]) {
+      const campos = CONFIG_CAMPOS[etapa];
+      if (responsable) q.eq(campos.resp, responsable);
+      if (fI) q.gte(campos.fecha, fI);
+      if (fF) q.lte(campos.fecha, fF);
 
-        // 3. LÓGICA POR ETAPA O AUDITORÍA GLOBAL
-        if (etapa && CONFIG_CAMPOS[etapa]) {
-            const campos = CONFIG_CAMPOS[etapa];
-            if (responsable) q.eq(campos.resp, responsable);
-            if (fI) q.gte(campos.fecha, fI);
-            if (fF) q.lte(campos.fecha, fF);
+      if (etapa === 'VERIFICACION' && estado) q.eq('estado_verificacion_k', estado);
+      if (etapa === 'REQUERIMIENTO') q.or('numero_documento.is.null,numero_documento.eq."",numero_documento.eq.null');
+      if (etapa === 'SEGUIMIENTO') {
+        q.not('numero_documento', 'is', null).neq('numero_documento', '');
+        if (estado === 'EN PROCESO') q.gt('cantidad_seguimientos', 0);
+        if (estado === 'PENDIENTE') q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
+      }
+    } else {
+      // Auditoría Global (Responsable + Fecha sin etapa fija)
+      if (responsable && fI && fF) {
+        q.or(Object.values(CONFIG_CAMPOS).map(c => `and(${c.resp}.eq."${responsable}",${c.fecha}.gte."${fI}",${c.fecha}.lte."${fF}")`).join(','));
+      } else if (responsable) {
+        q.or(`responsable_verificacion.eq."${responsable}",responsable_requerimiento.eq."${responsable}",responsable_devolucion.eq."${responsable}",responsable_seguimiento.eq."${responsable}",ultimo_responsable.eq."${responsable}"`);
+      } else if (fI && fF) {
+        q.or(Object.values(CONFIG_CAMPOS).map(c => `and(${c.fecha}.gte."${fI}",${c.fecha}.lte."${fF}")`).join(','));
+      }
+      // Estado Global
+      if (estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq."SI SE VISUALIZA"');
+      else if (estado === 'RECONSTRUCCION') q.ilike('observaciones_finales', '%RECONSTRUCCION%');
+    }
 
-            // Filtros de estado específicos por etapa
-            if (etapa === 'VERIFICACION' && estado) q.eq('estado_verificacion_k', estado);
-            if (etapa === 'REQUERIMIENTO') q.or('numero_documento.is.null,numero_documento.eq."",numero_documento.eq.null');
-            if (etapa === 'SEGUIMIENTO') {
-                q.not('numero_documento', 'is', null).neq('numero_documento', '');
-                if (estado === 'EN PROCESO') q.gt('cantidad_seguimientos', 0);
-                if (estado === 'PENDIENTE') q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
-            }
-        } else {
-            // Auditoría Global (Responsable + Fecha sin etapa fija)
-            if (responsable && fI && fF) {
-                q.or(Object.values(CONFIG_CAMPOS).map(c => `and(${c.resp}.eq."${responsable}",${c.fecha}.gte."${fI}",${c.fecha}.lte."${fF}")`).join(','));
-            } else if (responsable) {
-                q.or(`responsable_verificacion.eq."${responsable}",responsable_requerimiento.eq."${responsable}",responsable_devolucion.eq."${responsable}",responsable_seguimiento.eq."${responsable}",ultimo_responsable.eq."${responsable}"`);
-            } else if (fI && fF) {
-                q.or(Object.values(CONFIG_CAMPOS).map(c => `and(${c.fecha}.gte."${fI}",${c.fecha}.lte."${fF}")`).join(','));
-            }
+    // D. Filtro de Asignación Actual
+    if (asig) {
+      q.or([
+        `and(or(cargado_sisged.eq.true,estado_visualizacion.eq."SI SE VISUALIZA",and(estado_verificacion_k.eq.VERIFICADO,origen.eq.Interno)),responsable_devolucion.eq."${asig}")`,
+        `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",numero_documento.not.is.null,numero_documento.neq."",or(responsable_seguimiento.eq."${asig}",ultimo_responsable.eq."${asig}"))`,
+        `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",or(numero_documento.is.null,numero_documento.eq.""),estado_verificacion_k.eq.VERIFICADO,origen.eq.Externo,responsable_requerimiento.eq."${asig}")`,
+        `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",estado_verificacion_k.neq.VERIFICADO,responsable_verificacion.eq."${asig}")`
+      ].join(','));
+    }
+  };
 
-            // Estado Global
-            if (estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq."SI SE VISUALIZA"');
-            else if (estado === 'RECONSTRUCCION') q.ilike('observaciones_finales', '%RECONSTRUCCION%');
-        }
-
-        // 4. FILTRO DE ASIGNACIÓN ACTUAL (Simplificado con OR dinámico)
-        if (asig) {
-            q.or([
-                `and(or(cargado_sisged.eq.true,estado_visualizacion.eq."SI SE VISUALIZA",and(estado_verificacion_k.eq.VERIFICADO,origen.eq.Interno)),responsable_devolucion.eq."${asig}")`,
-                `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",numero_documento.not.is.null,numero_documento.neq."",or(responsable_seguimiento.eq."${asig}",ultimo_responsable.eq."${asig}"))`,
-                `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",or(numero_documento.is.null,numero_documento.eq.""),estado_verificacion_k.eq.VERIFICADO,origen.eq.Externo,responsable_requerimiento.eq."${asig}")`,
-                `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",estado_verificacion_k.neq.VERIFICADO,responsable_verificacion.eq."${asig}")`
-            ].join(','));
-        }
-    };
-
-    // A. CARGA DE LA TABLA
+  // 3.2. Carga de la Tabla (Pagina de 100 en 100)
   const fetchTableData = useCallback(async () => {
+    if (!session) return;
     setLoading(true);
     let from = (page - 1) * ITEMS_PER_PAGE;
     let to = from + ITEMS_PER_PAGE - 1;
+
     let queryTable = supabase.from('documentos').select('*', { count: 'exact' });
     aplicarFiltrosInternos(queryTable);
-    const { data, count, error } = await queryTable.order('creado_at', { ascending: false }).range(from, to);
-    if (!error) { setDocs(data || []); setTotalDocs(count || 0); }
-    setLoading(false);
-  }, [page, filters]); // <--- DEBE TERMINAR ASÍ
 
-  // B. CARGA DEL DASHBOARD
+    const { data, count, error } = await queryTable
+      .order('creado_at', { ascending: false })
+      .range(from, to);
+
+    if (!error) {
+      setDocs(data || []);
+      setTotalDocs(count || 0);
+    }
+    setLoading(false);
+  }, [page, filters, session]);
+
+  // 3.3. Carga de Estadísticas (Todo el universo para el Dashboard)
   const fetchStatsData = useCallback(async () => {
+    if (!session) return;
     let allData = [];
     let hayMas = true;
     let desde = 0;
+
     while (hayMas) {
       let qStats = supabase.from('documentos').select('*');
       aplicarFiltrosInternos(qStats);
       const { data: chunk, error } = await qStats.range(desde, desde + 999);
-      if (error || !chunk || chunk.length === 0) hayMas = false;
-      else {
+      
+      if (error || !chunk || chunk.length === 0) {
+        hayMas = false;
+      } else {
         allData = [...allData, ...chunk];
         if (chunk.length < 1000) hayMas = false;
         else desde += 1000;
       }
-      if (desde > 20000) hayMas = false;
+      if (desde > 20000) hayMas = false; 
     }
+
     const { data: segsData } = await supabase.from('seguimientos').select('responsable, fecha, documento_id, medio');
     setAllDocsForStats(allData);
     setAllSegsForStats(segsData || []);
-  }, [filters]); // <--- DEBE TERMINAR ASÍ
+  }, [filters, session]);
 
-  // ORQUESTACIÓN DE EFECTOS
+  // 3.4. Efectos para disparar las cargas
   useEffect(() => {
-    if (!session) return;
-    fetchTableData(); // Se dispara al cambiar página o filtros
-  }, [session, fetchTableData]);
+    fetchTableData();
+  }, [fetchTableData]);
 
   useEffect(() => {
-    if (!session) return;
-    fetchStatsData(); // SOLO se dispara al cambiar filtros
-  }, [session, fetchStatsData]);
+    fetchStatsData();
+  }, [fetchStatsData]);
 
-  // Resetear página al filtrar
+  // Resetear a página 1 cuando cambian los filtros
   useEffect(() => {
     setPage(1);
-  }, [filters.search, filters.sede, filters.origen, filters.estado, filters.etapa, filters.responsable, filters.asignadoActual]);
+  }, [filters]);
 
+  // Mantener compatibilidad con funciones de guardado que usen fetchDocs
+  const fetchDocs = useCallback(async () => {
+    await fetchTableData();
+    await fetchStatsData();
+  }, [fetchTableData, fetchStatsData]);
   
   // --- 4. IMPORTACIÓN MASIVA CON LIMPIEZA DE DUPLICADOS ---
   const handleImport = (e) => {
