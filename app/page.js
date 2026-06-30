@@ -413,22 +413,18 @@ export default function SistemaSIGERED() {
 
       // 2. Función para aplicar tus filtros exactos (CON CORRECCIÓN DE COMILLAS)
       const aplicarFiltrosInternos = (q) => {
-          // 1. FILTROS BÁSICOS
           if (filters.search) q.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%`);
           if (filters.sede) q.eq('sede', filters.sede);
           if (filters.origen) q.eq('origen', filters.origen);
 
-          // --- REGLA DE ORO: EXCLUSIÓN DE RECUPERADOS PARA PENDIENTES ---
           if (filters.estado === 'PENDIENTE' || filters.estado === 'EN PROCESO') {
               q.neq('cargado_sisged', true);
               q.neq('estado_visualizacion', 'SI SE VISUALIZA');
           }
 
-          // 2. LÓGICA POR ETAPA
           if (filters.etapa === 'VERIFICACION') {
               if (filters.estado === 'VERIFICADO') q.eq('estado_verificacion_k', 'VERIFICADO');
               else if (filters.estado === 'PENDIENTE') q.eq('estado_verificacion_k', 'PENDIENTE');
-              
               if (filters.responsable) q.eq('responsable_verificacion', filters.responsable);
               if (filters.fechaInicio) q.gte('fecha_verificacion', filters.fechaInicio);
               if (filters.fechaFin) q.lte('fecha_verificacion', filters.fechaFin);
@@ -436,7 +432,6 @@ export default function SistemaSIGERED() {
           else if (filters.etapa === 'REQUERIMIENTO') {
               q.or('numero_documento.is.null,numero_documento.eq."",numero_documento.eq.null');
               if (filters.estado === 'ATENDIDO') q.not('numero_documento', 'is', null).neq('numero_documento', '');
-
               if (filters.responsable) q.eq('responsable_requerimiento', filters.responsable);
               if (filters.fechaInicio) q.gte('fecha_elaboracion', filters.fechaInicio);
               if (filters.fechaFin) q.lte('fecha_elaboracion', filters.fechaFin);
@@ -445,20 +440,17 @@ export default function SistemaSIGERED() {
               q.not('numero_documento', 'is', null).neq('numero_documento', '').neq('numero_documento', 'null');
               if (filters.estado === 'EN PROCESO') q.gt('cantidad_seguimientos', 0);
               else if (filters.estado === 'PENDIENTE') q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
-
               if (filters.responsable) q.eq('responsable_seguimiento', filters.responsable);
               if (filters.fechaInicio) q.gte('ultimo_seguimiento', filters.fechaInicio);
               if (filters.fechaFin) q.lte('ultimo_seguimiento', filters.fechaFin);
           }
           else if (filters.etapa === 'CIERRE') {
               if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq."SI SE VISUALIZA"');
-              
               if (filters.responsable) q.eq('responsable_devolucion', filters.responsable);
               if (filters.fechaInicio) q.gte('fecha_devolucion', filters.fechaInicio);
               if (filters.fechaFin) q.lte('fecha_devolucion', filters.fechaFin);
           }
           else {
-              // --- 3. LÓGICA GLOBAL (Auditoría: Responsable + Fecha) ---
               const res = filters.responsable;
               const fI = filters.fechaInicio;
               const fF = filters.fechaFin;
@@ -490,7 +482,7 @@ export default function SistemaSIGERED() {
               }
           }
       
-          // --- NUEVA LÓGICA DE FILTRO POR ASIGNACIÓN ACTUAL ESTRICTA (CON COMILLAS) ---
+          // --- FILTRO ASIGNACIÓN ACTUAL (CORREGIDO CON COMILLAS DOBLES) ---
           if (filters.asignadoActual) {
               const res = filters.asignadoActual;
               q.or(
@@ -502,20 +494,20 @@ export default function SistemaSIGERED() {
           }
       };
 
-      // A. Carga de los 100 registros de la tabla
+      // A. Carga registros de la tabla
       aplicarFiltrosInternos(queryTable);
-      const { data: tableData, count, error: tableError } = await queryTable.order('creado_at', { ascending: false }).range(from, to);
-      if (!tableError) { setDocs(tableData || []); setTotalDocs(count || 0); }
+      const { data: tableData, count } = await queryTable.order('creado_at', { ascending: false }).range(from, to);
+      if (tableData) { setDocs(tableData); setTotalDocs(count || 0); }
 
-      // B. Carga masiva de los 13,000 para Stats
+      // B. Carga masiva documentos para Stats
       let allData = [];
       let hayMas = true;
       let desde = 0;
       while (hayMas) {
           let qStats = supabase.from('documentos').select('*');
           aplicarFiltrosInternos(qStats);
-          const { data: chunk, error: errChunk } = await qStats.range(desde, desde + 999);
-          if (errChunk || !chunk || chunk.length === 0) hayMas = false;
+          const { data: chunk } = await qStats.range(desde, desde + 999);
+          if (!chunk || chunk.length === 0) hayMas = false;
           else {
               allData = [...allData, ...chunk];
               if (chunk.length < 1000) hayMas = false; else desde += 1000;
@@ -523,7 +515,7 @@ export default function SistemaSIGERED() {
           if (desde > 20000) hayMas = false; 
       }
 
-      // C. CARGA MASIVA DE TODOS LOS SEGUIMIENTOS (Bucle corregido)
+      // C. CARGA MASIVA SEGUIMIENTOS (FIX: +1000 registros)
       let allSegsData = [];
       let hayMasSegs = true;
       let desdeSegs = 0;
@@ -545,9 +537,9 @@ export default function SistemaSIGERED() {
       setAllSegsForStats(allSegsData);
 
     } catch (err) {
-      console.error("Excepción detectada:", err);
+      console.error("Fallo crítico:", err);
     } finally {
-      setLoading(false); // ESTO ASEGURA QUE LOS TRES PUNTOS DESAPAREZCAN SIEMPRE
+      setLoading(false); // Seguro para quitar el cargando pase lo que pase
     }
   }, [page, filters]);
   
