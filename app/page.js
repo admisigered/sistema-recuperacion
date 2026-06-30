@@ -727,51 +727,52 @@ export default function SistemaSIGERED() {
     XLSX.writeFile(wb, `Reporte_SIGERED_Total_${new Date().getTime()}.xlsx`);
   };
 
-// --- NUEVA FUNCIÓN PARA EXPORTAR HISTORIAL DE SEGUIMIENTOS CON CUT ---
+// --- NUEVA FUNCIÓN PARA EXPORTAR HISTORIAL DE SEGUIMIENTOS TOTAL ---
   const handleExportSeguimientos = () => {
     if (!allSegsForStats || allSegsForStats.length === 0) {
       alert("Aún se están cargando los seguimientos o no existen registros.");
       return;
     }
 
-    // 1. Definir responsables permitidos para el filtro
-    const responsablesPermitidos = ["YANINA", "KEVIN", "FABRICIO"];
-    const filtroActual = (filters.responsable || '').toUpperCase().trim();
+    // 1. Obtenemos los filtros globales para que el Excel sea coherente con lo que el usuario busca
+    const filtroResponsable = (filters.responsable || '').toUpperCase().trim();
+    const fI = filters.fechaInicio;
+    const fF = filters.fechaFin;
 
-    // 2. Aplicar lógica de filtrado restringida
-    let seguimientosFiltrados = allSegsForStats;
+    // 2. Filtramos la totalidad de seguimientos (allSegsForStats ya contiene todo el universo)
+    const seguimientosFiltrados = allSegsForStats.filter(s => {
+      const rS = (s.responsable || '').toUpperCase().trim();
+      const fS = dateUtils.toStandard(s.fecha);
 
-    // Solo filtramos si el responsable seleccionado es uno de los 3 permitidos
-    if (responsablesPermitidos.includes(filtroActual)) {
-      seguimientosFiltrados = allSegsForStats.filter(s => 
-        (s.responsable || '').toUpperCase().trim() === filtroActual
-      );
-    }
+      // Si hay un responsable seleccionado en el filtro de arriba, lo respetamos. 
+      // Si no hay ninguno, pasan todos (totalidad).
+      const coincideResp = !filtroResponsable || rS === filtroResponsable;
+      const coincideFecha = (!fI || !fF) || (fS >= fI && fS <= fF);
 
-    // 3. Crear un mapa de búsqueda rápida para traer el CUT desde la lista de documentos
-    // Usamos allDocsForStats porque contiene el universo total de expedientes
+      return coincideResp && coincideFecha;
+    });
+
+    // 3. Crear mapa de búsqueda rápida para traer el CUT
     const mapaCuts = new Map(allDocsForStats.map(d => [d.id, d.cut]));
 
-    // 4. Ordenar cronológicamente (opcional, para historial lógico)
-    const seguimientosOrdenados = [...seguimientosFiltrados].sort((a, b) => 
-      new Date(a.fecha) - new Date(b.fecha)
-    );
+    // 4. Mapear y ordenar cronológicamente
+    const datosReporte = seguimientosFiltrados
+      .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
+      .map((s, index) => ({
+        'N°': index + 1,
+        'CUT': mapaCuts.get(s.documento_id) || 'SIN CUT',
+        'RESPONSABLE': s.responsable || '',
+        'FECHA DEL SEGUIMIENTO': dateUtils.toDisplay(s.fecha),
+        'MEDIO': s.medio || '',
+        'OBSERVACIONES': s.observaciones || '' // Añadimos esto para que sea un reporte de seguimiento real
+      }));
 
-    // 5. Mapear los datos a las columnas solicitadas incluyendo el CUT
-    const datosReporte = seguimientosOrdenados.map((s, index) => ({
-      'N°': index + 1,
-      'CUT': mapaCuts.get(s.documento_id) || 'SIN CUT', // Busca el CUT usando el ID vinculado
-      'RESPONSABLE': s.responsable || '',
-      'FECHA DEL SEGUIMIENTO': dateUtils.toDisplay(s.fecha),
-      'MEDIO': s.medio || ''
-    }));
-
-    // 6. Generar el archivo Excel
+    // 5. Generar Excel
     const ws = XLSX.utils.json_to_sheet(datosReporte);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "HISTORICO_SEGUIMIENTOS");
+    XLSX.utils.book_append_sheet(wb, ws, "HISTORICO_TOTAL");
     
-    XLSX.writeFile(wb, `Reporte_Seguimientos_Historico_${new Date().getTime()}.xlsx`);
+    XLSX.writeFile(wb, `Reporte_Seguimientos_Total_${new Date().getTime()}.xlsx`);
   };
   
 // --- FUNCIÓN PARA EXPORTAR EL DASHBOARD A PDF ---
