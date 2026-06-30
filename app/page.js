@@ -682,20 +682,20 @@ export default function SistemaSIGERED() {
         'CUT': doc.cut || '',
         'DOCUMENTO': doc.documento || '',
         'REMITENTE': doc.remitente || '',
-        'FECHA DE REGISTRO': formatDMA(doc.fecha_registro),
+        'FECHA DE REGISTRO': dateUtils.toDisplay(doc.fecha_registro),
         'ORIGEN': doc.origen || '',
         'PROCEDIMIENTO': doc.procedimiento || '',
         'CELULAR': doc.celular || '',
         'RESP. VERIFICACIÓN': doc.responsable_verificacion || '',
-        'FECHA VERIFICACIÓN': formatDMA(doc.fecha_verificacion),
+        'FECHA VERIFICACIÓN': dateUtils.toDisplay(doc.fecha_verificacion),
         'ESTADO DEL DOCUMENTO': doc.estado_visualizacion || '',
         'OBSERVACIONES': doc.observaciones || '',
         
         // --- ETAPA 2: REQUERIMIENTO (Vacío si es Interno) ---
         'RESP. REQUERIMIENTO': esInterno ? '' : (doc.responsable_requerimiento || ''),
-        'FECHA REQUERIMIENTO': esInterno ? '' : formatDMA(doc.fecha_elaboracion),
+        'FECHA REQUERIMIENTO': esInterno ? '' : dateUtils.toDisplay(doc.fecha_elaboracion),
         'N° DOCUMENTO': esInterno ? '' : (doc.numero_documento || ''),
-        'FECHA NOTIFICACION': esInterno ? '' : formatDMA(doc.fecha_notificacion),
+        'FECHA NOTIFICACION': esInterno ? '' : dateUtils.toDisplay(doc.fecha_notificacion),
         'MEDIO NOTIFICACION': esInterno ? '' : (doc.medio_notificacion || ''),
         'DIAS HABILES': esInterno ? 0 : dias,
         'OBSERVACIONES REQUERIMIENTO': esInterno ? '' : (doc.observaciones_requerimiento || ''), // <--- NUEVO CAMPO ADICIONADO
@@ -709,9 +709,9 @@ export default function SistemaSIGERED() {
         
         // --- ETAPA 4: CIERRE (Siempre visible para ambos) ---
         'CARGADO AL SISGED': doc.cargado_sisged ? 'SI' : 'NO',
-        'FECHA DE REMISION': formatDMA(doc.fecha_remision),
+        'FECHA DE REMISION': dateUtils.toDisplay(doc.fecha_remision),
         'RESP. DEVOLUCION': doc.responsable_devolucion || '',
-        'FECHA DEVOLUCION': formatDMA(doc.fecha_devolucion),
+        'FECHA DEVOLUCION': dateUtils.toDisplay(doc.fecha_devolucion),
         'DOCUMENTO DEVOLUCION': doc.documento_cierre || '',
         'OFICINA DESTINO': doc.oficina_destino || '',
         'OBSERVACIONES FINALES': doc.observaciones_finales || '',
@@ -762,7 +762,7 @@ export default function SistemaSIGERED() {
       'N°': index + 1,
       'CUT': mapaCuts.get(s.documento_id) || 'SIN CUT', // Busca el CUT usando el ID vinculado
       'RESPONSABLE': s.responsable || '',
-      'FECHA DEL SEGUIMIENTO': formatDMA(s.fecha),
+      'FECHA DEL SEGUIMIENTO': dateUtils.toDisplay(s.fecha),
       'MEDIO': s.medio || ''
     }));
 
@@ -1546,7 +1546,7 @@ export default function SistemaSIGERED() {
             onChange={e => setEditingDoc({...editingDoc, fecha_registro: e.target.value})}
           />
         ) : (
-          <span className="text-[11px] text-white font-bold">{formatDMA(editingDoc.fecha_registro)}</span>
+          <span className="text-[11px] text-white font-bold">{dateUtils.toDisplay(editingDoc.fecha_registro)}</span>
         )}
       </div>
     </div>
@@ -1748,7 +1748,7 @@ export default function SistemaSIGERED() {
                               <p className="text-xs font-black text-slate-800 uppercase tracking-widest">{s.responsable}</p>
                               <div className="flex items-center gap-3">
                                 <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full">
-                                  {formatDMA(s.fecha)}
+                                  {dateUtils.toDisplay(s.fecha)}
                                 </span>
                                 <button onClick={() => handleDeleteSeguimiento(s.id)} className="text-red-400 hover:text-red-600 cursor-pointer">
                                   <Trash2 size={16}/>
