@@ -428,39 +428,73 @@ export default function SistemaSIGERED() {
         }
     };
 
-    // A. Carga de los 100 registros de la tabla
-    aplicarFiltrosInternos(queryTable);
-    const { data: tableData, count, error: tableError } = await queryTable.order('creado_at', { ascending: false }).range(from, to);
-    if (!tableError) { setDocs(tableData || []); setTotalDocs(count || 0); }
+    // A. CARGA DE LA TABLA (Solo 100 registros por página)
+  const fetchTableData = useCallback(async () => {
+    setLoading(true);
+    let from = (page - 1) * ITEMS_PER_PAGE;
+    let to = from + ITEMS_PER_PAGE - 1;
 
-    // B. Carga masiva de los 13,000 para el Dashboard (en lotes)
-    let allData = [];
-    let hayMas = true;
-    let desde = 0;
-    while (hayMas) {
-        let qStats = supabase.from('documentos').select('*');
-        aplicarFiltrosInternos(qStats);
-        const { data: chunk, error: errChunk } = await qStats.range(desde, desde + 999);
-        if (errChunk || !chunk || chunk.length === 0) hayMas = false;
-        else {
-            allData = [...allData, ...chunk];
-            if (chunk.length < 1000) hayMas = false;
-            else desde += 1000;
-        }
-        if (desde > 20000) hayMas = false; 
+    let queryTable = supabase.from('documentos').select('*', { count: 'exact' });
+    aplicarFiltrosInternos(queryTable); // Usa la función simplificada del paso anterior
+
+    const { data, count, error } = await queryTable
+      .order('creado_at', { ascending: false })
+      .range(from, to);
+
+    if (!error) {
+      setDocs(data || []);
+      setTotalDocs(count || 0);
     }
-
-    // C. CARGA DE TODOS LOS SEGUIMIENTOS (Para contar acciones individuales)
-    const { data: segsData } = await supabase.from('seguimientos').select('responsable, fecha, observaciones, documento_id, medio');
-
-    setAllDocsForStats(allData);
-    setAllSegsForStats(segsData || []);
     setLoading(false);
   }, [page, filters]);
 
+  // B. CARGA DEL DASHBOARD (Todo el universo filtrado)
+  const fetchStatsData = useCallback(async () => {
+    // Si no estamos en la vista dashboard, no gastamos recursos (opcional)
+    // if (view !== 'dashboard') return;
+
+    let allData = [];
+    let hayMas = true;
+    let desde = 0;
+
+    while (hayMas) {
+      let qStats = supabase.from('documentos').select('*');
+      aplicarFiltrosInternos(qStats);
+      
+      const { data: chunk, error } = await qStats.range(desde, desde + 999);
+      
+      if (error || !chunk || chunk.length === 0) {
+        hayMas = false;
+      } else {
+        allData = [...allData, ...chunk];
+        if (chunk.length < 1000) hayMas = false;
+        else desde += 1000;
+      }
+      if (desde > 20000) hayMas = false; // Límite de seguridad
+    }
+
+    // Cargamos seguimientos solo una vez por cambio de filtro
+    const { data: segsData } = await supabase.from('seguimientos').select('responsable, fecha, documento_id, medio');
+
+    setAllDocsForStats(allData);
+    setAllSegsForStats(segsData || []);
+  }, [filters]); // <--- IMPORTANTE: No depende de 'page'
+
+  // ORQUESTACIÓN DE EFECTOS
   useEffect(() => {
-    if (session) fetchDocs();
-  }, [session, fetchDocs]);
+    if (!session) return;
+    fetchTableData(); // Se dispara al cambiar página o filtros
+  }, [session, fetchTableData]);
+
+  useEffect(() => {
+    if (!session) return;
+    fetchStatsData(); // SOLO se dispara al cambiar filtros
+  }, [session, fetchStatsData]);
+
+  // Resetear página al filtrar
+  useEffect(() => {
+    setPage(1);
+  }, [filters.search, filters.sede, filters.origen, filters.estado, filters.etapa, filters.responsable, filters.asignadoActual]);
 
   
   // --- 4. IMPORTACIÓN MASIVA CON LIMPIEZA DE DUPLICADOS ---
