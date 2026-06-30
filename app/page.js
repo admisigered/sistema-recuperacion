@@ -498,50 +498,57 @@ export default function SistemaSIGERED() {
       const { data: tableData, count } = await queryTable.order('creado_at', { ascending: false }).range(from, to);
       if (tableData) { setDocs(tableData); setTotalDocs(count || 0); }
 
-      // B. Carga masiva documentos (Bucle para el Dashboard)
+      // B. CARGA POR LOTES DE 500 (Documentos para Dashboard)
       let allData = [];
       let hayMasDocs = true;
       let desdeDocs = 0;
+      const pasoDocs = 500; // Bloque más liviano
+
       while (hayMasDocs) {
           let qStats = supabase.from('documentos').select('*');
           aplicarFiltrosInternos(qStats);
-          const { data: chunk } = await qStats.range(desdeDocs, desdeDocs + 999);
-          if (!chunk || chunk.length === 0) hayMasDocs = false;
-          else {
+          const { data: chunk } = await qStats.range(desdeDocs, desdeDocs + (pasoDocs - 1));
+          
+          if (!chunk || chunk.length === 0) {
+              hayMasDocs = false;
+          } else {
               allData = [...allData, ...chunk];
-              if (chunk.length < 1000) hayMasDocs = false; else desdeDocs += 1000;
+              if (chunk.length < pasoDocs) hayMasDocs = false; else desdeDocs += pasoDocs;
           }
-          if (desdeDocs > 20000) hayMasDocs = false; 
+          if (desdeDocs > 15000) hayMasDocs = false; 
       }
 
-      // C. CARGA MASIVA DE TODOS LOS SEGUIMIENTOS (FIX: SIN LÍMITE DE 1000)
+      // C. CARGA POR LOTES DE 500 (Seguimientos para Reporte Completo)
       let allSegsData = [];
       let hayMasSegs = true;
       let desdeSegs = 0;
+      const pasoSegs = 500;
+
       while (hayMasSegs) {
-          const { data: chunkSegs, error: errSegs } = await supabase
+          const { data: chunkSegs } = await supabase
               .from('seguimientos')
               .select('responsable, fecha, observaciones, documento_id, medio')
-              .range(desdeSegs, desdeSegs + 999);
+              .range(desdeSegs, desdeSegs + (pasoSegs - 1));
           
-          if (errSegs || !chunkSegs || chunkSegs.length === 0) hayMasSegs = false;
-          else {
+          if (!chunkSegs || chunkSegs.length === 0) {
+              hayMasSegs = false;
+          } else {
               allSegsData = [...allSegsData, ...chunkSegs];
-              if (chunkSegs.length < 1000) hayMasSegs = false; else desdeSegs += 1000;
+              if (chunkSegs.length < pasoSegs) hayMasSegs = false; else desdeSegs += pasoSegs;
           }
-          if (desdeSegs > 60000) hayMasSegs = false; 
+          if (desdeSegs > 50000) hayMasSegs = false; 
       }
 
       setAllDocsForStats(allData);
       setAllSegsForStats(allSegsData);
 
     } catch (err) {
-      console.error("Error en fetchDocs:", err);
+      console.error("Error en carga de datos:", err);
     } finally {
-      setLoading(false); // ESTO QUITA LOS PUNTOS SUSPENSIVOS SIEMPRE AL FINAL
+      // ESTO ES LO MÁS IMPORTANTE: Pase lo que pase, apagamos el cargando para que no se vea el "..."
+      setLoading(false);
     }
   }, [page, filters]);
-
   
   // --- 4. IMPORTACIÓN MASIVA CON LIMPIEZA DE DUPLICADOS ---
   const handleImport = (e) => {
