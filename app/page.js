@@ -199,48 +199,58 @@ export default function SistemaSIGERED() {
   
   
   const getEtapaEstado = useCallback((doc) => {
-    if (!doc) return { etapa: '-', estado: '-', color: 'bg-slate-100', border: 'border-slate-300' };
-    
-    const origen = String(doc.origen || '').toUpperCase();
-    const colK = String(doc.estado_verificacion_k || 'PENDIENTE').toUpperCase();
-    const colL = String(doc.estado_visualizacion || '').toUpperCase();
-    const numDoc = doc.numero_documento;
-    const sisged = doc.cargado_sisged;
-    const obsFinales = String(doc.observaciones_finales || '').toUpperCase();
-    const cantSeg = doc.cantidad_seguimientos || 0;
+  if (!doc) return { etapa: '-', estado: '-', ...STATUS_MAP.DEFAULT };
 
-    // 1. REGLA: RECUPERADO (Verde - Cierre final)
-    if (sisged === true || sisged === 'true' || colL === 'SI SE VISUALIZA') {
-        return { etapa: 'CIERRE', estado: 'RECUPERADO', color: 'bg-green-100 text-green-700', border: 'border-green-500' };
+  const {
+    origen = '',
+    estado_verificacion_k: verifK = 'PENDIENTE',
+    estado_visualizacion: visualL = '',
+    numero_documento: numDoc,
+    cargado_sisged: sisged,
+    observaciones_finales: obsFin = '',
+    cantidad_seguimientos: cantSeg = 0,
+    id
+  } = doc;
+
+  const esInterno = String(origen).toUpperCase() === 'INTERNO';
+  const esVerificado = String(verifK).toUpperCase() === 'VERIFICADO';
+  const tieneDocNum = numDoc && String(numDoc).trim() !== '' && numDoc !== 'null';
+
+  // 1. REGLAS DE CIERRE FINAL (Prioridad Máxima)
+  if (sisged === true || sisged === 'true' || visualL.toUpperCase() === 'SI SE VISUALIZA') {
+    return { etapa: 'CIERRE', estado: 'RECUPERADO', ...STATUS_MAP.RECUPERADO };
+  }
+  if (String(obsFin).toUpperCase().includes('RECONSTRUCCION')) {
+    return { etapa: 'CIERRE', estado: 'RECONSTRUCCION', ...STATUS_MAP.RECONSTRUCCION };
+  }
+
+  // 2. DETECCIÓN DE ETAPA Y ESTADO
+  let etapa = 'VERIFICACION';
+  let estado = 'PENDIENTE';
+
+  if (esVerificado) {
+    if (esInterno) {
+      etapa = 'CIERRE'; // Internos saltan directo a Cierre
+    } else if (!tieneDocNum) {
+      etapa = 'REQUERIMIENTO';
+    } else {
+      etapa = 'SEGUIMIENTO';
+      
+      // Regla especial: "REMITIÓ DOCUMENTO" (Solo si es el doc activo en el modal)
+      const fueAtendido = editingDoc?.id === id && seguimientos.some(s => 
+        String(s.observaciones).toUpperCase().includes('REMITIÓ DOCUMENTO')
+      );
+
+      if (fueAtendido) {
+        etapa = 'CIERRE'; // Pasa a Cierre como Pendiente
+      } else if (cantSeg > 0) {
+        estado = 'EN PROCESO';
+      }
     }
+  }
 
-    // 2. REGLA: RECONSTRUCCION (Púrpura)
-    if (obsFinales.includes('RECONSTRUCCION')) {
-        return { etapa: 'CIERRE', estado: 'RECONSTRUCCION', color: 'bg-purple-100 text-purple-700', border: 'border-purple-500' };
-    }
-
-    // 3. REGLA: SEGUIMIENTO (EN PROCESO / ATENDIDO)
-    // Solo aplica para documentos con N° de documento (Etapa 3)
-    if (numDoc && numDoc !== '' && numDoc !== 'null') {
-        
-        // Verificación de seguridad: Solo buscamos el texto "REMITIÓ DOCUMENTO" 
-        // si el documento es el que estamos editando actualmente en el modal.
-        // Esto evita que la tabla de 13,000 registros colapse.
-        const esDocActivo = editingDoc && doc.id === editingDoc.id;
-        const fueAtendido = esDocActivo && seguimientos.some(s => 
-            String(s.observaciones).toUpperCase().includes('REMITIÓ DOCUMENTO')
-        );
-
-        if (fueAtendido) {
-            // Regla 8: Si remitió, pasa a ETAPA 4 como PENDIENTE
-            return { etapa: 'CIERRE', estado: 'PENDIENTE', color: 'bg-red-100 text-red-700', border: 'border-red-500' };
-        }
-
-        if (cantSeg > 0) {
-            // Si tiene seguimientos en la base de datos: EN PROCESO
-            return { etapa: 'SEGUIMIENTO', estado: 'EN PROCESO', color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' };
-        }
-    }
+  return { etapa, estado, ...STATUS_MAP[estado] };
+}, [seguimientos, editingDoc]);
 
     // 4. REGLA: PENDIENTE UNIVERSAL (Rojo)
     let etapaDetectada = 'VERIFICACION';
