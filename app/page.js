@@ -405,11 +405,11 @@ export default function SistemaSIGERED() {
         } else {
             // Auditoría Global (Responsable + Fecha sin etapa fija)
             if (responsable && fI && fF) {
-                q.or(Object.values(CONFIG_CAMPOS).map(c => `and(${c.resp}.eq."${responsable}",${c.f}.gte."${fI}",${c.f}.lte."${fF}")`).join(','));
+                q.or(Object.values(CONFIG_CAMPOS).map(c => `and(${c.resp}.eq."${responsable}",${c.fecha}.gte."${fI}",${c.fecha}.lte."${fF}")`).join(','));
             } else if (responsable) {
                 q.or(`responsable_verificacion.eq."${responsable}",responsable_requerimiento.eq."${responsable}",responsable_devolucion.eq."${responsable}",responsable_seguimiento.eq."${responsable}",ultimo_responsable.eq."${responsable}"`);
             } else if (fI && fF) {
-                q.or(Object.values(CONFIG_CAMPOS).map(c => `and(${c.f}.gte."${fI}",${c.f}.lte."${fF}")`).join(','));
+                q.or(Object.values(CONFIG_CAMPOS).map(c => `and(${c.fecha}.gte."${fI}",${c.fecha}.lte."${fF}")`).join(','));
             }
 
             // Estado Global
