@@ -654,7 +654,7 @@ export default function SistemaSIGERED() {
 
     const datosReporte = allDocsForStats.map(doc => {
       const infoActual = getEtapaEstado(doc);
-      const dias = doc.fecha_notificacion ? calcularDiasHabiles(doc.fecha_notificacion) : 0;
+      const dias = doc.fecha_notificacion ? dateUtils.diffHabiles(doc.fecha_notificacion) : 0;
       
       // --- LÓGICA DE EXCLUSIÓN PARA DOCUMENTOS INTERNOS ---
       const esInterno = String(doc.origen || '').toUpperCase() === 'INTERNO';
