@@ -504,7 +504,7 @@ export default function SistemaSIGERED() {
     } catch (err) {
       console.error("Error cargando registros:", err);
     } finally {
-      setLoading(false); // ESTO APAGA EL "..." SIEMPRE
+      setLoading(false);
     }
   }, [page, filters]);
   
