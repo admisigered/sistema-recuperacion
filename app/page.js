@@ -36,6 +36,7 @@ const USUARIOS = [
 
 const LISTA_RESPONSABLES = ["PENDIENTE", "YANINA", "XINA", "CESAR", "FABRICIO", "KEVIN", "MILI", "LISBETH", "AMERICO", "ADMINISTRADOR", "FERNANDO"];
 
+// --- 1. CONFIGURACIÓN Y MAPAS DE ESTILO ---
 const STATUS_MAP = {
   RECUPERADO: { color: 'bg-green-100 text-green-700', border: 'border-green-500' },
   RECONSTRUCCION: { color: 'bg-purple-100 text-purple-700', border: 'border-purple-500' },
@@ -51,124 +52,65 @@ const CONFIG_CAMPOS = {
   CIERRE: { resp: 'responsable_devolucion', fecha: 'fecha_devolucion' }
 };
 
-const formatDMA = (fecha) => {
-  if (!fecha) return '-';
-  if (fecha.includes('/')) return fecha;
-  const parts = fecha.split('-');
-  return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : fecha;
+// --- 2. UTILIDADES DE FECHA CONSOLIDADAS ---
+const dateUtils = {
+  toStandard: (val) => {
+    if (!val || String(val).trim() === "" || String(val).trim() === "null") return null;
+    if (typeof val === 'number') return new Date((val - 25569) * 86400 * 1000).toISOString().split('T')[0];
+    const limpia = String(val).trim();
+    if (limpia.includes('/')) {
+      const [d, m, y] = limpia.split('/');
+      return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    }
+    return limpia.split('T')[0];
+  },
+  toDisplay: (fecha) => {
+    if (!fecha || fecha === '-') return '-';
+    if (fecha.includes('/')) return fecha;
+    const parts = fecha.split('T')[0].split('-');
+    return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : fecha;
+  },
+  today: () => new Date().toISOString().split('T')[0],
+  diffHabiles: (fechaRef) => {
+    if (!fechaRef) return 0;
+    const feriados2026 = ['01-01','04-02','04-03','05-01','06-07','06-29','07-23','07-28','07-29','08-06','08-30','10-08','11-01','12-08','12-09','12-25'];
+    let fechaActual = new Date(fechaRef + 'T00:00:00');
+    fechaActual.setDate(fechaActual.getDate() + 1);
+    let hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    let contador = 0;
+    while (fechaActual <= hoy) {
+      const diaSemana = fechaActual.getDay();
+      const mesDia = `${(fechaActual.getMonth() + 1).toString().padStart(2, '0')}-${fechaActual.getDate().toString().padStart(2, '0')}`;
+      if (diaSemana !== 0 && diaSemana !== 6 && !feriados2026.includes(mesDia)) contador++;
+      fechaActual.setDate(fechaActual.getDate() + 1);
+    }
+    return contador;
+  }
 };
 
-// --- FUNCION GLOBAL DE VALIDACION DE DOCUMENTOS ---
+// --- 3. VALIDACIÓN DE DOCUMENTOS (MANTENIDA) ---
 const esDocumentoValido = (val, esCierre = false) => {
   if (!val || val === 'null' || String(val).trim() === "") return false;
   const t = String(val).toUpperCase().trim();
-  
-  // Lista de palabras prohibidas que NO cuentan como documento
   const prohibidas = ["PENDIENTE", "NO APLICA", "POR GENERAR", "SE UBICA EN TRAZA", "S/N", "SIN NUMERO"];
   if (prohibidas.some(p => t === p)) return false;
-
   const terminosBasicos = ["CARTA", "OFICIO"];
   const terminosCierre = ["NOTA DE ENVIO", "PROVEIDO", "NOTA"];
-  const tieneNumeros = /\d+/.test(t); // Verifica si tiene al menos un número (ej: 001-2026)
-
-  if (esCierre) {
-    return terminosBasicos.some(term => t.includes(term)) || terminosCierre.some(term => t.includes(term)) || tieneNumeros;
-  }
+  const tieneNumeros = /\d+/.test(t);
+  if (esCierre) return terminosBasicos.some(term => t.includes(term)) || terminosCierre.some(term => t.includes(term)) || tieneNumeros;
   return terminosBasicos.some(term => t.includes(term)) || tieneNumeros;
 };
 
+// --- 4. AYUDANTES DE GRÁFICOS ---
 const renderMultiLineLabel = ({ cx, x, y, name, value }) => {
   const anchor = x > cx ? 'start' : 'end';
   return (
     <g>
-      <text x={x} y={y - 7} fill="#64748b" textAnchor={anchor} fontSize="10" fontWeight="bold">
-        {name.toUpperCase()}
-      </text>
-      <text x={x} y={y + 10} fill="#1e293b" textAnchor={anchor} fontSize="14" fontWeight="black">
-        {value}
-      </text>
+      <text x={x} y={y - 7} fill="#64748b" textAnchor={anchor} fontSize="10" fontWeight="bold">{name.toUpperCase()}</text>
+      <text x={x} y={y + 10} fill="#1e293b" textAnchor={anchor} fontSize="14" fontWeight="black">{value}</text>
     </g>
   );
 };
-
-const formatExcelDate = (val) => {
-    // Si el valor no existe, es nulo o es solo un espacio en blanco, devolvemos null
-    if (!val || String(val).trim() === "" || String(val).trim() === "null") return null;
-
-    if (typeof val === 'number') {
-      return new Date((val - 25569) * 86400 * 1000).toISOString().split('T')[0];
-    }
-    
-    if (typeof val === 'string') {
-      const limpia = val.trim();
-      if (limpia.includes('/')) {
-        const parts = limpia.split('/');
-        // Soporta D/M/YYYY o DD/MM/YYYY
-        const d = parts[0].padStart(2, '0');
-        const m = parts[1].padStart(2, '0');
-        const y = parts[2];
-        return `${y}-${m}-${d}`;
-      }
-      return limpia;
-    }
-    return val;
-  };
-
-  const calcularDiasHabiles = (fechaRef) => {
-    if (!fechaRef) return 0;
-
-    // Lista de feriados nacionales en Perú (Formato MM-DD)
-    // Se incluyen los fijos y los movibles específicos para el año 2026
-    const feriadosPeru2026 = [
-      '01-01', // Año Nuevo
-      '04-02', // Jueves Santo (2026)
-      '04-03', // Viernes Santo (2026)
-      '05-01', // Día del Trabajo
-      '06-07', // Batalla de Arica / Día de la Bandera
-      '06-29', // San Pedro y San Pablo
-      '07-23', // Día de la Fuerza Aérea (Abelardo Quiñones)
-      '07-28', // Fiestas Patrias
-      '07-29', // Fiestas Patrias
-      '08-06', // Batalla de Junín
-      '08-30', // Santa Rosa de Lima
-      '10-08', // Combate de Angamos
-      '11-01', // Todos los Santos
-      '12-08', // Inmaculada Concepción
-      '12-09', // Batalla de Ayacucho
-      '12-25', // Navidad
-    ];
-
-    // 1. Configuramos la fecha de inicio (día de notificación)
-    let fechaActual = new Date(fechaRef + 'T00:00:00');
-    
-    // 2. El conteo empieza SIEMPRE desde el día SIGUIENTE a la notificación
-    fechaActual.setDate(fechaActual.getDate() + 1);
-
-    // 3. Obtenemos la fecha de hoy a medianoche
-    let hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-
-    let contador = 0;
-
-    // 4. Recorremos los días desde el día siguiente hasta hoy
-    while (fechaActual <= hoy) {
-      const diaSemana = fechaActual.getDay(); // 0: Domingo, 6: Sábado
-      const mesDia = `${(fechaActual.getMonth() + 1).toString().padStart(2, '0')}-${fechaActual.getDate().toString().padStart(2, '0')}`;
-
-      // Regla: No es sábado (6), no es domingo (0) y no está en la lista de feriados
-      const esFinDeSemana = (diaSemana === 0 || diaSemana === 6);
-      const esFeriado = feriadosPeru2026.includes(mesDia);
-
-      if (!esFinDeSemana && !esFeriado) {
-        contador++;
-      }
-
-      // Avanzamos al siguiente día
-      fechaActual.setDate(fechaActual.getDate() + 1);
-    }
-    
-    return contador;
-  };
 
 export default function SistemaSIGERED() {
   // --- ESTADOS DEL SISTEMA ---
