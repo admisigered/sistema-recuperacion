@@ -537,17 +537,35 @@ export default function SistemaSIGERED() {
         if (desde > 20000) hayMas = false; 
     }
 
-    // C. CARGA DE TODOS LOS SEGUIMIENTOS (Para contar acciones individuales)
-    const { data: segsData } = await supabase.from('seguimientos').select('responsable, fecha, observaciones, documento_id, medio');
+    // C. CARGA MASIVA DE TODOS LOS SEGUIMIENTOS (Bucle para superar el límite de 1000)
+    let allSegsData = [];
+    let hayMasSegs = true;
+    let desdeSegs = 0;
+
+    while (hayMasSegs) {
+        const { data: chunkSegs, error: errSegs } = await supabase
+            .from('seguimientos')
+            .select('responsable, fecha, observaciones, documento_id, medio')
+            .range(desdeSegs, desdeSegs + 999); // Carga de 1000 en 1000
+        
+        if (errSegs || !chunkSegs || chunkSegs.length === 0) {
+            hayMasSegs = false;
+        } else {
+            allSegsData = [...allSegsData, ...chunkSegs];
+            if (chunkSegs.length < 1000) {
+                hayMasSegs = false; // Si trajo menos de 1000, es que ya no hay más
+            } else {
+                desdeSegs += 1000; // Siguiente lote
+            }
+        }
+        // Límite de seguridad para evitar bucles infinitos (ej: 50,000 registros)
+        if (desdeSegs > 50000) hayMasSegs = false; 
+    }
 
     setAllDocsForStats(allData);
-    setAllSegsForStats(segsData || []);
+    setAllSegsForStats(allSegsData); // Guardamos la totalidad de los seguimientos
     setLoading(false);
   }, [page, filters]);
-
-  useEffect(() => {
-    if (session) fetchDocs();
-  }, [session, fetchDocs]);
 
   
   // --- 4. IMPORTACIÓN MASIVA CON LIMPIEZA DE DUPLICADOS ---
