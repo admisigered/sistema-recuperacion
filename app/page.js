@@ -537,31 +537,30 @@ export default function SistemaSIGERED() {
         if (desde > 20000) hayMas = false; 
     }
 
-     // C. CARGA MASIVA SEGUIMIENTOS (SOLUCIÓN AL LÍMITE DE 1000)
+     // C. Bucle carga masiva Seguimientos para Reportes
       let allSegsData = [];
       let hayMasSegs = true;
       let desdeSegs = 0;
       while (hayMasSegs) {
-          const { data: chunkSegs, error: errSegs } = await supabase
-              .from('seguimientos')
-              .select('responsable, fecha, observaciones, documento_id, medio')
-              .range(desdeSegs, desdeSegs + 999);
-          
-          if (errSegs || !chunkSegs || chunkSegs.length === 0) hayMasSegs = false;
-          else {
-              allSegsData = [...allSegsData, ...chunkSegs];
-              if (chunkSegs.length < 1000) hayMasSegs = false; else desdeSegs += 1000;
-          }
-          if (desdeSegs > 60000) hayMasSegs = false; 
+        const { data: chunkSegs, error: errSegs } = await supabase
+          .from('seguimientos')
+          .select('responsable, fecha, observaciones, documento_id, medio')
+          .range(desdeSegs, desdeSegs + 999);
+        if (errSegs || !chunkSegs || chunkSegs.length === 0) hayMasSegs = false;
+        else {
+          allSegsData = [...allSegsData, ...chunkSegs];
+          if (chunkSegs.length < 1000) hayMasSegs = false; else desdeSegs += 1000;
+        }
+        if (desdeSegs > 60000) hayMasSegs = false;
       }
 
       setAllDocsForStats(allData);
       setAllSegsForStats(allSegsData);
 
     } catch (err) {
-      console.error("Fallo de carga:", err);
+      console.error("Error detectado en fetchDocs:", err);
     } finally {
-      setLoading(false);
+      setLoading(false); // ESTO QUITA LOS PUNTOS SUSPENSIVOS SIEMPRE
     }
   }, [page, filters]);
   
