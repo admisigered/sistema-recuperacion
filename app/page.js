@@ -521,32 +521,18 @@ export default function SistemaSIGERED() {
           if (desde > 20000) hayMas = false; 
       }
 
-      // C. CARGA MASIVA SEGUIMIENTOS (FIX: Sin límite de 1000 para reporte)
-      let allSegsData = [];
-      let hayMasS = true;
-      let desdeS = 0;
-      while (hayMasS) {
-          const { data: chunkS, error: errS } = await supabase
-              .from('seguimientos')
-              .select('responsable, fecha, observaciones, documento_id, medio')
-              .range(desdeS, desdeS + 499);
-          if (errS || !chunkS || chunkS.length === 0) hayMasS = false;
-          else {
-              allSegsData = [...allSegsData, ...chunkS];
-              if (chunkS.length < 500) hayMasS = false; else desdeS += 500;
-          }
-          if (desdeS > 60000) hayMasS = false; 
-      }
+          // C. CARGA DE TODOS LOS SEGUIMIENTOS (Para contar acciones individuales)
+    const { data: segsData } = await supabase.from('seguimientos').select('responsable, fecha, observaciones, documento_id, medio');
 
-      setAllDocsForStats(allData);
-      setAllSegsForStats(allSegsData);
-
-    } catch (err) {
-      console.error("Fallo de carga:", err.message);
-    } finally {
-      setLoading(false); // ESTO APAGA LOS "..." PASE LO QUE PASE
-    }
+    setAllDocsForStats(allData);
+    setAllSegsForStats(segsData || []);
+    setLoading(false);
   }, [page, filters]);
+
+  useEffect(() => {
+    if (session) fetchDocs();
+  }, [session, fetchDocs]);
+
   
   // --- 4. IMPORTACIÓN MASIVA CON LIMPIEZA DE DUPLICADOS ---
   const handleImport = (e) => {
