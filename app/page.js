@@ -44,6 +44,13 @@ const STATUS_MAP = {
   DEFAULT: { color: 'bg-slate-100', border: 'border-slate-300' }
 };
 
+const CONFIG_CAMPOS = {
+  VERIFICACION: { resp: 'responsable_verificacion', fecha: 'fecha_verificacion' },
+  REQUERIMIENTO: { resp: 'responsable_requerimiento', fecha: 'fecha_elaboracion' },
+  SEGUIMIENTO: { resp: 'responsable_seguimiento', fecha: 'ultimo_seguimiento' },
+  CIERRE: { resp: 'responsable_devolucion', fecha: 'fecha_devolucion' }
+};
+
 const formatDMA = (fecha) => {
   if (!fecha) return '-';
   if (fecha.includes('/')) return fecha;
