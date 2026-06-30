@@ -199,84 +199,54 @@ export default function SistemaSIGERED() {
   
   
   const getEtapaEstado = useCallback((doc) => {
-  if (!doc) return { etapa: '-', estado: '-', ...STATUS_MAP.DEFAULT };
+    if (!doc) return { etapa: '-', estado: '-', ...STATUS_MAP.DEFAULT };
 
-  const {
-    origen = '',
-    estado_verificacion_k: verifK = 'PENDIENTE',
-    estado_visualizacion: visualL = '',
-    numero_documento: numDoc,
-    cargado_sisged: sisged,
-    observaciones_finales: obsFin = '',
-    cantidad_seguimientos: cantSeg = 0,
-    id
-  } = doc;
+    const {
+      origen = '',
+      estado_verificacion_k: verifK = 'PENDIENTE',
+      estado_visualizacion: visualL = '',
+      numero_documento: numDoc,
+      cargado_sisged: sisged,
+      observaciones_finales: obsFin = '',
+      cantidad_seguimientos: cantSeg = 0,
+      id
+    } = doc;
 
-  const esInterno = String(origen).toUpperCase() === 'INTERNO';
-  const esVerificado = String(verifK).toUpperCase() === 'VERIFICADO';
-  const tieneDocNum = numDoc && String(numDoc).trim() !== '' && numDoc !== 'null';
+    const esInterno = String(origen).toUpperCase() === 'INTERNO';
+    const esVerificado = String(verifK).toUpperCase() === 'VERIFICADO';
+    const tieneDocNum = numDoc && String(numDoc).trim() !== '' && numDoc !== 'null';
 
-  // 1. REGLAS DE CIERRE FINAL (Prioridad Máxima)
-  if (sisged === true || sisged === 'true' || visualL.toUpperCase() === 'SI SE VISUALIZA') {
-    return { etapa: 'CIERRE', estado: 'RECUPERADO', ...STATUS_MAP.RECUPERADO };
-  }
-  if (String(obsFin).toUpperCase().includes('RECONSTRUCCION')) {
-    return { etapa: 'CIERRE', estado: 'RECONSTRUCCION', ...STATUS_MAP.RECONSTRUCCION };
-  }
+    // 1. REGLAS DE CIERRE FINAL
+    if (sisged === true || sisged === 'true' || visualL.toUpperCase() === 'SI SE VISUALIZA') {
+      return { etapa: 'CIERRE', estado: 'RECUPERADO', ...STATUS_MAP.RECUPERADO };
+    }
+    if (String(obsFin).toUpperCase().includes('RECONSTRUCCION')) {
+      return { etapa: 'CIERRE', estado: 'RECONSTRUCCION', ...STATUS_MAP.RECONSTRUCCION };
+    }
 
-  // 2. DETECCIÓN DE ETAPA Y ESTADO
-  let etapa = 'VERIFICACION';
-  let estado = 'PENDIENTE';
+    // 2. DETECCIÓN DE ETAPA Y ESTADO
+    let etapa = 'VERIFICACION';
+    let estado = 'PENDIENTE';
 
-  if (esVerificado) {
-    if (esInterno) {
-      etapa = 'CIERRE'; // Internos saltan directo a Cierre
-    } else if (!tieneDocNum) {
-      etapa = 'REQUERIMIENTO';
-    } else {
-      etapa = 'SEGUIMIENTO';
-      
-      // Regla especial: "REMITIÓ DOCUMENTO" (Solo si es el doc activo en el modal)
-      const fueAtendido = editingDoc?.id === id && seguimientos.some(s => 
-        String(s.observaciones).toUpperCase().includes('REMITIÓ DOCUMENTO')
-      );
-
-      if (fueAtendido) {
-        etapa = 'CIERRE'; // Pasa a Cierre como Pendiente
-      } else if (cantSeg > 0) {
-        estado = 'EN PROCESO';
+    if (esVerificado) {
+      if (esInterno) {
+        etapa = 'CIERRE';
+      } else if (!tieneDocNum) {
+        etapa = 'REQUERIMIENTO';
+      } else {
+        etapa = 'SEGUIMIENTO';
+        const fueAtendido = editingDoc?.id === id && (seguimientos || []).some(s => 
+          String(s.observaciones).toUpperCase().includes('REMITIÓ DOCUMENTO')
+        );
+        if (fueAtendido) {
+          etapa = 'CIERRE';
+        } else if (cantSeg > 0) {
+          estado = 'EN PROCESO';
+        }
       }
     }
-  }
 
-  return { etapa, estado, ...STATUS_MAP[estado] };
-}, [seguimientos, editingDoc]);
-
-    // 4. REGLA: PENDIENTE UNIVERSAL (Rojo)
-    let etapaDetectada = 'VERIFICACION';
-
-    if (colK === 'VERIFICADO') {
-        if (origen === 'INTERNO') {
-            // Documentos internos saltan de Verificación directamente a Cierre
-            etapaDetectada = 'CIERRE';
-        } else {
-            // Documentos externos siguen el flujo secuencial de 4 etapas
-            if (!numDoc || numDoc === '' || numDoc === 'null') {
-                etapaDetectada = 'REQUERIMIENTO';
-            } else {
-                // Tiene N° de documento pero CERO seguimientos (se asume cantSeg === 0 aquí)
-                etapaDetectada = 'SEGUIMIENTO';
-            }
-        }
-    }
-
-    return { 
-      etapa: etapaDetectada, 
-      estado: 'PENDIENTE', 
-      color: 'bg-red-100 text-red-700', 
-      border: 'border-red-500' 
-    };
-
+    return { etapa, estado, ...STATUS_MAP[estado] };
   }, [seguimientos, editingDoc]);
   
 // --- 2. PROCESAMIENTO DE ESTADÍSTICAS (AUDITORÍA RESPONSABLE + FECHA) ---
