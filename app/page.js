@@ -479,7 +479,7 @@ export default function SistemaSIGERED() {
             fecha_remision: formatExcelDate(row[22]), responsable_devolucion: validarRes(row[23]), fecha_devolucion: formatExcelDate(row[24]), 
             documento_cierre: String(row[25] || ''), oficina_destino: row[26], 
             cargado_sisged: String(row[27] || '').toUpperCase() === 'SI', estado_final: row[28] || 'PENDIENTE',
-            observaciones_finales: row[29], cantidad_seguimientos: 0, creado_at: new Date().toISOString()
+            observaciones_finales: row[29], cantidad_seguimientos: 0, creado_at: dateUtils.today()
           };
         }).filter(Boolean);
 
