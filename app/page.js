@@ -470,13 +470,13 @@ export default function SistemaSIGERED() {
         const rawBatch = data.slice(1).map(row => {
           if (!row[1]) return null;
           return {
-            sede: row[0], cut: String(row[1]).trim(), documento: String(row[2]).trim(), remitente: row[3], fecha_registro: formatExcelDate(row[4]),
+            sede: row[0], cut: String(row[1]).trim(), documento: String(row[2]).trim(), remitente: row[3], fecha_registro: dateUtils.toStandard(row[4]),
             origen: row[5], procedimiento: row[6], celular: String(row[7] || ''), 
-            responsable_verificacion: validarRes(row[8]), fecha_verificacion: formatExcelDate(row[9]), 
+            responsable_verificacion: validarRes(row[8]), fecha_verificacion: dateUtils.toStandard(row[9]), 
             estado_verificacion_k: row[10] || 'PENDIENTE', estado_visualizacion: String(row[11] || '').toUpperCase(),
-            observaciones: row[12], responsable_requerimiento: validarRes(row[13]), fecha_elaboracion: formatExcelDate(row[14]),
-            numero_documento: String(row[15] || ''), fecha_notificacion: formatExcelDate(row[16]), medio_notificacion: row[17],
-            fecha_remision: formatExcelDate(row[22]), responsable_devolucion: validarRes(row[23]), fecha_devolucion: formatExcelDate(row[24]), 
+            observaciones: row[12], responsable_requerimiento: validarRes(row[13]), fecha_elaboracion: dateUtils.toStandard(row[14]),
+            numero_documento: String(row[15] || ''), fecha_notificacion: dateUtils.toStandard(row[16]), medio_notificacion: row[17],
+            fecha_remision: dateUtils.toStandard(row[22]), responsable_devolucion: validarRes(row[23]), fecha_devolucion: dateUtils.toStandard(row[24]), 
             documento_cierre: String(row[25] || ''), oficina_destino: row[26], 
             cargado_sisged: String(row[27] || '').toUpperCase() === 'SI', estado_final: row[28] || 'PENDIENTE',
             observaciones_finales: row[29], cantidad_seguimientos: 0, creado_at: dateUtils.today()
@@ -669,7 +669,7 @@ export default function SistemaSIGERED() {
       // 2. Conteo atómico para la columna de productividad en Excel
       const segsEnRango = allSegsForStats.filter(seg => {
           const coincideDoc = seg.documento_id === doc.id;
-          const fAccion = formatExcelDate(seg.fecha);
+          const fAccion = dateUtils.toStandard(seg.fecha);
           const estaEnRango = (!filters.fechaInicio || !filters.fechaFin) || 
                              (fAccion >= filters.fechaInicio && fAccion <= filters.fechaFin);
           const coincideResp = !filters.responsable || 
