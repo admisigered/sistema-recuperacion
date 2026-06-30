@@ -382,32 +382,55 @@ export default function SistemaSIGERED() {
     setLoading(false);
   }, [page, filters, session]);
 
-  // 3.3. Carga de Estadísticas (Todo el universo para el Dashboard)
+  // 3.3. Carga de Estadísticas (Todo el universo para el Dashboard y Reportes)
   const fetchStatsData = useCallback(async () => {
     if (!session) return;
-    let allData = [];
-    let hayMas = true;
-    let desde = 0;
 
-    while (hayMas) {
+    // --- PARTE A: CARGAR TODOS LOS DOCUMENTOS ---
+    let allData = [];
+    let hayMasDocs = true;
+    let desdeDocs = 0;
+
+    while (hayMasDocs) {
       let qStats = supabase.from('documentos').select('*');
       aplicarFiltrosInternos(qStats);
-      const { data: chunk, error } = await qStats.range(desde, desde + 999);
+      const { data: chunkDocs, error: errDocs } = await qStats.range(desdeDocs, desdeDocs + 999);
       
-      if (error || !chunk || chunk.length === 0) {
-        hayMas = false;
+      if (errDocs || !chunkDocs || chunkDocs.length === 0) {
+        hayMasDocs = false;
       } else {
-        allData = [...allData, ...chunk];
-        if (chunk.length < 1000) hayMas = false;
-        else desde += 1000;
+        allData = [...allData, ...chunkDocs];
+        if (chunkDocs.length < 1000) hayMasDocs = false;
+        else desdeDocs += 1000;
       }
-      if (desde > 20000) hayMas = false; 
+      if (desdeDocs > 20000) hayMasDocs = false; 
     }
 
-    const { data: segsData } = await supabase.from('seguimientos').select('responsable, fecha, documento_id, medio');
+    // --- PARTE B: CARGAR TODOS LOS SEGUIMIENTOS (CORREGIDO > 1000) ---
+    let allSegs = [];
+    let hayMasSegs = true;
+    let desdeSegs = 0;
+
+    while (hayMasSegs) {
+      const { data: chunkSegs, error: errSegs } = await supabase
+        .from('seguimientos')
+        .select('responsable, fecha, documento_id, medio, observaciones')
+        .range(desdeSegs, desdeSegs + 999);
+      
+      if (errSegs || !chunkSegs || chunkSegs.length === 0) {
+        hayMasSegs = false;
+      } else {
+        allSegs = [...allSegs, ...chunkSegs];
+        if (chunkSegs.length < 1000) hayMasSegs = false;
+        else desdeSegs += 1000;
+      }
+      if (desdeSegs > 50000) hayMasSegs = false; // Límite de seguridad
+    }
+
+    // --- PARTE C: ACTUALIZAR ESTADOS ---
     setAllDocsForStats(allData);
-    setAllSegsForStats(segsData || []);
-  }, [filters, session]);
+    setAllSegsForStats(allSegs);
+  }, [filters, session, aplicarFiltrosInternos]);
 
   // 3.4. Efectos para disparar las cargas
   useEffect(() => {
