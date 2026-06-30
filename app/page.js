@@ -1400,10 +1400,10 @@ export default function SistemaSIGERED() {
           const fI = filters.fechaInicio;
           const fF = filters.fechaFin;
 
-          if (formatExcelDate(doc.fecha_verificacion) >= fI && formatExcelDate(doc.fecha_verificacion) <= fF && (doc.responsable_verificacion || '').toUpperCase() === resBusqueda) asignadoCalculado = doc.responsable_verificacion;
-          else if (formatExcelDate(doc.fecha_elaboracion) >= fI && formatExcelDate(doc.fecha_elaboracion) <= fF && (doc.responsable_requerimiento || '').toUpperCase() === resBusqueda) asignadoCalculado = doc.responsable_requerimiento;
-          else if (formatExcelDate(doc.ultimo_seguimiento) >= fI && formatExcelDate(doc.ultimo_seguimiento) <= fF && ((doc.responsable_seguimiento || '').toUpperCase() === resBusqueda || (doc.ultimo_responsable || '').toUpperCase() === resBusqueda)) asignadoCalculado = resBusqueda;
-          else if (formatExcelDate(doc.fecha_devolucion) >= fI && formatExcelDate(doc.fecha_devolucion) <= fF && (doc.responsable_devolucion || '').toUpperCase() === resBusqueda) asignadoCalculado = doc.responsable_devolucion;
+          if (dateUtils.toStandard(doc.fecha_verificacion) >= fI && dateUtils.toStandard(doc.fecha_verificacion) <= fF && (doc.responsable_verificacion || '').toUpperCase() === resBusqueda) asignadoCalculado = doc.responsable_verificacion;
+          else if (dateUtils.toStandard(doc.fecha_elaboracion) >= fI && dateUtils.toStandard(doc.fecha_elaboracion) <= fF && (doc.responsable_requerimiento || '').toUpperCase() === resBusqueda) asignadoCalculado = doc.responsable_requerimiento;
+          else if (dateUtils.toStandard(doc.ultimo_seguimiento) >= fI && dateUtils.toStandard(doc.ultimo_seguimiento) <= fF && ((doc.responsable_seguimiento || '').toUpperCase() === resBusqueda || (doc.ultimo_responsable || '').toUpperCase() === resBusqueda)) asignadoCalculado = resBusqueda;
+          else if (dateUtils.toStandard(doc.fecha_devolucion) >= fI && dateUtils.toStandard(doc.fecha_devolucion) <= fF && (doc.responsable_devolucion || '').toUpperCase() === resBusqueda) asignadoCalculado = doc.responsable_devolucion;
           else asignadoCalculado = 'PENDIENTE';
       } 
       // 3. CASO POR DEFECTO: Si no hay filtros de etapa ni auditoría, mostrar el de la etapa ACTUAL (hoy)
