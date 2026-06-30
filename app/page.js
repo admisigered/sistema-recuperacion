@@ -1650,7 +1650,7 @@ export default function SistemaSIGERED() {
                       <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold text-slate-400 ml-1 uppercase">Fecha</label>
-                          <input type="date" id="s_fec" className="w-full p-4 rounded-2xl border bg-white font-bold text-xs shadow-inner outline-none" defaultValue={new Date().toISOString().split('T')[0]} />
+                          <input type="date" id="s_fec" className="w-full p-4 rounded-2xl border bg-white font-bold text-xs shadow-inner outline-none" defaultValue={dateUtils.today()} />
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold text-slate-400 ml-1 uppercase">Responsable</label>
@@ -1682,7 +1682,7 @@ export default function SistemaSIGERED() {
     if(!o || !r || !m || !f) return alert("Por favor, complete todos los campos.");
     
     try {
-      const now = new Date().toISOString();
+      const now = dateUtils.today();
       
       // 1. Insertar el registro en la tabla de seguimientos
       const { error: insertError } = await supabase.from('seguimientos').insert([
