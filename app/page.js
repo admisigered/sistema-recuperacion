@@ -237,9 +237,9 @@ export default function SistemaSIGERED() {
       if (sedes[d.sede] !== undefined) sedes[d.sede]++;
 
       // B. Lógica de Auditoría (Meses y Responsables)
-      const fVer = formatExcelDate(d.fecha_verificacion);
-      const fReq = formatExcelDate(d.fecha_elaboracion);
-      const fDev = formatExcelDate(d.fecha_devolucion);
+      const fVer = dateUtils.toStandard(d.fecha_verificacion);
+      const fReq = dateUtils.toStandard(d.fecha_elaboracion);
+      const fDev = dateUtils.toStandard(d.fecha_devolucion);
 
       const rVer = (d.responsable_verificacion || '').toUpperCase().trim();
       const rReq = (d.responsable_requerimiento || '').toUpperCase().trim();
@@ -272,7 +272,7 @@ export default function SistemaSIGERED() {
     // 3. ÚNICO RECORRIDO DE SEGUIMIENTOS (O(M))
     const idsContexto = new Set(allDocsForStats.map(d => d.id));
     allSegsForStats.forEach(s => {
-      const fSeg = formatExcelDate(s.fecha);
+      const fSeg = dateUtils.toStandard(s.fecha);
       const rSeg = (s.responsable || '').toUpperCase().trim();
       
       const enRango = (!fI || !fF) || (fSeg >= fI && fSeg <= fF);
