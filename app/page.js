@@ -401,17 +401,17 @@ export default function SistemaSIGERED() {
     };
   }, [allDocsForStats, allSegsForStats, getEtapaEstado, filters.fechaInicio, filters.fechaFin, filters.responsable]);
 
-  // --- 3. GESTIÓN DE DATOS (FIX: ERROR DE SINTAXIS + CARGA DE REGISTROS) ---
+  // --- 3. GESTIÓN DE DATOS (REPARADO: SIN ERRORES DE SINTAXIS Y CARGA COMPLETA) ---
   const fetchDocs = useCallback(async () => {
-    try { // <--- AGREGADO: Este try es indispensable para que el catch funcione
+    try {
       setLoading(true);
       let from = (page - 1) * ITEMS_PER_PAGE;
       let to = from + ITEMS_PER_PAGE - 1;
 
-      // 1. Consulta para la tabla
+      // 1. Consulta para la tabla principal
       let queryTable = supabase.from('documentos').select('*', { count: 'exact' });
 
-      // 2. Función para aplicar tus filtros exactos (CON FIX DE COMILLAS)
+      // 2. Función interna de filtros (CON CORRECCIÓN DE COMILLAS PARA EVITAR BLOQUEO)
       const aplicarFiltrosInternos = (q) => {
           if (filters.search) q.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%`);
           if (filters.sede) q.eq('sede', filters.sede);
@@ -482,7 +482,6 @@ export default function SistemaSIGERED() {
               }
           }
       
-          // --- FILTRO ASIGNACIÓN ACTUAL (FIX: COMILLAS DOBLES OBLIGATORIAS) ---
           if (filters.asignadoActual) {
               const resAsig = filters.asignadoActual;
               q.or(
@@ -496,26 +495,26 @@ export default function SistemaSIGERED() {
 
       // A. Carga registros de la tabla
       aplicarFiltrosInternos(queryTable);
-      const { data: tableData, count, error: tableError } = await queryTable.order('creado_at', { ascending: false }).range(from, to);
-      if (!tableError) { setDocs(tableData || []); setTotalDocs(count || 0); }
+      const { data: tableData, count } = await queryTable.order('creado_at', { ascending: false }).range(from, to);
+      if (tableData) { setDocs(tableData); setTotalDocs(count || 0); }
 
-      // B. Carga masiva documentos para Stats
+      // B. Carga masiva documentos
       let allData = [];
-      let hayMas = true;
-      let desde = 0;
-      while (hayMas) {
+      let hayMasDocs = true;
+      let desdeDocs = 0;
+      while (hayMasDocs) {
           let qStats = supabase.from('documentos').select('*');
           aplicarFiltrosInternos(qStats);
-          const { data: chunk } = await qStats.range(desde, desde + 999);
-          if (!chunk || chunk.length === 0) hayMas = false;
+          const { data: chunk } = await qStats.range(desdeDocs, desdeDocs + 999);
+          if (!chunk || chunk.length === 0) hayMasDocs = false;
           else {
               allData = [...allData, ...chunk];
-              if (chunk.length < 1000) hayMas = false; else desde += 1000;
+              if (chunk.length < 1000) hayMasDocs = false; else desdeDocs += 1000;
           }
-          if (desde > 20000) hayMas = false; 
+          if (desdeDocs > 20000) hayMasDocs = false; 
       }
 
-      // C. CARGA MASIVA DE TODOS LOS SEGUIMIENTOS (Solución al límite de 1000)
+      // C. CARGA MASIVA SEGUIMIENTOS (FIX: Exportación completa +1000)
       let allSegsData = [];
       let hayMasSegs = true;
       let desdeSegs = 0;
@@ -524,7 +523,6 @@ export default function SistemaSIGERED() {
               .from('seguimientos')
               .select('responsable, fecha, observaciones, documento_id, medio')
               .range(desdeSegs, desdeSegs + 999);
-          
           if (errSegs || !chunkSegs || chunkSegs.length === 0) hayMasSegs = false;
           else {
               allSegsData = [...allSegsData, ...chunkSegs];
@@ -537,9 +535,9 @@ export default function SistemaSIGERED() {
       setAllSegsForStats(allSegsData);
 
     } catch (err) {
-      console.error("Error detectado en fetchDocs:", err);
+      console.error("Fallo de carga:", err);
     } finally {
-      setLoading(false); // ESTO ASEGURA QUE LOS TRES PUNTOS DESAPAREZCAN SIEMPRE
+      setLoading(false); // ESTO QUITA LOS PUNTOS SUSPENSIVOS SIEMPRE
     }
   }, [page, filters]);
   
