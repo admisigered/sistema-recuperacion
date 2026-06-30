@@ -428,57 +428,39 @@ export default function SistemaSIGERED() {
         }
     };
 
-    // A. CARGA DE LA TABLA (Solo 100 registros por página)
+    // A. CARGA DE LA TABLA
   const fetchTableData = useCallback(async () => {
     setLoading(true);
     let from = (page - 1) * ITEMS_PER_PAGE;
     let to = from + ITEMS_PER_PAGE - 1;
-
     let queryTable = supabase.from('documentos').select('*', { count: 'exact' });
-    aplicarFiltrosInternos(queryTable); // Usa la función simplificada del paso anterior
-
-    const { data, count, error } = await queryTable
-      .order('creado_at', { ascending: false })
-      .range(from, to);
-
-    if (!error) {
-      setDocs(data || []);
-      setTotalDocs(count || 0);
-    }
+    aplicarFiltrosInternos(queryTable);
+    const { data, count, error } = await queryTable.order('creado_at', { ascending: false }).range(from, to);
+    if (!error) { setDocs(data || []); setTotalDocs(count || 0); }
     setLoading(false);
-  }, [page, filters]);
+  }, [page, filters]); // <--- DEBE TERMINAR ASÍ
 
-  // B. CARGA DEL DASHBOARD (Todo el universo filtrado)
+  // B. CARGA DEL DASHBOARD
   const fetchStatsData = useCallback(async () => {
-    // Si no estamos en la vista dashboard, no gastamos recursos (opcional)
-    // if (view !== 'dashboard') return;
-
     let allData = [];
     let hayMas = true;
     let desde = 0;
-
     while (hayMas) {
       let qStats = supabase.from('documentos').select('*');
       aplicarFiltrosInternos(qStats);
-      
       const { data: chunk, error } = await qStats.range(desde, desde + 999);
-      
-      if (error || !chunk || chunk.length === 0) {
-        hayMas = false;
-      } else {
+      if (error || !chunk || chunk.length === 0) hayMas = false;
+      else {
         allData = [...allData, ...chunk];
         if (chunk.length < 1000) hayMas = false;
         else desde += 1000;
       }
-      if (desde > 20000) hayMas = false; // Límite de seguridad
+      if (desde > 20000) hayMas = false;
     }
-
-    // Cargamos seguimientos solo una vez por cambio de filtro
     const { data: segsData } = await supabase.from('seguimientos').select('responsable, fecha, documento_id, medio');
-
     setAllDocsForStats(allData);
     setAllSegsForStats(segsData || []);
-  }, [filters]); // <--- IMPORTANTE: No depende de 'page'
+  }, [filters]); // <--- DEBE TERMINAR ASÍ
 
   // ORQUESTACIÓN DE EFECTOS
   useEffect(() => {
