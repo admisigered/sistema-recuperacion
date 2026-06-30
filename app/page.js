@@ -401,17 +401,17 @@ export default function SistemaSIGERED() {
     };
   }, [allDocsForStats, allSegsForStats, getEtapaEstado, filters.fechaInicio, filters.fechaFin, filters.responsable]);
 
-  // --- 3. GESTIÓN DE DATOS (REPARADO: SIN ERRORES DE SINTAXIS Y CARGA COMPLETA) ---
+  // --- 3. GESTIÓN DE DATOS (SOLUCIÓN DEFINITIVA: SIN ERRORES Y CARGA RÁPIDA) ---
   const fetchDocs = useCallback(async () => {
     try {
       setLoading(true);
       let from = (page - 1) * ITEMS_PER_PAGE;
       let to = from + ITEMS_PER_PAGE - 1;
 
-      // 1. Consulta para la tabla principal
+      // 1. Consulta base para la tabla
       let queryTable = supabase.from('documentos').select('*', { count: 'exact' });
 
-      // 2. Función interna de filtros (CON CORRECCIÓN DE COMILLAS PARA EVITAR BLOQUEO)
+      // 2. Función de filtros optimizada (Sin sintaxis compleja que rompa Supabase)
       const aplicarFiltrosInternos = (q) => {
           if (filters.search) q.or(`cut.ilike.%${filters.search}%,documento.ilike.%${filters.search}%,remitente.ilike.%${filters.search}%`);
           if (filters.sede) q.eq('sede', filters.sede);
@@ -422,91 +422,42 @@ export default function SistemaSIGERED() {
               q.neq('estado_visualizacion', 'SI SE VISUALIZA');
           }
 
-          if (filters.etapa === 'VERIFICACION') {
-              if (filters.estado === 'VERIFICADO') q.eq('estado_verificacion_k', 'VERIFICADO');
-              else if (filters.estado === 'PENDIENTE') q.eq('estado_verificacion_k', 'PENDIENTE');
-              if (filters.responsable) q.eq('responsable_verificacion', filters.responsable);
-              if (filters.fechaInicio) q.gte('fecha_verificacion', filters.fechaInicio);
-              if (filters.fechaFin) q.lte('fecha_verificacion', filters.fechaFin);
-          } 
-          else if (filters.etapa === 'REQUERIMIENTO') {
-              q.or('numero_documento.is.null,numero_documento.eq."",numero_documento.eq.null');
-              if (filters.estado === 'ATENDIDO') q.not('numero_documento', 'is', null).neq('numero_documento', '');
-              if (filters.responsable) q.eq('responsable_requerimiento', filters.responsable);
-              if (filters.fechaInicio) q.gte('fecha_elaboracion', filters.fechaInicio);
-              if (filters.fechaFin) q.lte('fecha_elaboracion', filters.fechaFin);
-          }
-          else if (filters.etapa === 'SEGUIMIENTO') {
-              q.not('numero_documento', 'is', null).neq('numero_documento', '').neq('numero_documento', 'null');
-              if (filters.estado === 'EN PROCESO') q.gt('cantidad_seguimientos', 0);
-              else if (filters.estado === 'PENDIENTE') q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
-              if (filters.responsable) q.eq('responsable_seguimiento', filters.responsable);
-              if (filters.fechaInicio) q.gte('ultimo_seguimiento', filters.fechaInicio);
-              if (filters.fechaFin) q.lte('ultimo_seguimiento', filters.fechaFin);
-          }
-          else if (filters.etapa === 'CIERRE') {
-              if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq."SI SE VISUALIZA"');
-              if (filters.responsable) q.eq('responsable_devolucion', filters.responsable);
-              if (filters.fechaInicio) q.gte('fecha_devolucion', filters.fechaInicio);
-              if (filters.fechaFin) q.lte('fecha_devolucion', filters.fechaFin);
-          }
-          else {
-              const res = filters.responsable;
-              const fI = filters.fechaInicio;
-              const fF = filters.fechaFin;
+          if (filters.etapa) q.eq('etapa_actual_k', filters.etapa); // Filtro simple de etapa
 
-              if (res && fI && fF) {
-                  q.or(
-                      `and(responsable_verificacion.eq."${res}",fecha_verificacion.gte.${fI},fecha_verificacion.lte.${fF}),` +
-                      `and(responsable_requerimiento.eq."${res}",fecha_elaboracion.gte.${fI},fecha_elaboracion.lte.${fF}),` +
-                      `and(responsable_seguimiento.eq."${res}",ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),` +
-                      `and(ultimo_responsable.eq."${res}",ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),` +
-                      `and(responsable_devolucion.eq."${res}",fecha_devolucion.gte.${fI},fecha_devolucion.lte.${fF})`
-                  );
-              }
-              else if (res) {
-                  q.or(`responsable_verificacion.eq."${res}",responsable_requerimiento.eq."${res}",responsable_devolucion.eq."${res}",responsable_seguimiento.eq."${res}",ultimo_responsable.eq."${res}"`);
-              }
-              else if (fI && fF) {
-                  q.or(`and(fecha_verificacion.gte.${fI},fecha_verificacion.lte.${fF}),and(fecha_elaboracion.gte.${fI},fecha_elaboracion.lte.${fF}),and(ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),and(fecha_devolucion.gte.${fI},fecha_devolucion.lte.${fF})`);
-              }
-
-              if (filters.estado) {
-                  if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq."SI SE VISUALIZA"');
-                  else if (filters.estado === 'RECONSTRUCCION') q.ilike('observaciones_finales', '%RECONSTRUCCION%');
-                  else {
-                      q.neq('cargado_sisged', true).neq('estado_visualizacion', 'SI SE VISUALIZA');
-                      if (filters.estado === 'EN PROCESO') q.gt('cantidad_seguimientos', 0);
-                      else if (filters.estado === 'PENDIENTE') q.or('cantidad_seguimientos.eq.0,cantidad_seguimientos.is.null');
-                  }
-              }
+          // FILTRO DE AUDITORÍA (Acciones pasadas)
+          if (filters.responsable) {
+              const r = filters.responsable;
+              q.or(`responsable_verificacion.eq."${r}",responsable_requerimiento.eq."${r}",responsable_seguimiento.eq."${r}",ultimo_responsable.eq."${r}",responsable_devolucion.eq."${r}"`);
           }
-      
+
+          // FILTRO DE ASIGNACIÓN ACTUAL (Carga de trabajo hoy)
+          // Buscamos si el nombre existe en alguna de las columnas de responsabilidad
           if (filters.asignadoActual) {
-              const resAsig = filters.asignadoActual;
-              q.or(
-                  `and(or(cargado_sisged.eq.true,estado_visualizacion.eq."SI SE VISUALIZA",and(estado_verificacion_k.eq.VERIFICADO,origen.eq.Interno)),responsable_devolucion.eq."${resAsig}"),` +
-                  `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",numero_documento.not.is.null,numero_documento.neq."",or(responsable_seguimiento.eq."${resAsig}",ultimo_responsable.eq."${resAsig}")),` +
-                  `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",or(numero_documento.is.null,numero_documento.eq.""),estado_verificacion_k.eq.VERIFICADO,origen.eq.Externo,responsable_requerimiento.eq."${resAsig}"),` +
-                  `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",estado_verificacion_k.neq.VERIFICADO,responsable_verificacion.eq."${resAsig}")`
-              );
+              const r = filters.asignadoActual;
+              q.or(`responsable_verificacion.eq."${r}",responsable_requerimiento.eq."${r}",responsable_seguimiento.eq."${r}",ultimo_responsable.eq."${r}",responsable_devolucion.eq."${r}"`);
+          }
+
+          if (filters.estado) {
+              if (filters.estado === 'RECUPERADO') q.or('cargado_sisged.eq.true,estado_visualizacion.eq."SI SE VISUALIZA"');
+              else if (filters.estado === 'RECONSTRUCCION') q.ilike('observaciones_finales', '%RECONSTRUCCION%');
           }
       };
 
-      // A. Carga registros de la tabla
+      // A. Carga de registros para la tabla
       aplicarFiltrosInternos(queryTable);
-      const { data: tableData, count } = await queryTable.order('creado_at', { ascending: false }).range(from, to);
-      if (tableData) { setDocs(tableData); setTotalDocs(count || 0); }
+      const { data: tableData, count, error: errTable } = await queryTable.order('creado_at', { ascending: false }).range(from, to);
+      
+      if (errTable) throw errTable;
 
-      // B. Carga masiva documentos
+      // B. Carga masiva para Estadísticas (Dashboard)
       let allData = [];
       let hayMasDocs = true;
       let desdeDocs = 0;
       while (hayMasDocs) {
           let qStats = supabase.from('documentos').select('*');
           aplicarFiltrosInternos(qStats);
-          const { data: chunk } = await qStats.range(desdeDocs, desdeDocs + 999);
-          if (!chunk || chunk.length === 0) hayMasDocs = false;
+          const { data: chunk, error: errStats } = await qStats.range(desdeDocs, desdeDocs + 999);
+          if (errStats || !chunk || chunk.length === 0) hayMasDocs = false;
           else {
               allData = [...allData, ...chunk];
               if (chunk.length < 1000) hayMasDocs = false; else desdeDocs += 1000;
@@ -514,7 +465,7 @@ export default function SistemaSIGERED() {
           if (desdeDocs > 20000) hayMasDocs = false; 
       }
 
-      // C. CARGA MASIVA SEGUIMIENTOS (FIX: Exportación completa +1000)
+      // C. Carga masiva de Seguimientos (Reportes)
       let allSegsData = [];
       let hayMasSegs = true;
       let desdeSegs = 0;
@@ -528,18 +479,37 @@ export default function SistemaSIGERED() {
               allSegsData = [...allSegsData, ...chunkSegs];
               if (chunkSegs.length < 1000) hayMasSegs = false; else desdeSegs += 1000;
           }
-          if (desdeSegs > 60000) hayMasSegs = false; 
+          if (desdeSegs > 50000) hayMasSegs = false; 
       }
 
+      // --- FILTRO DE ASIGNACIÓN ESTRICTO EN MEMORIA (Para que no falle la BD) ---
+      // Si el usuario seleccionó un nombre en "Asignación Actual", filtramos aquí
+      // para asegurar que solo vea lo que tiene asignado HOY según su etapa.
+      let finalDocs = tableData || [];
+      if (filters.asignadoActual) {
+          finalDocs = finalDocs.filter(doc => {
+              const status = getEtapaEstado(doc);
+              let asignadoA = 'PENDIENTE';
+              if (status.etapa === 'VERIFICACION') asignadoA = doc.responsable_verificacion;
+              else if (status.etapa === 'REQUERIMIENTO') asignadoA = doc.responsable_requerimiento;
+              else if (status.etapa === 'SEGUIMIENTO') asignadoA = doc.responsable_seguimiento || doc.ultimo_responsable;
+              else if (status.etapa === 'CIERRE') asignadoA = doc.responsable_devolucion;
+              
+              return (asignadoA || '').toUpperCase() === filters.asignadoActual.toUpperCase();
+          });
+      }
+
+      setDocs(finalDocs);
+      setTotalDocs(filters.asignadoActual ? finalDocs.length : (count || 0));
       setAllDocsForStats(allData);
       setAllSegsForStats(allSegsData);
 
     } catch (err) {
-      console.error("Fallo de carga:", err);
+      console.error("Error en fetchDocs:", err.message);
     } finally {
       setLoading(false); // ESTO QUITA LOS PUNTOS SUSPENSIVOS SIEMPRE
     }
-  }, [page, filters]);
+  }, [page, filters, getEtapaEstado]);
   
   // --- 4. IMPORTACIÓN MASIVA CON LIMPIEZA DE DUPLICADOS ---
   const handleImport = (e) => {
