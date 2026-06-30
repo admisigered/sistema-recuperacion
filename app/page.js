@@ -1632,7 +1632,7 @@ export default function SistemaSIGERED() {
                     <div className="col-span-1 bg-blue-50 p-10 rounded-4xl border border-blue-100 flex items-center justify-between shadow-inner">
                       <div>
                         <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Días Hábiles Transcurridos</p>
-                        <p className="text-6xl font-black text-blue-600 mt-2">{calcularDiasHabiles(editingDoc.fecha_notificacion)}</p>
+                        <p className="text-6xl font-black text-blue-600 mt-2">{dateUtils.diffHabiles(editingDoc.fecha_notificacion)}</p>
                       </div>
                       <Clock size={80} className="text-blue-200 opacity-50"/>
                     </div>
