@@ -456,15 +456,15 @@ export default function SistemaSIGERED() {
               // --- CORRECCIÓN DE COMILLAS AQUÍ ---
               if (res && fI && fF) {
                   q.or(
-                      `and(responsable_verificacion.eq."${res}",fecha_verificacion.gte.${fI},fecha_verificacion.lte.${fF}),` +
-                      `and(responsable_requerimiento.eq."${res}",fecha_elaboracion.gte.${fI},fecha_elaboracion.lte.${fF}),` +
-                      `and(responsable_seguimiento.eq."${res}",ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),` +
-                      `and(ultimo_responsable.eq."${res}",ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),` +
-                      `and(responsable_devolucion.eq."${res}",fecha_devolucion.gte.${fI},fecha_devolucion.lte.${fF})`
+                      `and(responsable_verificacion.eq.${res},fecha_verificacion.gte.${fI},fecha_verificacion.lte.${fF}),` +
+                      `and(responsable_requerimiento.eq.${res},fecha_elaboracion.gte.${fI},fecha_elaboracion.lte.${fF}),` +
+                      `and(responsable_seguimiento.eq.${res},ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),` +
+                      `and(ultimo_responsable.eq.${res},ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),` +
+                      `and(responsable_devolucion.eq.${res},fecha_devolucion.gte.${fI},fecha_devolucion.lte.${fF})`
                   );
               }
               else if (res) {
-                  q.or(`responsable_verificacion.eq."${res}",responsable_requerimiento.eq."${res}",responsable_devolucion.eq."${res}",responsable_seguimiento.eq."${res}",ultimo_responsable.eq."${res}"`);
+                  q.or(`responsable_verificacion.eq.${res},responsable_requerimiento.eq.${res},responsable_devolucion.eq.${res},responsable_seguimiento.eq.${res},ultimo_responsable.eq.${res}`);
               }
               else if (fI && fF) {
                   q.or(`and(fecha_verificacion.gte.${fI},fecha_verificacion.lte.${fF}),and(fecha_elaboracion.gte.${fI},fecha_elaboracion.lte.${fF}),and(ultimo_seguimiento.gte.${fI},ultimo_seguimiento.lte.${fF}),and(fecha_devolucion.gte.${fI},fecha_devolucion.lte.${fF})`);
@@ -485,10 +485,10 @@ export default function SistemaSIGERED() {
           if (filters.asignadoActual) {
               const resAsig = filters.asignadoActual;
               q.or(
-                  `and(or(cargado_sisged.eq.true,estado_visualizacion.eq."SI SE VISUALIZA",and(estado_verificacion_k.eq.VERIFICADO,origen.eq.Interno)),responsable_devolucion.eq."${resAsig}"),` +
-                  `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",numero_documento.not.is.null,numero_documento.neq."",or(responsable_seguimiento.eq."${resAsig}",ultimo_responsable.eq."${resAsig}")),` +
-                  `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",or(numero_documento.is.null,numero_documento.eq.""),estado_verificacion_k.eq.VERIFICADO,origen.eq.Externo,responsable_requerimiento.eq."${resAsig}"),` +
-                  `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",estado_verificacion_k.neq.VERIFICADO,responsable_verificacion.eq."${resAsig}")`
+                  `and(or(cargado_sisged.eq.true,estado_visualizacion.eq."SI SE VISUALIZA",and(estado_verificacion_k.eq.VERIFICADO,origen.eq.Interno)),responsable_devolucion.eq.${resAsig}),` +
+                  `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",numero_documento.not.is.null,numero_documento.neq."",or(responsable_seguimiento.eq.${resAsig},ultimo_responsable.eq.${resAsig})),` +
+                  `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",or(numero_documento.is.null,numero_documento.eq.""),estado_verificacion_k.eq.VERIFICADO,origen.eq.Externo,responsable_requerimiento.eq.${resAsig}),` +
+                  `and(cargado_sisged.eq.false,estado_visualizacion.neq."SI SE VISUALIZA",estado_verificacion_k.neq.VERIFICADO,responsable_verificacion.eq.${resAsig})`
               );
           }
       };
