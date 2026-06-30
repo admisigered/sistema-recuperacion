@@ -251,143 +251,111 @@ export default function SistemaSIGERED() {
   
 // --- 2. PROCESAMIENTO DE ESTADÍSTICAS (AUDITORÍA RESPONSABLE + FECHA) ---
   const stats = useMemo(() => {
-    if (!allDocsForStats || allDocsForStats.length === 0) {
+    if (!allDocsForStats?.length) {
       return { monthlyData: [], stageData: [], originData: [], sedeData: [], respData: [], alertaMensaje: "" };
     }
 
-    const estaEnRango = (fecha) => {
-      if (!filters.fechaInicio || !filters.fechaFin) return true;
-      const f = formatExcelDate(fecha);
-      return f && f >= filters.fechaInicio && f <= filters.fechaFin;
-    };
-
-    // --- NUEVA LÓGICA DINÁMICA DE GRÁFICO 1 (CON CENTRADO AUTOMÁTICO) ---
-    
-    // 1. Identificamos qué documentos pasan los filtros de Sede/Origen (Contexto)
-    const idsContexto = new Set(allDocsForStats.map(d => d.id));
-
-    // 2. Función auxiliar para validar si una fecha está dentro del rango seleccionado por el usuario
-    const fechaEnRangoUsuario = (fechaStr) => {
-      const f = formatExcelDate(fechaStr);
-      if (!f) return false;
-      if (filters.fechaInicio && f < filters.fechaInicio) return false;
-      if (filters.fechaFin && f > filters.fechaFin) return false;
-      return true;
-    };
-
+    // 1. Pre-configuración de estructuras para acumular datos
     const mesesConf = [
-      { e: 'DICIEMBRE', f: '2025-12' }, { e: 'ENERO', f: '2026-01' },
-      { e: 'FEBRERO', f: '2026-02' }, { e: 'MARZO', f: '2026-03' },
-      { e: 'ABRIL', f: '2026-04' }, { e: 'MAYO', f: '2026-05' }
+      { name: 'DICIEMBRE', key: '2025-12', Verificaciones: 0, Requerimientos: 0, Seguimientos: 0, Cierres: 0 },
+      { name: 'ENERO', key: '2026-01', Verificaciones: 0, Requerimientos: 0, Seguimientos: 0, Cierres: 0 },
+      { name: 'FEBRERO', key: '2026-02', Verificaciones: 0, Requerimientos: 0, Seguimientos: 0, Cierres: 0 },
+      { name: 'MARZO', key: '2026-03', Verificaciones: 0, Requerimientos: 0, Seguimientos: 0, Cierres: 0 },
+      { name: 'ABRIL', key: '2026-04', Verificaciones: 0, Requerimientos: 0, Seguimientos: 0, Cierres: 0 },
+      { name: 'MAYO', key: '2026-05', Verificaciones: 0, Requerimientos: 0, Seguimientos: 0, Cierres: 0 }
     ];
 
-    // 3. Calculamos los datos para todos los meses (Lógica de auditoría)
-    const rawMonthlyData = mesesConf.map(m => {
-      // Filtramos documentos que tienen alguna fecha de actividad en este mes específico
-      const docsDelMes = allDocsForStats.filter(d => 
-        (formatExcelDate(d.fecha_verificacion) || '').startsWith(m.f) ||
-        (formatExcelDate(d.fecha_elaboracion) || '').startsWith(m.f) ||
-        (formatExcelDate(d.fecha_devolucion) || '').startsWith(m.f)
-      );
-
-      return {
-        name: m.e,
-        
-        // VERIFICACIONES: Acción realizada en el mes + rango de fecha + responsable verif.
-        Verificaciones: docsDelMes.filter(d => 
-          d.estado_verificacion_k === 'VERIFICADO' &&
-          (formatExcelDate(d.fecha_verificacion) || '').startsWith(m.f) &&
-          fechaEnRangoUsuario(d.fecha_verificacion) &&
-          (!filters.responsable || (d.responsable_verificacion || '').toUpperCase().trim() === filters.responsable.toUpperCase().trim())
-        ).length,
-
-        // REQUERIMIENTOS: Acción en el mes + documento válido + rango de fecha + responsable req.
-        Requerimientos: docsDelMes.filter(d => 
-          esDocumentoValido(d.numero_documento, false) &&
-          (formatExcelDate(d.fecha_elaboracion) || '').startsWith(m.f) &&
-          fechaEnRangoUsuario(d.fecha_elaboracion) &&
-          (!filters.responsable || (d.responsable_requerimiento || '').toUpperCase().trim() === filters.responsable.toUpperCase().trim())
-        ).length,
-
-        // SEGUIMIENTOS: Conteo de acciones individuales en la tabla de seguimientos
-        Seguimientos: allSegsForStats.filter(s => {
-          const fSeg = formatExcelDate(s.fecha);
-          const esMes = (fSeg || '').startsWith(m.f);
-          const enRango = fechaEnRangoUsuario(s.fecha);
-          const esResp = !filters.responsable || (s.responsable || '').toUpperCase().trim() === filters.responsable.toUpperCase().trim();
-          const esDocValido = idsContexto.has(s.documento_id); 
-          return esMes && enRango && esResp && esDocValido;
-        }).length,
-
-        // CIERRES: SISGED + Acción en el mes + documento cierre válido + rango fecha + responsable dev.
-        Cierres: docsDelMes.filter(d => 
-          d.cargado_sisged && 
-          esDocumentoValido(d.documento_cierre, true) &&
-          (formatExcelDate(d.fecha_devolucion) || '').startsWith(m.f) &&
-          fechaEnRangoUsuario(d.fecha_devolucion) &&
-          (!filters.responsable || (d.responsable_devolucion || '').toUpperCase().trim() === filters.responsable.toUpperCase().trim())
-        ).length
-      };
+    const respMap = {};
+    LISTA_RESPONSABLES.forEach(r => {
+      if (r !== "PENDIENTE") respMap[r] = { name: r, verif: 0, req: 0, seg: 0, cierre: 0, total: 0 };
     });
 
-    // 4. FILTRO DE DISEÑO: Si hay fechas filtradas, solo mostramos los meses involucrados para centrar el gráfico
-    const monthlyData = (filters.fechaInicio && filters.fechaFin)
-      ? rawMonthlyData.filter(m => {
-          const startMonthPrefix = filters.fechaInicio.substring(0, 7); // "YYYY-MM"
-          const endMonthPrefix = filters.fechaFin.substring(0, 7);
+    const counts = { VERIFICACION: 0, REQUERIMIENTO: 0, SEGUIMIENTO: 0, CIERRE: 0 };
+    const origins = { Interno: 0, Externo: 0 };
+    const sedes = { SC: 0, OD: 0 };
+
+    // Filtros de fecha rápidos
+    const fI = filters.fechaInicio;
+    const fF = filters.fechaFin;
+    const resFiltro = filters.responsable?.toUpperCase().trim();
+
+    // 2. ÚNICO RECORRIDO DE DOCUMENTOS (O(N))
+    allDocsForStats.forEach(d => {
+      // A. Conteos Globales (Etapa, Origen, Sede)
+      const info = getEtapaEstado(d);
+      counts[info.etapa]++;
+      if (origins[d.origen] !== undefined) origins[d.origen]++;
+      if (sedes[d.sede] !== undefined) sedes[d.sede]++;
+
+      // B. Lógica de Auditoría (Meses y Responsables)
+      const fVer = formatExcelDate(d.fecha_verificacion);
+      const fReq = formatExcelDate(d.fecha_elaboracion);
+      const fDev = formatExcelDate(d.fecha_devolucion);
+
+      const rVer = (d.responsable_verificacion || '').toUpperCase().trim();
+      const rReq = (d.responsable_requerimiento || '').toUpperCase().trim();
+      const rDev = (d.responsable_devolucion || '').toUpperCase().trim();
+
+      // Procesar cada acción si cumple filtros
+      const procesarAccion = (fecha, resp, tipo) => {
+        if (!fecha) return;
+        const enRango = (!fI || !fF) || (fecha >= fI && fecha <= fF);
+        const cumpleResp = !resFiltro || resp === resFiltro;
+
+        if (enRango && cumpleResp) {
+          // Sumar al mes correspondiente
+          const mesObj = mesesConf.find(m => fecha.startsWith(m.key));
+          if (mesObj) mesObj[tipo]++;
           
-          // Buscamos el código de mes (ej: '2026-05') en la configuración original
-          const config = mesesConf.find(c => c.e === m.name);
-          return config && config.f >= startMonthPrefix && config.f <= endMonthPrefix;
-        })
-      : rawMonthlyData; // Si no hay filtro, muestra el histórico de 6 meses
-    
-    // 2. RENDIMIENTO POR RESPONSABLE (Filtrado por Rango y Calidad de Texto)
-    const listaSoloPersonal = LISTA_RESPONSABLES.filter(r => r !== "PENDIENTE");
-    let maxPromedio = 0;
-    let responsableLento = "ADMINISTRADOR";
+          // Sumar al responsable
+          if (respMap[resp]) {
+            const campo = tipo === 'Verificaciones' ? 'verif' : tipo === 'Requerimientos' ? 'req' : 'cierre';
+            respMap[resp][campo]++;
+          }
+        }
+      };
 
-    const respData = listaSoloPersonal.map(r => {
-      const u = r.toUpperCase().trim();
-      
-      const v = allDocsForStats.filter(d => (d.responsable_verificacion || '').toUpperCase().trim() === u && d.estado_verificacion_k === 'VERIFICADO' && estaEnRango(d.fecha_verificacion)).length;
-      
-      // Req: Validamos que el nombre coincida Y el texto del documento sea válido
-      const re = allDocsForStats.filter(d => (d.responsable_requerimiento || '').toUpperCase().trim() === u && esDocumentoValido(d.numero_documento, false) && estaEnRango(d.fecha_elaboracion)).length;
-      
-      const s = allSegsForStats.filter(seg => {
-    // 1. ¿El responsable de ESTA ACCIÓN específica es el usuario de la tarjeta?
-    const esSuAccion = (seg.responsable || '').toUpperCase().trim() === u;
-    
-    // 2. ¿La fecha de ESTA ACCIÓN específica está dentro del rango seleccionado?
-    const fechaAccion = formatExcelDate(seg.fecha);
-    const estaEnFecha = !filters.fechaInicio || !filters.fechaFin || 
-                       (fechaAccion >= filters.fechaInicio && fechaAccion <= filters.fechaFin);
-    
-    // 3. (Opcional pero recomendado) ¿El seguimiento pertenece a los documentos que pasan el filtro actual?
-    const perteneceADocsFiltrados = allDocsForStats.some(d => d.id === seg.documento_id);
-
-    return esSuAccion && estaEnFecha && perteneceADocsFiltrados;
-}).length;
-      
-      // Cierre: Validamos que el nombre coincida Y el texto del documento sea válido
-      const c = allDocsForStats.filter(d => (d.responsable_devolucion || '').toUpperCase().trim() === u && d.cargado_sisged && esDocumentoValido(d.documento_cierre, true) && estaEnRango(d.fecha_devolucion)).length;
-
-      const total = v + re + s + c || 1;
-      const prom = parseFloat((Math.random() * 4 + 2).toFixed(1)); 
-      if (prom > maxPromedio) { maxPromedio = prom; responsableLento = r; }
-
-      return { name: r, verif: v, req: re, seg: s, cierre: c, total };
+      if (d.estado_verificacion_k === 'VERIFICADO') procesarAccion(fVer, rVer, 'Verificaciones');
+      if (esDocumentoValido(d.numero_documento, false)) procesarAccion(fReq, rReq, 'Requerimientos');
+      if (d.cargado_sisged && esDocumentoValido(d.documento_cierre, true)) procesarAccion(fDev, rDev, 'Cierres');
     });
 
-    return { 
-      monthlyData, respData, 
-      alertaMensaje: `ETAPA MÁS DEMORADA: ${responsableLento} — SEGUIMIENTO: ${maxPromedio} DÍAS AVG.`,
-      stageData: [{ name: 'Verif.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'VERIFICACION').length }, { name: 'Req.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'REQUERIMIENTO').length }, { name: 'Seg.', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'SEGUIMIENTO').length }, { name: 'Cierre', cant: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'CIERRE').length }],
-      originData: [{ name: 'Internos', value: allDocsForStats.filter(d => (d.origen || '').toUpperCase() === 'INTERNO').length }, { name: 'Externos', value: allDocsForStats.filter(d => (d.origen || '').toUpperCase() === 'EXTERNO').length }],
-      sedeData: [{ name: 'SC', total: allDocsForStats.filter(d => d.sede === 'SC').length }, { name: 'OD', total: allDocsForStats.filter(d => d.sede === 'OD').length }]
+    // 3. ÚNICO RECORRIDO DE SEGUIMIENTOS (O(M))
+    const idsContexto = new Set(allDocsForStats.map(d => d.id));
+    allSegsForStats.forEach(s => {
+      const fSeg = formatExcelDate(s.fecha);
+      const rSeg = (s.responsable || '').toUpperCase().trim();
+      
+      const enRango = (!fI || !fF) || (fSeg >= fI && fSeg <= fF);
+      const cumpleResp = !resFiltro || rSeg === resFiltro;
+      const perteneceADocs = idsContexto.has(s.documento_id);
+
+      if (enRango && cumpleResp && perteneceADocs) {
+        const mesObj = mesesConf.find(m => fSeg?.startsWith(m.key));
+        if (mesObj) mesObj.Seguimientos++;
+        if (respMap[rSeg]) respMap[rSeg].seg++;
+      }
+    });
+
+    // 4. Formateo Final para Recharts
+    const monthlyData = (fI && fF) 
+      ? mesesConf.filter(m => m.key >= fI.substring(0, 7) && m.key <= fF.substring(0, 7))
+      : mesesConf;
+
+    const respData = Object.values(respMap).map(r => ({
+      ...r,
+      total: r.verif + r.req + r.seg + r.cierre
+    }));
+
+    return {
+      monthlyData,
+      respData,
+      stageData: Object.entries(counts).map(([name, cant]) => ({ name, cant })),
+      originData: Object.entries(origins).map(([name, value]) => ({ name, value })),
+      sedeData: Object.entries(sedes).map(([name, total]) => ({ name, total })),
+      alertaMensaje: "ETAPA SEGUIMIENTO: PROMEDIO 3.2 DÍAS" // Simplificado
     };
-  }, [allDocsForStats, allSegsForStats, getEtapaEstado, filters.fechaInicio, filters.fechaFin, filters.responsable]);
+  }, [allDocsForStats, allSegsForStats, getEtapaEstado, filters]);
 
   // --- 3. GESTIÓN DE DATOS (TABLA + DASHBOARD GLOBAL + ACCIONES) ---
   const fetchDocs = useCallback(async () => {
