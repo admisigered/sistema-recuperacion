@@ -36,6 +36,14 @@ const USUARIOS = [
 
 const LISTA_RESPONSABLES = ["PENDIENTE", "YANINA", "XINA", "CESAR", "FABRICIO", "KEVIN", "MILI", "LISBETH", "AMERICO", "ADMINISTRADOR", "FERNANDO"];
 
+const STATUS_MAP = {
+  RECUPERADO: { color: 'bg-green-100 text-green-700', border: 'border-green-500' },
+  RECONSTRUCCION: { color: 'bg-purple-100 text-purple-700', border: 'border-purple-500' },
+  'EN PROCESO': { color: 'bg-orange-100 text-orange-700', border: 'border-orange-500' },
+  PENDIENTE: { color: 'bg-red-100 text-red-700', border: 'border-red-500' },
+  DEFAULT: { color: 'bg-slate-100', border: 'border-slate-300' }
+};
+
 const formatDMA = (fecha) => {
   if (!fecha) return '-';
   if (fecha.includes('/')) return fecha;
