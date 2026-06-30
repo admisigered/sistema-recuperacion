@@ -521,17 +521,7 @@ export default function SistemaSIGERED() {
           if (desde > 20000) hayMas = false; 
       }
 
-          // C. CARGA DE TODOS LOS SEGUIMIENTOS (Para contar acciones individuales)
-    const { data: segsData } = await supabase.from('seguimientos').select('responsable, fecha, observaciones, documento_id, medio');
-
-    setAllDocsForStats(allData);
-    setAllSegsForStats(segsData || []);
-    setLoading(false);
-  }, [page, filters]);
-
-  useEffect(() => {
-    if (session) fetchDocs();
-  }, [session, fetchDocs]);
+   
 
   
   // --- 4. IMPORTACIÓN MASIVA CON LIMPIEZA DE DUPLICADOS ---
