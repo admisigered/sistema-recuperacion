@@ -203,30 +203,6 @@ export default function SistemaSIGERED() {
     return { etapa, estado, ...STATUS_MAP[estado] };
   }, [seguimientos, editingDoc]);
 
-    // 2. DETECCIÓN DE ETAPA Y ESTADO
-    let etapa = 'VERIFICACION';
-    let estado = 'PENDIENTE';
-
-    if (esVerificado) {
-      if (esInterno) {
-        etapa = 'CIERRE';
-      } else if (!tieneDocNum) {
-        etapa = 'REQUERIMIENTO';
-      } else {
-        etapa = 'SEGUIMIENTO';
-        const fueAtendido = editingDoc?.id === id && (seguimientos || []).some(s => 
-          String(s.observaciones).toUpperCase().includes('REMITIÓ DOCUMENTO')
-        );
-        if (fueAtendido) {
-          etapa = 'CIERRE';
-        } else if (cantSeg > 0) {
-          estado = 'EN PROCESO';
-        }
-      }
-    }
-
-    return { etapa, estado, ...STATUS_MAP[estado] };
-  }, [seguimientos, editingDoc]);
   
 // --- 2. PROCESAMIENTO DE ESTADÍSTICAS (AUDITORÍA RESPONSABLE + FECHA) ---
   const stats = useMemo(() => {
