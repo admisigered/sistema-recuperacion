@@ -151,18 +151,16 @@ export default function SistemaSIGERED() {
   const getEtapaEstado = useCallback((doc) => {
     if (!doc) return { etapa: '-', estado: '-', ...STATUS_MAP.DEFAULT };
 
-    // --- 1. NORMALIZACIÓN ROBUSTA DE DATOS (Vital para importaciones CSV) ---
+    // 1. NORMALIZACIÓN DE DATOS
     const origen = String(doc.origen || '').toUpperCase().trim();
     const verifK = String(doc.estado_verificacion_k || 'PENDIENTE').toUpperCase().trim();
     const visualL = String(doc.estado_visualizacion || '').toUpperCase().trim();
     const obsFin = String(doc.observaciones_finales || '').toUpperCase();
     
-    // Normalizar cargado_sisged (acepta booleano true, texto "true", o texto "SI")
     const sisged = doc.cargado_sisged === true || 
                    String(doc.cargado_sisged).toLowerCase() === 'true' || 
                    String(doc.cargado_sisged).toUpperCase() === 'SI';
 
-    // Normalizar número de documento (evita que el texto "null" del CSV se cuente como documento válido)
     const rawNumDoc = String(doc.numero_documento || '').trim();
     const tieneDocNum = rawNumDoc !== '' && 
                         rawNumDoc.toLowerCase() !== 'null' && 
@@ -172,7 +170,7 @@ export default function SistemaSIGERED() {
     const esVerificado = verifK === 'VERIFICADO';
     const cantSeg = parseInt(doc.cantidad_seguimientos || 0, 10);
 
-    // --- 2. REGLAS DE CIERRE FINAL (Prioridad Máxima) ---
+    // 2. REGLAS DE CIERRE
     if (sisged || visualL === 'SI SE VISUALIZA') {
       return { etapa: 'CIERRE', estado: 'RECUPERADO', ...STATUS_MAP.RECUPERADO };
     }
@@ -180,25 +178,22 @@ export default function SistemaSIGERED() {
       return { etapa: 'CIERRE', estado: 'RECONSTRUCCION', ...STATUS_MAP.RECONSTRUCCION };
     }
 
-    // --- 3. DETECCIÓN DE FLUJO (VERIFICACIÓN -> REQUERIMIENTO -> SEGUIMIENTO) ---
+    // 3. DETECCIÓN DE FLUJO
     let etapa = 'VERIFICACION';
     let estado = 'PENDIENTE';
 
     if (esVerificado) {
       if (esInterno) {
-        etapa = 'CIERRE'; // Documentos internos saltan directo a Cierre
+        etapa = 'CIERRE';
       } else if (!tieneDocNum) {
         etapa = 'REQUERIMIENTO';
       } else {
         etapa = 'SEGUIMIENTO';
-        
-        // Regla especial: "REMITIÓ DOCUMENTO" (Solo si es el doc activo en el modal)
         const fueAtendido = editingDoc?.id === doc.id && (seguimientos || []).some(s => 
           String(s.observaciones || '').toUpperCase().includes('REMITIÓ DOCUMENTO')
         );
-
         if (fueAtendido) {
-          etapa = 'CIERRE'; // Si remitió, pasa a Cierre como Pendiente (hasta que se valide en Col L o Sisged)
+          etapa = 'CIERRE';
         } else if (cantSeg > 0) {
           estado = 'EN PROCESO';
         }
