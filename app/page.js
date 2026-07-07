@@ -151,28 +151,62 @@ export default function SistemaSIGERED() {
   const getEtapaEstado = useCallback((doc) => {
     if (!doc) return { etapa: '-', estado: '-', ...STATUS_MAP.DEFAULT };
 
-    const {
-      origen = '',
-      estado_verificacion_k: verifK = 'PENDIENTE',
-      estado_visualizacion: visualL = '',
-      numero_documento: numDoc,
-      cargado_sisged: sisged,
-      observaciones_finales: obsFin = '',
-      cantidad_seguimientos: cantSeg = 0,
-      id
-    } = doc;
+    // --- 1. NORMALIZACIÓN ROBUSTA DE DATOS (Vital para importaciones CSV) ---
+    const origen = String(doc.origen || '').toUpperCase().trim();
+    const verifK = String(doc.estado_verificacion_k || 'PENDIENTE').toUpperCase().trim();
+    const visualL = String(doc.estado_visualizacion || '').toUpperCase().trim();
+    const obsFin = String(doc.observaciones_finales || '').toUpperCase();
+    
+    // Normalizar cargado_sisged (acepta booleano true, texto "true", o texto "SI")
+    const sisged = doc.cargado_sisged === true || 
+                   String(doc.cargado_sisged).toLowerCase() === 'true' || 
+                   String(doc.cargado_sisged).toUpperCase() === 'SI';
 
-    const esInterno = String(origen).toUpperCase() === 'INTERNO';
-    const esVerificado = String(verifK).toUpperCase() === 'VERIFICADO';
-    const tieneDocNum = numDoc && String(numDoc).trim() !== '' && numDoc !== 'null';
+    // Normalizar número de documento (evita que el texto "null" del CSV se cuente como documento válido)
+    const rawNumDoc = String(doc.numero_documento || '').trim();
+    const tieneDocNum = rawNumDoc !== '' && 
+                        rawNumDoc.toLowerCase() !== 'null' && 
+                        rawNumDoc.toLowerCase() !== 'undefined';
 
-    // 1. REGLAS DE CIERRE FINAL
-    if (sisged === true || sisged === 'true' || visualL.toUpperCase() === 'SI SE VISUALIZA') {
+    const esInterno = origen === 'INTERNO';
+    const esVerificado = verifK === 'VERIFICADO';
+    const cantSeg = parseInt(doc.cantidad_seguimientos || 0, 10);
+
+    // --- 2. REGLAS DE CIERRE FINAL (Prioridad Máxima) ---
+    if (sisged || visualL === 'SI SE VISUALIZA') {
       return { etapa: 'CIERRE', estado: 'RECUPERADO', ...STATUS_MAP.RECUPERADO };
     }
-    if (String(obsFin).toUpperCase().includes('RECONSTRUCCION')) {
+    if (obsFin.includes('RECONSTRUCCION')) {
       return { etapa: 'CIERRE', estado: 'RECONSTRUCCION', ...STATUS_MAP.RECONSTRUCCION };
     }
+
+    // --- 3. DETECCIÓN DE FLUJO (VERIFICACIÓN -> REQUERIMIENTO -> SEGUIMIENTO) ---
+    let etapa = 'VERIFICACION';
+    let estado = 'PENDIENTE';
+
+    if (esVerificado) {
+      if (esInterno) {
+        etapa = 'CIERRE'; // Documentos internos saltan directo a Cierre
+      } else if (!tieneDocNum) {
+        etapa = 'REQUERIMIENTO';
+      } else {
+        etapa = 'SEGUIMIENTO';
+        
+        // Regla especial: "REMITIÓ DOCUMENTO" (Solo si es el doc activo en el modal)
+        const fueAtendido = editingDoc?.id === doc.id && (seguimientos || []).some(s => 
+          String(s.observaciones || '').toUpperCase().includes('REMITIÓ DOCUMENTO')
+        );
+
+        if (fueAtendido) {
+          etapa = 'CIERRE'; // Si remitió, pasa a Cierre como Pendiente (hasta que se valide en Col L o Sisged)
+        } else if (cantSeg > 0) {
+          estado = 'EN PROCESO';
+        }
+      }
+    }
+
+    return { etapa, estado, ...STATUS_MAP[estado] };
+  }, [seguimientos, editingDoc]);
 
     // 2. DETECCIÓN DE ETAPA Y ESTADO
     let etapa = 'VERIFICACION';
