@@ -120,7 +120,7 @@ export default function SistemaSIGERED() {
   const [docs, setDocs] = useState([]);
   const [totalDocs, setTotalDocs] = useState(0);
   const [page, setPage] = useState(1);
-  const [view, setView] = useState('dashboard');
+  const [view, setView] = useState('list');
   const [editingDoc, setEditingDoc] = useState(null);
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [loginData, setLoginData] = useState({ user: '', pass: '' });
