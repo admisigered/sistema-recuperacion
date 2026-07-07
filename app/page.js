@@ -266,11 +266,15 @@ export default function SistemaSIGERED() {
     // 2. ÚNICO RECORRIDO DE DOCUMENTOS (O(N))
     allDocsForStats.forEach(d => {
       // A. Conteos Globales (Etapa, Origen, Sede)
-      const info = getEtapaEstado(d);
+     const info = getEtapaEstado(d);
       counts[info.etapa]++;
-      if (origins[d.origen] !== undefined) origins[d.origen]++;
-      if (sedes[d.sede] !== undefined) sedes[d.sede]++;
-
+      
+      // Normalización para Origen y Sede
+      const normOrigen = String(d.origen || '').toUpperCase() === 'INTERNO' ? 'Interno' : 'Externo';
+      const normSede = String(d.sede || '').toUpperCase();
+      
+      if (origins[normOrigen] !== undefined) origins[normOrigen]++;
+      if (sedes[normSede] !== undefined) sedes[normSede]++;
       // B. Lógica de Auditoría (Meses y Responsables)
       const fVer = dateUtils.toStandard(d.fecha_verificacion);
       const fReq = dateUtils.toStandard(d.fecha_elaboracion);
