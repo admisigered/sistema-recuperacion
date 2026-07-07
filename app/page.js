@@ -1145,39 +1145,24 @@ export default function SistemaSIGERED() {
   {[
     { 
       label: 'TOTAL REGISTROS', 
-      // Usamos totalDocs porque es el conteo exacto de la base de datos (lo mismo que ves en Gestión)
       val: totalDocs, 
-      color: 'border-b-blue-600', 
-      text: 'text-slate-800' 
+      color: 'border-b-blue-600' 
     },
     { 
       label: 'PENDIENTES', 
-      // Filtramos sobre el universo total descargado para el dashboard
-      val: allDocsForStats.filter(d => {
-        const info = getEtapaEstado(d);
-        return info.estado === 'PENDIENTE';
-      }).length, 
-      color: 'border-b-red-500', 
-      text: 'text-red-600' 
+      val: allDocsForStats.filter(d => getEtapaEstado(d).estado === 'PENDIENTE').length, 
+      color: 'border-b-red-500' 
     },
     { 
       label: 'EN SEGUIMIENTO', 
-      val: allDocsForStats.filter(d => {
-        const info = getEtapaEstado(d);
-        return info.estado === 'EN PROCESO';
-      }).length, 
-      color: 'border-b-orange-500', 
-      text: 'text-orange-500' 
+      val: allDocsForStats.filter(d => getEtapaEstado(d).estado === 'EN PROCESO').length, 
+      color: 'border-b-orange-500' 
     },
     { 
       label: 'RECUPERADOS', 
-      // Sumamos Recuperados + Reconstrucción ya que ambos son estados de "Cierre"
-      val: allDocsForStats.filter(d => {
-        const info = getEtapaEstado(d);
-        return info.estado === 'RECUPERADO' || info.estado === 'RECONSTRUCCION';
-      }).length, 
-      color: 'border-b-green-500', 
-      text: 'text-green-600' 
+      // Sumamos Recuperados + Reconstrucción para que cuadre con el Dashboard
+      val: allDocsForStats.filter(d => getEtapaEstado(d).etapa === 'CIERRE' && getEtapaEstado(d).estado !== 'PENDIENTE').length, 
+      color: 'border-b-green-500' 
     }
   ].map((kpi, i) => (
     <div key={i} className={`bg-white p-6 rounded-3xl shadow-sm border-b-4 ${kpi.color} flex flex-col justify-center min-h-[140px] shadow-slate-200`}>
